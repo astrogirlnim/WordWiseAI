@@ -1,0 +1,31 @@
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { Target } from "lucide-react"
+import type { WritingGoals } from "@/types/writing-goals"
+
+interface WritingGoalsButtonProps {
+  currentGoals: WritingGoals
+  onClick: () => void
+}
+
+export function WritingGoalsButton({ currentGoals, onClick }: WritingGoalsButtonProps) {
+  const getGoalsSummary = (goals: WritingGoals) => {
+    const parts = [
+      goals.audience.charAt(0).toUpperCase() + goals.audience.slice(1).replace("-", " "),
+      goals.formality.charAt(0).toUpperCase() + goals.formality.slice(1),
+      goals.intent.charAt(0).toUpperCase() + goals.intent.slice(1).replace("-", " "),
+    ]
+    return parts.join(" • ")
+  }
+
+  return (
+    <Button variant="ghost" size="sm" onClick={onClick} className="flex items-center gap-2 max-w-[200px]">
+      <Target className="h-4 w-4" />
+      <div className="flex flex-col items-start min-w-0">
+        <span className="text-xs font-medium">Goals</span>
+        <span className="text-xs text-muted-foreground truncate w-full">{getGoalsSummary(currentGoals)}</span>
+      </div>
+    </Button>
+  )
+}
