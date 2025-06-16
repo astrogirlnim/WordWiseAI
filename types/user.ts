@@ -1,4 +1,4 @@
-import type { WritingGoals } from "./path/to/WritingGoals" // Assuming WritingGoals is declared in another file
+import type { WritingGoals } from "./writing-goals"
 
 export interface UserProfile {
   id: string

@@ -164,4 +164,21 @@ public
 .yarn/unplugged
 .yarn/build-state.yml
 .yarn/install-state.gz
-.pnp.* 
+.pnp.*
+
+# vercel
+.vercel
+
+# misc
+*.pem
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+.firebaserc
+firebase.json
+firebase-export-*.json
+firebase-import-*.json
+.runtimeconfig.json
+.runtimeconfig.*.json 

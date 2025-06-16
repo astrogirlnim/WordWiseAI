@@ -1,22 +1,18 @@
 # WordWise AI - Deployment Documentation
 
 ## Project Overview
-AI-powered writing assistant for marketing teams built with Next.js 14, Firebase, PostgreSQL, and Clerk authentication.
+AI-powered writing assistant for marketing teams built with Next.js 14 and Firebase.
 
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
-- **Authentication**: Clerk
-- **Database**: Firebase Realtime DB (documents), Firestore (AI data), PostgreSQL (caching)
+- **Authentication**: Firebase Authentication
+- **Database**: Firebase Realtime DB (documents), Firestore (AI data)
 - **AI Processing**: Firebase Cloud Functions (planned)
-- **Deployment**: Vercel (recommended)
+- **Deployment**: Firebase Hosting
 
 ## Environment Variables Required
 
-\`\`\`bash
-# Clerk Authentication
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-
+```bash
 # Firebase Client
 NEXT_PUBLIC_FIREBASE_API_KEY=AIza...
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=project.firebaseapp.com
@@ -30,41 +26,22 @@ NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://project-default-rtdb.firebaseio.com/
 FIREBASE_ADMIN_PROJECT_ID=project-id
 FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk@project.iam.gserviceaccount.com
 FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-
-# PostgreSQL
-DATABASE_URL=postgresql://user:password@host:5432/database
-\`\`\`
+```
 
 ## Database Setup
-
-### PostgreSQL Schema
-Run this SQL to create the cache table:
-
-\`\`\`sql
-CREATE TABLE IF NOT EXISTS cache (
-  key VARCHAR(255) PRIMARY KEY,
-  value TEXT NOT NULL,
-  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at);
-CREATE INDEX IF NOT EXISTS idx_cache_key ON cache(key);
-\`\`\`
 
 ### Firebase Collections Structure
 
 **Firestore Collections:**
-- \`users\` - User profiles and preferences
-- \`organizations\` - Brand guidelines and settings
-- \`ai_analyses\` - AI analysis results and history
-- \`ai_suggestions\` - Suggestion feedback and interactions
-- \`writing_goals\` - Document-specific writing goals
-- \`voice_reports\` - Brand alignment reports
+- `users` - User profiles and preferences
+- `organizations` - Brand guidelines and settings
+- `ai_analyses` - AI analysis results and history
+- `ai_suggestions` - Suggestion feedback and interactions
+- `writing_goals` - Document-specific writing goals
+- `voice_reports` - Brand alignment reports
 
 **Realtime Database Structure:**
-\`\`\`
+```
 documents/
   {userId}/
     {documentId}/
@@ -76,12 +53,12 @@ documents/
       writingGoals: object
       analysisSummary: object
       timestamps...
-\`\`\`
+```
 
 ## Core Architecture
 
 ### File Structure
-\`\`\`
+```
 app/
 ├── api/                    # API routes
 │   ├── user/me/           # User profile management
@@ -89,9 +66,9 @@ app/
 │   ├── suggestions/       # AI suggestion feedback
 │   ├── goals/[documentId]/ # Writing goals per document
 │   └── voice-report/[documentId]/ # Brand alignment reports
-├── sign-in/               # Clerk authentication pages
+├── sign-in/               # Firebase authentication pages
 ├── sign-up/
-├── layout.tsx             # Root layout with Clerk provider
+├── layout.tsx             # Root layout
 └── page.tsx               # Main application entry
 
 components/
@@ -109,8 +86,7 @@ components/
 lib/
 ├── env.ts                 # Environment configuration
 ├── firebase.ts            # Firebase client setup
-├── firebase-admin.ts      # Firebase admin setup
-└── postgres.ts            # PostgreSQL connection
+└── firebase-admin.ts      # Firebase admin setup
 
 services/
 ├── document-service.ts    # Document operations
@@ -122,23 +98,23 @@ types/
 ├── ai-features.ts        # AI suggestion types
 ├── tone-alignment.ts     # Tone analysis types
 └── writing-goals.ts      # Writing goals types
-\`\`\`
+```
 
 ## Component Documentation
 
 ### DocumentContainer
-**File**: \`components/document-container.tsx\`
+**File**: `components/document-container.tsx`
 **Purpose**: Main application orchestrator
 **Key Features**:
 - Manages document state and AI analysis
 - Coordinates between editor, sidebar, and navigation
 - Handles real-time auto-save to Firebase
-- Integrates Clerk authentication
+- Integrates Firebase authentication
 
-**Dependencies**: All major components, Firebase services, Clerk hooks
+**Dependencies**: All major components, Firebase services
 
 ### DocumentEditor
-**File**: \`components/document-editor.tsx\`
+**File**: `components/document-editor.tsx`
 **Purpose**: Real-time text editor with auto-save
 **Key Features**:
 - Auto-save every 2 seconds to Firebase Realtime DB
@@ -146,10 +122,10 @@ types/
 - Document title editing
 - Status bar with save indicators
 
-**Props**: \`onContentChange\`, \`suggestions\`, \`onApplySuggestion\`
+**Props**: `onContentChange`, `suggestions`, `onApplySuggestion`
 
 ### NavigationBar
-**File**: \`components/navigation-bar.tsx\`
+**File**: `components/navigation-bar.tsx`
 **Purpose**: Top navigation with document management
 **Key Features**:
 - Document list dropdown with status indicators
@@ -157,10 +133,10 @@ types/
 - AI sidebar toggle
 - User menu with role-based options
 
-**Props**: \`user\`, \`documents\`, \`writingGoals\`, event handlers
+**Props**: `user`, `documents`, `writingGoals`, event handlers
 
 ### AISidebar
-**File**: \`components/ai-sidebar.tsx\`
+**File**: `components/ai-sidebar.tsx`
 **Purpose**: Collapsible AI assistant panel
 **Key Features**:
 - Real-time AI suggestions
@@ -168,10 +144,10 @@ types/
 - Tone analysis charts
 - Apply/dismiss suggestion actions
 
-**Props**: \`suggestions\`, \`toneAnalysis\`, \`toneAlignmentReport\`, \`isOpen\`
+**Props**: `suggestions`, `toneAnalysis`, `toneAlignmentReport`, `isOpen`
 
 ### WritingGoalsModal
-**File**: \`components/writing-goals-modal.tsx\`
+**File**: `components/writing-goals-modal.tsx`
 **Purpose**: Goal configuration for documents
 **Key Features**:
 - Marketing-focused goal options
@@ -179,10 +155,10 @@ types/
 - Per-document goal persistence
 - Auto-show on new document option
 
-**Props**: \`isOpen\`, \`currentGoals\`, \`onSave\`
+**Props**: `isOpen`, `currentGoals`, `onSave`
 
 ### ToneAlignmentReportComponent
-**File**: \`components/tone-alignment-report.tsx\`
+**File**: `components/tone-alignment-report.tsx`
 **Purpose**: Brand voice compliance analysis
 **Key Features**:
 - Overall alignment scoring (0-100)
@@ -190,10 +166,10 @@ types/
 - Actionable recommendations with priority levels
 - Brand consistency tracking
 
-**Props**: \`report\`, \`onApplyRecommendation\`
+**Props**: `report`, `onApplyRecommendation`
 
 ### UserPreferencesForm
-**File**: \`components/user-preferences-form.tsx\`
+**File**: `components/user-preferences-form.tsx`
 **Purpose**: User settings and role management
 **Key Features**:
 - Role selection (Marketing Manager, Brand Strategist, Content Writer)
@@ -201,10 +177,10 @@ types/
 - Preferred tone settings
 - Advanced suggestions toggle
 
-**API Integration**: \`/api/user/me\` (GET/PUT)
+**API Integration**: `/api/user/me` (GET/PUT)
 
 ### SuggestionHistoryPanel
-**File**: \`components/suggestion-history-panel.tsx\`
+**File**: `components/suggestion-history-panel.tsx`
 **Purpose**: Historical suggestion tracking
 **Key Features**:
 - Filter by status (all, applied, dismissed)
@@ -212,10 +188,10 @@ types/
 - Interaction timestamps
 - Performance analytics ready
 
-**API Integration**: \`/api/suggestions/history\` (GET)
+**API Integration**: `/api/suggestions/history` (GET)
 
 ### VoiceReportPanel
-**File**: \`components/voice-report-panel.tsx\`
+**File**: `components/voice-report-panel.tsx`
 **Purpose**: Brand guideline compliance reports
 **Key Features**:
 - On-demand report generation
@@ -223,10 +199,10 @@ types/
 - Violation detection with severity levels
 - Actionable improvement suggestions
 
-**API Integration**: \`/api/voice-report/[documentId]\` (GET/POST)
+**API Integration**: `/api/voice-report/[documentId]` (GET/POST)
 
 ### EnhancedDocumentList
-**File**: \`components/enhanced-document-list.tsx\`
+**File**: `components/enhanced-document-list.tsx`
 **Purpose**: Document management with metadata
 **Key Features**:
 - Document status indicators (draft, review, final, archived)
@@ -234,91 +210,75 @@ types/
 - Last modified timestamps
 - Word count tracking
 
-**API Integration**: \`/api/documents\` (GET)
+**API Integration**: `/api/documents` (GET)
 
 ## API Endpoints
 
 ### User Management
-- \`GET /api/user/me\` - Fetch user profile
-- \`PUT /api/user/me\` - Update user preferences
+- `GET /api/user/me` - Fetch user profile
+- `PUT /api/user/me` - Update user preferences
 
 ### Document Operations
-- \`GET /api/documents/[id]\` - Fetch document
-- \`PUT /api/documents/[id]\` - Update document
-- \`POST /api/documents\` - Create document
+- `GET /api/documents/[id]` - Fetch document
+- `PUT /api/documents/[id]` - Update document
+- `POST /api/documents` - Create document
 
 ### AI Suggestions
-- \`POST /api/suggestions/[id]/accept\` - Accept suggestion
-- \`POST /api/suggestions/[id]/reject\` - Reject suggestion
-- \`GET /api/suggestions/history\` - Get suggestion history
+- `POST /api/suggestions/[id]/accept` - Accept suggestion
+- `POST /api/suggestions/[id]/reject` - Reject suggestion
+- `GET /api/suggestions/history` - Get suggestion history
 
 ### Writing Goals
-- \`GET /api/goals/[documentId]\` - Fetch document goals
-- \`POST /api/goals/[documentId]\` - Save document goals
+- `GET /api/goals/[documentId]` - Fetch document goals
+- `POST /api/goals/[documentId]` - Save document goals
 
 ### Voice Reports
-- \`GET /api/voice-report/[documentId]\` - Fetch latest report
-- \`POST /api/voice-report/[documentId]\` - Generate new report
+- `GET /api/voice-report/[documentId]` - Fetch latest report
+- `POST /api/voice-report/[documentId]` - Generate new report
 
 ## Services
 
 ### DocumentService
-**File**: \`services/document-service.ts\`
+**File**: `services/document-service.ts`
 **Purpose**: Firebase Realtime DB operations
 **Key Methods**:
-- \`createDocument()\` - Create new document
-- \`updateDocument()\` - Update existing document
-- \`getUserDocuments()\` - Fetch user's documents
-- \`subscribeToDocument()\` - Real-time document updates
-
-**Caching**: Uses PostgreSQL for 2-5 minute cache TTL
+- `createDocument()` - Create new document
+- `updateDocument()` - Update existing document
+- `getUserDocuments()` - Fetch user's documents
+- `subscribeToDocument()` - Real-time document updates
 
 ### AIService
-**File**: \`services/ai-service.ts\`
+**File**: `services/ai-service.ts`
 **Purpose**: AI analysis and Firestore operations
 **Key Methods**:
-- \`generateAnalysis()\` - Create AI analysis
-- \`saveSuggestionFeedback()\` - Track user interactions
-- \`getUserSuggestionHistory()\` - Fetch interaction history
-
-**Caching**: Uses PostgreSQL for 1-hour analysis cache
-
-### PostgresCache
-**File**: \`lib/postgres.ts\`
-**Purpose**: Performance optimization layer
-**Key Methods**:
-- \`get(key)\` - Retrieve cached value
-- \`set(key, value, ttl)\` - Store with expiration
-- \`delete(key)\` - Remove cache entry
-- \`clear()\` - Clean expired entries
+- `generateAnalysis()` - Create AI analysis
+- `saveSuggestionFeedback()` - Track user interactions
+- `getUserSuggestionHistory()` - Fetch interaction history
 
 ## Authentication Flow
 
-1. **Clerk Integration**: Root layout wraps app with \`ClerkProvider\`
-2. **Route Protection**: Main page checks \`auth()\` and redirects to sign-in
-3. **User Context**: Components use \`useUser()\` hook for user data
-4. **API Security**: All API routes validate \`auth()\` before processing
+1. **Firebase Integration**: Root layout initializes Firebase
+2. **Route Protection**: Main page checks auth state and redirects to sign-in
+3. **User Context**: Components use Firebase auth hooks for user data
+4. **API Security**: All API routes validate Firebase auth token
 
 ## Data Flow
 
 1. **Document Creation**: User creates document → Firebase Realtime DB
 2. **Content Changes**: Auto-save every 2s → Firebase Realtime DB
 3. **AI Analysis**: Content + Goals → Firebase Cloud Function → Firestore
-4. **Caching**: Frequent queries → PostgreSQL cache → Improved performance
-5. **User Interactions**: Suggestion feedback → Firestore analytics
+4. **User Interactions**: Suggestion feedback → Firestore analytics
 
 ## Deployment Checklist
 
 ### Pre-deployment
 - [ ] Set all environment variables
-- [ ] Create PostgreSQL database and run schema
 - [ ] Configure Firebase project with Realtime DB and Firestore
-- [ ] Set up Clerk application
 - [ ] Configure Firebase security rules
 
 ### Firebase Security Rules
 **Realtime Database**:
-\`\`\`json
+```json
 {
   "rules": {
     "documents": {
@@ -329,10 +289,10 @@ types/
     }
   }
 }
-\`\`\`
+```
 
 **Firestore**:
-\`\`\`javascript
+```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -342,19 +302,17 @@ service cloud.firestore {
     }
   }
 }
-\`\`\`
+```
 
 ### Post-deployment
 - [ ] Test authentication flow
 - [ ] Verify document CRUD operations
 - [ ] Test AI suggestion generation
-- [ ] Validate caching performance
 - [ ] Monitor error logs
 
 ## Performance Notes
 
 - **Auto-save**: Debounced to 2 seconds to prevent excessive writes
-- **Caching**: PostgreSQL cache reduces Firebase reads by ~70%
 - **Real-time**: Only active document subscribes to real-time updates
 - **Lazy Loading**: AI analysis triggered only after content changes
 - **Optimization**: Components use React.memo and useCallback for performance
@@ -369,7 +327,7 @@ service cloud.firestore {
 ## Next Steps for Production
 
 1. Implement Firebase Cloud Functions for real AI processing
-2. Add organization management API (\`/api/organization/[id]/guidelines\`)
+2. Add organization management API (`/api/organization/[id]/guidelines`)
 3. Implement comprehensive error boundaries
 4. Add offline support with service workers
 5. Set up monitoring and analytics

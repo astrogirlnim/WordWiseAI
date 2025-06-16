@@ -19,6 +19,11 @@ export interface Document {
   updatedAt: number
 }
 
+export interface AutoSaveStatus {
+  status: "saving" | "saved" | "error"
+  lastSaved?: number
+}
+
 export interface VoiceReport {
   id: string
   documentId: string

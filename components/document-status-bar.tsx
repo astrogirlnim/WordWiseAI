@@ -27,7 +27,7 @@ export function DocumentStatusBar({ saveStatus, wordCount, characterCount }: Doc
       case "saving":
         return "Saving..."
       case "saved":
-        return saveStatus.lastSaved ? `Saved ${formatLastSaved(saveStatus.lastSaved)}` : "Saved"
+        return saveStatus.lastSaved ? `Saved ${formatLastSaved(new Date(saveStatus.lastSaved))}` : "Saved"
       case "error":
         return "Save failed"
     }

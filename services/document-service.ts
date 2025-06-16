@@ -1,11 +1,10 @@
 import { ref, push, set, get, onValue, off } from "firebase/database"
 import { database } from "@/lib/firebase"
-import { PostgresCache } from "@/lib/postgres"
 import type { Document } from "@/types/document"
 import type { WritingGoals } from "@/types/writing-goals"
 
 export class DocumentService {
-  static async createDocument(userId: string, title: string, writingGoals: WritingGoals): Promise<string> {
+  static async createDocument(userId: string, title: string): Promise<string> {
     try {
       const documentsRef = ref(database, `documents/${userId}`)
       const newDocRef = push(documentsRef)
@@ -14,7 +13,14 @@ export class DocumentService {
         title,
         content: "",
         userId,
-        writingGoals,
+        orgId: "", // Default empty for MVP
+        status: "draft",
+        analysisSummary: {
+          overallScore: 0,
+          brandAlignmentScore: 0,
+          lastAnalyzedAt: 0,
+          suggestionCount: 0,
+        },
         lastSaved: Date.now(),
         wordCount: 0,
         characterCount: 0,
@@ -23,10 +29,6 @@ export class DocumentService {
       }
 
       await set(newDocRef, document)
-
-      // Clear user's document cache
-      await PostgresCache.delete(`documents:${userId}`)
-
       return newDocRef.key!
     } catch (error) {
       console.error("Error creating document:", error)
@@ -44,10 +46,6 @@ export class DocumentService {
       }
 
       await set(docRef, updateData)
-
-      // Clear cache
-      await PostgresCache.delete(`documents:${userId}`)
-      await PostgresCache.delete(`document:${documentId}`)
     } catch (error) {
       console.error("Error updating document:", error)
       throw new Error("Failed to update document")
@@ -56,22 +54,11 @@ export class DocumentService {
 
   static async getDocument(userId: string, documentId: string): Promise<Document | null> {
     try {
-      // Try cache first
-      const cacheKey = `document:${documentId}`
-      const cached = await PostgresCache.get(cacheKey)
-      if (cached) {
-        return JSON.parse(cached)
-      }
-
       const docRef = ref(database, `documents/${userId}/${documentId}`)
       const snapshot = await get(docRef)
 
       if (snapshot.exists()) {
         const document = { id: documentId, ...snapshot.val() } as Document
-
-        // Cache for 5 minutes
-        await PostgresCache.set(cacheKey, JSON.stringify(document), 300)
-
         return document
       }
 
@@ -84,13 +71,6 @@ export class DocumentService {
 
   static async getUserDocuments(userId: string): Promise<Document[]> {
     try {
-      // Try cache first
-      const cacheKey = `documents:${userId}`
-      const cached = await PostgresCache.get(cacheKey)
-      if (cached) {
-        return JSON.parse(cached)
-      }
-
       const documentsRef = ref(database, `documents/${userId}`)
       const snapshot = await get(documentsRef)
 
@@ -98,15 +78,11 @@ export class DocumentService {
         const documentsData = snapshot.val()
         const documents = Object.entries(documentsData).map(([id, data]) => ({
           id,
-          ...data,
+          ...(data as any),
         })) as Document[]
 
         // Sort by updatedAt descending
         documents.sort((a, b) => b.updatedAt - a.updatedAt)
-
-        // Cache for 2 minutes
-        await PostgresCache.set(cacheKey, JSON.stringify(documents), 120)
-
         return documents
       }
 
@@ -140,10 +116,6 @@ export class DocumentService {
     try {
       const docRef = ref(database, `documents/${userId}/${documentId}`)
       await set(docRef, null)
-
-      // Clear cache
-      await PostgresCache.delete(`documents:${userId}`)
-      await PostgresCache.delete(`document:${documentId}`)
     } catch (error) {
       console.error("Error deleting document:", error)
       throw new Error("Failed to delete document")

@@ -1,23 +1,22 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useAuth } from "@/lib/auth-context"
 import { DocumentService } from "@/services/document-service"
 import type { Document } from "@/types/document"
-import type { WritingGoals } from "@/types/writing-goals"
 
 export function useDocuments() {
-  const { user } = useUser()
+  const { user } = useAuth()
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const loadDocuments = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.uid) return
 
     try {
       setLoading(true)
-      const userDocuments = await DocumentService.getUserDocuments(user.id)
+      const userDocuments = await DocumentService.getUserDocuments(user.uid)
       setDocuments(userDocuments)
       setError(null)
     } catch (err) {
@@ -26,14 +25,14 @@ export function useDocuments() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user?.uid])
 
   const createDocument = useCallback(
-    async (title: string, writingGoals: WritingGoals) => {
-      if (!user?.id) return null
+    async (title: string) => {
+      if (!user?.uid) return null
 
       try {
-        const documentId = await DocumentService.createDocument(user.id, title, writingGoals)
+        const documentId = await DocumentService.createDocument(user.uid, title)
         await loadDocuments() // Refresh the list
         return documentId
       } catch (err) {
@@ -42,15 +41,15 @@ export function useDocuments() {
         return null
       }
     },
-    [user?.id, loadDocuments],
+    [user?.uid, loadDocuments],
   )
 
   const updateDocument = useCallback(
     async (documentId: string, updates: Partial<Document>) => {
-      if (!user?.id) return
+      if (!user?.uid) return
 
       try {
-        await DocumentService.updateDocument(user.id, documentId, updates)
+        await DocumentService.updateDocument(user.uid, documentId, updates)
         // Update local state
         setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? { ...doc, ...updates } : doc)))
       } catch (err) {
@@ -58,22 +57,22 @@ export function useDocuments() {
         console.error("Error updating document:", err)
       }
     },
-    [user?.id],
+    [user?.uid],
   )
 
   const deleteDocument = useCallback(
     async (documentId: string) => {
-      if (!user?.id) return
+      if (!user?.uid) return
 
       try {
-        await DocumentService.deleteDocument(user.id, documentId)
+        await DocumentService.deleteDocument(user.uid, documentId)
         setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
       } catch (err) {
         setError("Failed to delete document")
         console.error("Error deleting document:", err)
       }
     },
-    [user?.id],
+    [user?.uid],
   )
 
   useEffect(() => {

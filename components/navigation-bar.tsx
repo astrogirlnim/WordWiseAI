@@ -67,7 +67,7 @@ export function NavigationBar({
 
         {/* Writing Goals */}
         <div className="hidden md:block">
-          <WritingGoalsButton currentGoals={writingGoals} onClick={onWritingGoalsClick} />
+          <WritingGoalsButton currentGoals={writingGoals} onClick={onWritingGoalsClick || (() => {})} />
         </div>
       </div>
 
@@ -85,13 +85,13 @@ export function NavigationBar({
 
         {/* Mobile Writing Goals */}
         <div className="md:hidden">
-          <WritingGoalsButton currentGoals={writingGoals} onClick={onWritingGoalsClick} />
+          <WritingGoalsButton currentGoals={writingGoals} onClick={onWritingGoalsClick || (() => {})} />
         </div>
 
         <Separator orientation="vertical" className="h-4" />
 
         {/* AI Sidebar Toggle */}
-        <AISidebarToggle isOpen={isAISidebarOpen} onToggle={onAISidebarToggle} suggestionCount={aiSuggestionCount} />
+        <AISidebarToggle isOpen={isAISidebarOpen} onToggle={onAISidebarToggle || (() => {})} suggestionCount={aiSuggestionCount} />
 
         <Separator orientation="vertical" className="h-4" />
 

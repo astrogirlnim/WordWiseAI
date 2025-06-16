@@ -26,7 +26,7 @@ export function useAutoSave({ content, onSave, delay = 2000 }: UseAutoSaveProps)
       await onSaveRef.current(contentToSave)
       setSaveStatus({
         status: "saved",
-        lastSaved: new Date(),
+        lastSaved: Date.now(),
       })
     } catch (error) {
       setSaveStatus({ status: "error" })
