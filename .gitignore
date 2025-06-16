@@ -4,6 +4,9 @@ node_modules/
 .pnp.js
 .yarn/install-state.gz
 
+#AI Write Help Tools
+CLAUDE.md
+
 # Testing
 /coverage
 .nyc_output
