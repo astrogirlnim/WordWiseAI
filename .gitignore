@@ -35,6 +35,15 @@ firebase-debug.log
 firebase-debug.*.log
 .runtimeconfig.json
 firebase-export-*.json
+firebase_config.js
+
+# ENVIRONMENT VARIABLES
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
 
 # Debug
 npm-debug.log*
