@@ -16,7 +16,12 @@ service cloud.firestore {
 
       // Allow the document owner to read/write versions sub-collection
       match /versions/{versionId} {
-        allow read, write: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read, write: if request.auth != null && get(/databases/$(database)/documents/$(documentId)).data.ownerId == request.auth.uid;
+      }
+
+      // Allow the document owner to manage style suggestions
+      match /styleSuggestions/{suggestionId} {
+        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/$(documentId)).data.ownerId == request.auth.uid;
       }
     }
 

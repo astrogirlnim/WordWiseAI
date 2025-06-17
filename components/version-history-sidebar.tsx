@@ -11,7 +11,7 @@ import {
   SheetClose,
 } from './ui/sheet'
 import { Skeleton } from './ui/skeleton'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, isValid } from 'date-fns'
 import type { Version } from '@/types/version'
 import {
   AlertDialog,
@@ -37,21 +37,35 @@ interface VersionHistorySidebarProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getRelativeTime = (timestamp: any) => {
-  if (!timestamp) return ''
-  // Firestore Timestamps can be seconds and nanoseconds, or a toDate() method.
-  if (timestamp.toDate) {
-    return formatDistanceToNow(timestamp.toDate(), { addSuffix: true })
+const getRelativeTime = (timestamp: any): string => {
+  if (!timestamp) {
+    return 'No date'
   }
-  if (timestamp.seconds) {
-    return formatDistanceToNow(new Date(timestamp.seconds * 1000), {
-      addSuffix: true,
-    })
+
+  let date: Date | null = null
+
+  // Firestore Timestamps can be a toDate() method.
+  if (typeof timestamp.toDate === 'function') {
+    date = timestamp.toDate()
   }
-  if (typeof timestamp === 'number') {
-    return formatDistanceToNow(new Date(timestamp), { addSuffix: true })
+  // Or they can be an object with seconds and nanoseconds.
+  else if (timestamp.seconds) {
+    date = new Date(timestamp.seconds * 1000)
   }
-  return formatDistanceToNow(new Date(), { addSuffix: true })
+  // Or it could be a JS timestamp (in milliseconds).
+  else if (typeof timestamp === 'number') {
+    date = new Date(timestamp)
+  }
+  // Or it could be a date string.
+  else if (typeof timestamp === 'string') {
+    date = new Date(timestamp)
+  }
+
+  if (date && isValid(date)) {
+    return formatDistanceToNow(date, { addSuffix: true })
+  }
+
+  return 'Invalid date'
 }
 
 export function VersionHistorySidebar({

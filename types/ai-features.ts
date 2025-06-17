@@ -2,7 +2,7 @@ export interface AISuggestion {
   id: string
   documentId: string
   userId: string
-  type: 'grammar' | 'style' | 'clarity' | 'engagement'
+  type: 'grammar' | 'style' | 'clarity' | 'engagement' | 'readability'
   title: string
   description: string
   originalText: string

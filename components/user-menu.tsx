@@ -12,10 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import {
-  User,
   Settings,
-  CreditCard,
-  HelpCircle,
   LogOut,
   Crown,
   ChevronDown,
@@ -24,19 +21,13 @@ import type { User as UserType } from '@/types/navigation'
 
 interface UserMenuProps {
   user: UserType
-  onProfileClick?: () => void
   onSettingsClick?: () => void
-  onBillingClick?: () => void
-  onHelpClick?: () => void
   onSignOut?: () => void
 }
 
 export function UserMenu({
   user,
-  onProfileClick,
   onSettingsClick,
-  onBillingClick,
-  onHelpClick,
   onSignOut,
 }: UserMenuProps) {
   const getPlanBadge = (plan: UserType['plan']) => {
@@ -104,26 +95,9 @@ export function UserMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={onProfileClick} className="cursor-pointer">
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-
         <DropdownMenuItem onClick={onSettingsClick} className="cursor-pointer">
           <Settings className="mr-2 h-4 w-4" />
           Settings
-        </DropdownMenuItem>
-
-        <DropdownMenuItem onClick={onBillingClick} className="cursor-pointer">
-          <CreditCard className="mr-2 h-4 w-4" />
-          Billing
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem onClick={onHelpClick} className="cursor-pointer">
-          <HelpCircle className="mr-2 h-4 w-4" />
-          Help & Support
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

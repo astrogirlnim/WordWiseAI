@@ -1,6 +1,8 @@
 import { getFunctions, httpsCallable, type Functions } from 'firebase/functions';
 import app, { auth } from '../lib/firebase';
 import type { GrammarError } from '@/types/grammar';
+import type { AISuggestion } from '@/types/ai-features';
+import type { WritingGoals } from '@/types/writing-goals';
 
 const functions = getFunctions(app, 'us-central1');
 
@@ -33,6 +35,23 @@ export class AIService {
     } catch (error) {
       console.error("Error calling generateSuggestions function: ", error);
       throw new Error("Failed to generate suggestions.");
+    }
+  }
+
+  static async generateStyleSuggestions(documentId: string, text: string, goals?: WritingGoals): Promise<void> {
+    console.log('[AIService] Triggering style suggestion generation...', { documentId, textLength: text.length, goals });
+    
+    const callable = httpsCallable<
+      { documentId: string; text: string; goals?: WritingGoals }, 
+      { success: boolean; suggestionsAdded: number }
+    >(functions, 'generateStyleSuggestions');
+
+    try {
+      const result = await callable({ documentId, text, goals });
+      console.log(`[AIService] Successfully triggered style suggestion generation. Added ${result.data.suggestionsAdded} suggestions.`);
+    } catch (error) {
+      console.error("Error calling generateStyleSuggestions function: ", error);
+      throw new Error("Failed to trigger style suggestion generation.");
     }
   }
 
