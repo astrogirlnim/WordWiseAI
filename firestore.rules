@@ -5,7 +5,7 @@ service cloud.firestore {
     // Users can only read and write their own data.
     match /users/{userId} {
       allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
 
     // Example for a 'documents' collection where documents have an 'ownerId'.
