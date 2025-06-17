@@ -1,135 +1,118 @@
 'use client'
 
-import { useState } from 'react'
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  RadialBarChart,
-  RadialBar,
-  PolarAngleAxis,
-} from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { HelpCircle, ChevronUp, ChevronDown } from 'lucide-react'
-import { Button } from './ui/button'
-import {
-  Tooltip as ShadTooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from './ui/tooltip'
-import { Switch } from './ui/switch'
-import { Label } from './ui/label'
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
+import { TrendingUp, MessageCircle } from 'lucide-react'
+import type { ToneAnalysis } from '@/types/ai-features'
 
 interface ToneAnalysisProps {
-  fleschKincaidScore: number
-  sentenceLengths: number[]
+  analysis: ToneAnalysis
 }
 
-const getFleschKincaidData = (score: number) => {
-  return [{ name: 'Flesch-Kincaid', value: score }]
-}
-
-const getSentenceLengthData = (lengths: number[]) => {
-  const bins = [0, 10, 20, 30, 40, 50]
-  const data = bins.map((bin) => ({
-    name: `${bin}-${bin + 9}`,
-    count: lengths.filter((len) => len >= bin && len < bin + 10).length,
-  }))
-  return data
-}
-
-export function ToneAnalysis({
-  fleschKincaidScore,
-  sentenceLengths,
-}: ToneAnalysisProps) {
-  const [isOpen, setIsOpen] = useState(true)
-  const [showMetrics, setShowMetrics] = useState(true)
-
-  const flechKincaidData = getFleschKincaidData(fleschKincaidScore)
-  const sentenceLengthData = getSentenceLengthData(sentenceLengths)
+export function ToneAnalysisComponent({ analysis }: ToneAnalysisProps) {
+  const getToneColor = (tone: ToneAnalysis['overall']) => {
+    switch (tone) {
+      case 'professional':
+        return 'bg-blue-500'
+      case 'casual':
+        return 'bg-green-500'
+      case 'friendly':
+        return 'bg-yellow-500'
+      case 'formal':
+        return 'bg-purple-500'
+      case 'confident':
+        return 'bg-red-500'
+      default:
+        return 'bg-gray-500'
+    }
+  }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
-            <CardTitle>Readability Metrics</CardTitle>
-            <TooltipProvider>
-                <ShadTooltip>
-                    <TooltipTrigger>
-                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Flesch-Kincaid score and sentence length distribution.</p>
-                    </TooltipContent>
-                </ShadTooltip>
-            </TooltipProvider>
-        </div>
-        <div className="flex items-center gap-2">
-            <Label htmlFor="show-metrics">Show</Label>
-            <Switch id="show-metrics" checked={showMetrics} onCheckedChange={setShowMetrics} />
-            <Button variant="ghost" size="sm" onClick={() => setIsOpen(!isOpen)}>
-                {isOpen ? <ChevronUp /> : <ChevronDown />}
-            </Button>
-        </div>
-      </CardHeader>
-      {isOpen && showMetrics && (
-        <CardContent>
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <h3 className="mb-4 text-center text-lg font-medium">Flesch-Kincaid Grade Level</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <RadialBarChart
-                  innerRadius="80%"
-                  outerRadius="100%"
-                  data={flechKincaidData}
-                  startAngle={180}
-                  endAngle={0}
-                  barSize={20}
-                >
-                  <PolarAngleAxis
-                    type="number"
-                    domain={[0, 100]}
-                    angleAxisId={0}
-                    tick={false}
-                  />
-                  <RadialBar
-                    background
-                    dataKey="value"
-                    angleAxisId={0}
-                    fill="#8884d8"
-                  />
-                  <text
-                    x="50%"
-                    y="50%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="fill-foreground text-3xl font-bold"
-                  >
-                    {fleschKincaidScore.toFixed(1)}
-                  </text>
-                </RadialBarChart>
-              </ResponsiveContainer>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <MessageCircle className="h-4 w-4" />
+              Overall Tone
+            </CardTitle>
+            <Badge className={`${getToneColor(analysis.overall)} text-white`}>
+              {analysis.overall}
+            </Badge>
+          </div>
+          <CardDescription className="text-xs">
+            {analysis.confidence}% confidence
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <TrendingUp className="h-4 w-4" />
+            Tone Breakdown
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span>Formality</span>
+              <span>{analysis.aspects.formality}%</span>
             </div>
-            <div>
-              <h3 className="mb-4 text-center text-lg font-medium">Sentence Lengths</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={sentenceLengthData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#82ca9d" />
-                </BarChart>
-              </ResponsiveContainer>
+            <Progress value={analysis.aspects.formality} className="h-2" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span>Friendliness</span>
+              <span>{analysis.aspects.friendliness}%</span>
             </div>
+            <Progress value={analysis.aspects.friendliness} className="h-2" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span>Confidence</span>
+              <span>{analysis.aspects.confidence}%</span>
+            </div>
+            <Progress value={analysis.aspects.confidence} className="h-2" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span>Clarity</span>
+              <span>{analysis.aspects.clarity}%</span>
+            </div>
+            <Progress value={analysis.aspects.clarity} className="h-2" />
           </div>
         </CardContent>
-      )}
-    </Card>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Suggestions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2">
+            {analysis.suggestions.map((suggestion, index) => (
+              <li
+                key={index}
+                className="flex items-start gap-2 text-xs text-muted-foreground"
+              >
+                <span className="mt-2 h-1 w-1 flex-shrink-0 rounded-full bg-muted-foreground" />
+                {suggestion}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -1,18 +1,18 @@
-import type { WritingGoals } from './writing-goals'
+import type { WritingGoals } from "./writing-goals"
 
 export interface UserProfile {
-  id: string // This will be the Firebase UID
+  id: string
   email: string
   name: string
-  role: 'marketing-manager' | 'brand-strategist' | 'content-writer'
+  role: string
   orgId: string
-  brandVoiceGlossaryId?: string;
   preferences: {
     defaultWritingGoals: WritingGoals
     autoSaveInterval: number
     showAdvancedSuggestions: boolean
     preferredTone: string
   }
+  brandVoiceGlossaryId?: string
   acceptedSuggestions: string[]
   rejectedSuggestions: string[]
   createdAt: number
@@ -32,7 +32,7 @@ export interface Organization {
       preferred: string[]
       avoid: string[]
     }
-    formalityLevel: 'casual' | 'professional' | 'formal'
+    formalityLevel: "casual" | "professional" | "formal"
     brandVoice: string
   }
   members: string[]

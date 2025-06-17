@@ -10,236 +10,133 @@
 // Cloud Functions will be added here when AI features are implemented
 // For now, this file exists to satisfy Firebase project structure
 
-// Example function (commented out):
-// const {onRequest} = require("firebase-functions/v2/https");
-// const logger = require("firebase-functions/logger");
-//
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onRequest } = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
+const admin = require("firebase-admin");
+const { OpenAI } = require("openai");
+const { onValueDeleted } = require("firebase-functions/v2/database");
+const { onObjectFinalized } = require("firebase-functions/v2/storage");
+const { parse } = require("csv-parse/sync");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 
-const functions = require('firebase-functions')
-const admin = require('firebase-admin')
-const { OpenAI } = require('openai')
-require('dotenv').config()
-
-admin.initializeApp()
+admin.initializeApp();
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-})
+});
 
-// Per-user rate limiting
-const accesses = {}
+const
+  rateLimit = {
+    maxCalls: 30, // 30 calls
+    timeframe: 60 * 1000, // 1 minute
+  };
+const userCalls = new Map();
 
-exports.generateSuggestions = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'The function must be called while authenticated.',
-    )
+exports.generateSuggestions = onCall(async (request) => {
+  const userId = request.auth?.uid;
+  if (!userId) {
+    throw new HttpsError("unauthenticated", "You must be logged in to use this feature.");
   }
 
-  const uid = context.auth.uid
-  const now = Date.now()
-  const windowMs = 60000 // 1 minute
-  const maxRequests = 30
+  const now = Date.now();
+  const userEntry = userCalls.get(userId) || { count: 0, startTime: now };
 
-  const userAccesses = accesses[uid] || []
-  const recentAccesses = userAccesses.filter(
-    (timestamp) => now - timestamp < windowMs,
-  )
-
-  if (recentAccesses.length >= maxRequests) {
-    throw new functions.https.HttpsError(
-      'resource-exhausted',
-      'You have exceeded the rate limit. Please try again in a minute.',
-    )
+  if (now - userEntry.startTime > rateLimit.timeframe) {
+    userEntry.startTime = now;
+    userEntry.count = 0;
   }
 
-  accesses[uid] = [...recentAccesses, now]
+  userEntry.count++;
+  userCalls.set(userId, userEntry);
 
-  const { text } = data
+  if (userEntry.count > rateLimit.maxCalls) {
+    throw new HttpsError("resource-exhausted", "Rate limit exceeded. Please try again later.");
+  }
+
+
+  const { text } = request.data;
   if (!text) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      "The function must be called with one argument 'text' containing the text to analyze.",
-    )
+    throw new HttpsError("invalid-argument", "The function must be called with one argument 'text'.");
   }
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content:
-            "You are a writing assistant. Analyze the following text and provide structured suggestions for improvement. Return the suggestions in a JSON array format, where each object has a 'suggestion' and a 'category' (e.g., 'grammar', 'style', 'clarity').",
-        },
-        { role: 'user', content: text },
-      ],
-      response_format: { type: 'json_object' },
-    })
+      model: "gpt-4o",
+      messages: [{ role: "user", content: text }],
+    });
 
-    return JSON.parse(completion.choices[0].message.content)
+    const suggestion = completion.choices[0].message.content;
+    return { suggestion };
   } catch (error) {
-    console.error('Error calling OpenAI:', error)
-    throw new functions.https.HttpsError(
-      'internal',
-      'There was an error processing your request.',
-    )
+    logger.error("Error calling OpenAI API:", error);
+    throw new HttpsError("internal", "Failed to generate suggestions.");
   }
-})
+});
 
-exports.healthCheck = functions.https.onCall(async () => {
-  const startTime = Date.now()
+exports.processGlossary = onObjectFinalized({ bucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }, async (event) => {
+  const file = event.data;
+  const filePath = file.name;
+
+  if (!filePath.startsWith("glossaries/")) {
+    return;
+  }
+
+  const parts = filePath.split("/");
+  const userId = parts[1];
+  const bucket = admin.storage().bucket(file.bucket);
+  const fileBuffer = await bucket.file(filePath).download();
+  
   try {
-    await openai.completions.create({
-      model: 'gpt-3.5-turbo-instruct',
-      prompt: 'Health check',
-      max_tokens: 1,
-    })
-    const endTime = Date.now()
-    return { success: true, latency: endTime - startTime }
+    const records = parse(fileBuffer.toString(), {
+      columns: true,
+      skip_empty_lines: true,
+    });
+
+    const glossaryRef = admin.firestore().collection("glossaries").doc();
+    await glossaryRef.set({
+      userId: userId,
+      terms: records,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await admin.firestore().collection("users").doc(userId).update({
+      brandVoiceGlossaryId: glossaryRef.id,
+    });
+
+    logger.log(`Glossary processed for user ${userId}`);
   } catch (error) {
-    console.error('Health check failed:', error)
-    return { success: false, error: 'OpenAI API is not reachable' }
+    logger.error(`Failed to parse glossary for user ${userId}:`, error);
   }
-})
-
-exports.cleanupPresence = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
-    const presenceRef = admin.database().ref('documents');
-    const now = Date.now();
-    const cutoff = now - 2 * 60 * 1000; // 2 minutes ago
-
-    const snapshot = await presenceRef.once('value');
-    const updates = {};
-
-    snapshot.forEach((doc) => {
-        const presence = doc.child('presence');
-        presence.forEach((user) => {
-            if (user.val().timestamp < cutoff) {
-                updates[user.key] = null;
-            }
-        });
-        if (Object.keys(updates).length > 0) {
-            presence.ref.update(updates);
-        }
-    });
-
-    return null;
 });
 
-exports.processGlossary = functions.storage.object().onFinalize(async (object) => {
-    const filePath = object.name;
-    const contentType = object.contentType;
+exports.pruneOldVersions = onSchedule("every day 00:00", async (event) => {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    if (!filePath.startsWith('glossaries/')) {
-        return null;
-    }
+  const oldVersionsQuery = admin.firestore().collectionGroup("versions").where("createdAt", "<", thirtyDaysAgo);
+  const snapshot = await oldVersionsQuery.get();
 
-    if (contentType !== 'text/csv' && contentType !== 'application/json') {
-        console.log('Unsupported file type.');
-        return null;
-    }
+  const batch = admin.firestore().batch();
+  snapshot.docs.forEach(doc => {
+    batch.delete(doc.ref);
+  });
 
-    const fileBucket = object.bucket;
-    const bucket = admin.storage().bucket(fileBucket);
-    const file = bucket.file(filePath);
-
-    const contents = (await file.download()).toString('utf8');
-    const pathParts = filePath.split('/');
-    const userId = pathParts[1];
-    const fileId = pathParts[2].split('.')[0];
-
-    let terms;
-    if (contentType === 'application/json') {
-        terms = JSON.parse(contents);
-    } else {
-        // Simple CSV parsing
-        terms = contents.split('\n').map(line => {
-            const [term, definition] = line.split(',');
-            return { term, definition };
-        });
-    }
-
-    try {
-        await admin.firestore().collection('glossaries').doc(fileId).set({
-            userId,
-            terms,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log(`Glossary ${fileId} processed successfully.`);
-    } catch (error) {
-        console.error(`Error processing glossary ${fileId}:`, error);
-    }
-
-    return null;
+  await batch.commit();
+  logger.log(`Pruned ${snapshot.size} old versions.`);
 });
 
-exports.pruneSnapshots = functions.pubsub.schedule('every 24 hours').onRun(async (context) => {
-    const db = admin.firestore();
-    const docsRef = db.collection('docs');
-    const snapshot = await docsRef.get();
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const timestamp30DaysAgo = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
-
-    snapshot.forEach(async (doc) => {
-        const versionsRef = doc.ref.collection('versions');
-        const versionsSnapshot = await versionsRef.orderBy('createdAt', 'desc').get();
-
-        if (versionsSnapshot.size > 100) {
-            const versionsToDelete = versionsSnapshot.docs.slice(100);
-            versionsToDelete.forEach(async (versionDoc) => {
-                await versionDoc.ref.delete();
-            });
-        }
-
-        const oldVersionsQuery = versionsRef.where('createdAt', '<', timestamp30DaysAgo);
-        const oldVersionsSnapshot = await oldVersionsQuery.get();
-        oldVersionsSnapshot.forEach(async (versionDoc) => {
-            await versionDoc.ref.delete();
-        });
+exports.healthCheck = onRequest(async (req, res) => {
+  try {
+    const startTime = Date.now();
+    await openai.models.list();
+    const endTime = Date.now();
+    res.status(200).send({
+      status: "ok",
+      openai_latency: `${endTime - startTime}ms`,
     });
-
-    return null;
+  } catch (error) {
+    logger.error("Health check failed:", error);
+    res.status(500).send({ status: "error", message: "OpenAI API is unreachable." });
+  }
 });
-
-exports.logDocumentChanges = functions.firestore
-    .document('docs/{docId}')
-    .onWrite(async (change, context) => {
-        const docId = context.params.docId;
-        const db = admin.firestore();
-        const logRef = db.collection('auditLogs');
-
-        if (!change.before.exists) {
-            // Document created
-            await logRef.add({
-                docId,
-                eventType: 'create',
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                userId: change.after.data().ownerId,
-            });
-        } else if (!change.after.exists) {
-            // Document deleted
-            await logRef.add({
-                docId,
-                eventType: 'delete',
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                userId: change.before.data().ownerId,
-            });
-        } else {
-            // Document updated
-            await logRef.add({
-                docId,
-                eventType: 'update',
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                userId: change.after.data().ownerId,
-            });
-        }
-
-        return null;
-    });

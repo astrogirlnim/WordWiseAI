@@ -1,47 +1,34 @@
-import { database } from "@/lib/firebase";
-import { ref, onValue, set, onDisconnect } from "firebase/database";
-import { Document } from "@/types/document";
+import { getDatabase, ref, onValue, set, onDisconnect } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
+import app from '../lib/firebase';
 
-// For this MVP, we'll use a simple last-write-wins strategy.
-// A full CRDT or OT implementation is a larger effort.
+const db = getDatabase(app);
+const auth = getAuth(app);
 
-export function syncDocument(docId: string, onUpdate: (content: string) => void) {
-  const docRef = ref(database, `documents/${docId}/content`);
-  onValue(docRef, (snapshot) => {
-    const content = snapshot.val();
-    if (content !== null) {
-      onUpdate(content);
-    }
-  });
+export class CollaborationService {
+  static joinDocumentSession(docId: string, user: { id: string, name: string, color: string }) {
+    const userStatusDatabaseRef = ref(db, `/documents/${docId}/presence/${user.id}`);
 
-  return (newContent: string) => {
-    set(docRef, newContent);
-  };
-}
+    const isOfflineForDatabase = {
+      state: 'offline',
+      last_changed: Date.now(),
+      ...user
+    };
 
-export interface UserPresence {
-  id: string;
-  name: string;
-  color: string; // e.g., a hex code
-  cursorPosition: number;
-}
+    const isOnlineForDatabase = {
+      state: 'online',
+      last_changed: Date.now(),
+      ...user
+    };
 
-export function syncPresence(docId: string, user: UserPresence) {
-  const presenceRef = ref(database, `documents/${docId}/presence/${user.id}`);
-  set(presenceRef, user);
-  onDisconnect(presenceRef).remove();
+    onValue(ref(db, '.info/connected'), (snapshot) => {
+      if (snapshot.val() === false) {
+        return;
+      }
 
-  return (newPosition: number) => {
-    set(ref(database, `documents/${docId}/presence/${user.id}/cursorPosition`), newPosition);
-  };
-}
-
-export function getPresence(docId: string, onUpdate: (users: UserPresence[]) => void) {
-    const presenceRef = ref(database, `documents/${docId}/presence`);
-    onValue(presenceRef, (snapshot) => {
-        const presence = snapshot.val();
-        if (presence) {
-            onUpdate(Object.values(presence));
-        }
+      onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+        set(userStatusDatabaseRef, isOnlineForDatabase);
+      });
     });
+  }
 } 

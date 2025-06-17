@@ -1,7 +1,7 @@
 export interface Comment {
   id: string;
   docId: string;
-  userId: string;
+  authorId: string;
   content: string;
   anchorStart: number;
   anchorEnd: number;

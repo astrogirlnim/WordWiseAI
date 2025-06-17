@@ -7,7 +7,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  deleteUser,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth'
 import { auth } from './firebase'
 
@@ -16,8 +17,8 @@ interface AuthContextType {
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   logout: () => Promise<void>
-  deleteAccount: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -43,16 +44,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await createUserWithEmailAndPassword(auth, email, password)
   }
 
-  const logout = async () => {
-    await signOut(auth)
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider()
+    await signInWithPopup(auth, provider)
   }
 
-  const deleteAccount = async () => {
-    if (auth.currentUser) {
-      await deleteUser(auth.currentUser)
-    } else {
-      throw new Error("No user is currently signed in.");
-    }
+  const logout = async () => {
+    await signOut(auth)
   }
 
   const value = {
@@ -60,8 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn,
     signUp,
+    signInWithGoogle,
     logout,
-    deleteAccount,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
