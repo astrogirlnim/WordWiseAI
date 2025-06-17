@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -15,38 +15,23 @@ import { Badge } from "@/components/ui/badge"
 import { FileText, Plus, ChevronDown, Clock, BarChart3 } from "lucide-react"
 import type { Document } from "@/types/document"
 import { formatLastSaved } from "@/utils/document-utils"
+import { Timestamp } from "firebase/firestore"
 
 interface EnhancedDocumentListProps {
+  documents: Document[]
   activeDocumentId?: string
   onDocumentSelect?: (documentId: string) => void
   onNewDocument?: () => void
 }
 
-export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNewDocument }: EnhancedDocumentListProps) {
-  const { user } = useUser()
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [loading, setLoading] = useState(true)
+export function EnhancedDocumentList({
+  documents,
+  activeDocumentId,
+  onDocumentSelect,
+  onNewDocument,
+}: EnhancedDocumentListProps) {
+  const { user, loading } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    loadDocuments()
-  }, [user?.id])
-
-  const loadDocuments = async () => {
-    if (!user?.id) return
-
-    try {
-      const response = await fetch("/api/documents")
-      if (response.ok) {
-        const docs = await response.json()
-        setDocuments(docs)
-      }
-    } catch (error) {
-      console.error("Error loading documents:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const getStatusColor = (status: Document["status"]) => {
     switch (status) {
@@ -70,7 +55,8 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
     return "text-red-600"
   }
 
-  const activeDocument = documents.find((doc) => doc.id === activeDocumentId) || documents[0]
+  const activeDocument =
+    documents.find((doc) => doc.id === activeDocumentId) || documents[0]
 
   const handleDocumentSelect = (documentId: string) => {
     onDocumentSelect?.(documentId)
@@ -91,7 +77,9 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap-2 px-3 h-9">
           <FileText className="h-4 w-4" />
-          <span className="max-w-[200px] truncate">{activeDocument?.title || "Select Document"}</span>
+          <span className="max-w-[200px] truncate">
+            {activeDocument?.title || "Select Document"}
+          </span>
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
@@ -113,9 +101,14 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
               onClick={() => handleDocumentSelect(document.id)}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="font-medium truncate flex-1">{document.title}</span>
+                <span className="font-medium truncate flex-1">
+                  {document.title}
+                </span>
                 <div className="flex items-center gap-2">
-                  <Badge variant={getStatusColor(document.status)} className="text-xs">
+                  <Badge
+                    variant={getStatusColor(document.status)}
+                    className="text-xs"
+                  >
                     {document.status}
                   </Badge>
                   {document.id === activeDocumentId && (
@@ -130,14 +123,22 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {formatLastSaved(new Date(document.updatedAt))}
+                    {formatLastSaved(
+                      document.updatedAt instanceof Timestamp
+                        ? document.updatedAt.toDate()
+                        : new Date(document.updatedAt as number),
+                    )}
                   </div>
                   <span>{document.wordCount} words</span>
                 </div>
 
                 <div className="flex items-center gap-1">
                   <BarChart3 className="h-3 w-3" />
-                  <span className={getAlignmentColor(document.analysisSummary.brandAlignmentScore)}>
+                  <span
+                    className={getAlignmentColor(
+                      document.analysisSummary.brandAlignmentScore,
+                    )}
+                  >
                     {document.analysisSummary.brandAlignmentScore}%
                   </span>
                 </div>

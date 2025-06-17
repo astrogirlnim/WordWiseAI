@@ -3,6 +3,7 @@
 import type { AutoSaveStatus } from '@/types/document'
 import { formatLastSaved } from '@/utils/document-utils'
 import { Loader2, Check, AlertCircle } from 'lucide-react'
+import { Timestamp } from 'firebase/firestore'
 
 interface DocumentStatusBarProps {
   saveStatus: AutoSaveStatus
@@ -31,9 +32,12 @@ export function DocumentStatusBar({
       case 'saving':
         return 'Saving...'
       case 'saved':
-        return saveStatus.lastSaved
-          ? `Saved ${formatLastSaved(new Date(saveStatus.lastSaved))}`
-          : 'Saved'
+        if (!saveStatus.lastSaved) return 'Saved'
+        const date =
+          saveStatus.lastSaved instanceof Timestamp
+            ? saveStatus.lastSaved.toDate()
+            : new Date(saveStatus.lastSaved as number)
+        return `Saved ${formatLastSaved(date)}`
       case 'error':
         return 'Save failed'
     }

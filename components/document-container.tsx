@@ -109,18 +109,6 @@ export function DocumentContainer() {
   const activeDocument =
     documents.find((doc) => doc.id === activeDocumentId) || null
 
-  // Convert documents to the format expected by navigation
-  const navigationDocuments = documents.map((doc) => ({
-    id: doc.id,
-    title: doc.title,
-    lastModified:
-      doc.updatedAt instanceof Timestamp
-        ? doc.updatedAt.toDate()
-        : new Date(doc.updatedAt as number),
-    wordCount: doc.wordCount,
-    isActive: doc.id === activeDocumentId,
-  }))
-
   const mockUser = {
     id: user?.uid || '',
     name: user?.displayName || 'User',
@@ -145,7 +133,7 @@ export function DocumentContainer() {
       {!isDistractionFree && (
         <NavigationBar
           user={mockUser}
-          documents={navigationDocuments}
+          documents={documents}
           activeDocumentId={activeDocumentId || ''}
           isAISidebarOpen={isAISidebarOpen}
           aiSuggestionCount={0}

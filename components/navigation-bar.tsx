@@ -1,19 +1,20 @@
 'use client'
 
-import { DocumentList } from './document-list'
 import { UserMenu } from './user-menu'
 import { AISidebarToggle } from './ai-sidebar-toggle'
 import { WritingGoalsButton } from './writing-goals-button'
 import { Separator } from '@/components/ui/separator'
 import { PenTool } from 'lucide-react'
-import type { User, DocumentListItem } from '@/types/navigation'
+import type { User } from '@/types/navigation'
+import type { Document } from '@/types/document'
 import type { WritingGoals } from '@/types/writing-goals'
 import { ThemeToggle } from './theme-toggle'
 import { DistractionFreeToggle } from './distraction-free-toggle'
+import { EnhancedDocumentList } from './enhanced-document-list'
 
 interface NavigationBarProps {
   user: User
-  documents: DocumentListItem[]
+  documents: Document[]
   activeDocumentId?: string
   isAISidebarOpen: boolean
   aiSuggestionCount?: number
@@ -61,7 +62,7 @@ export function NavigationBar({
 
         {/* Document List */}
         <div className="hidden lg:block">
-          <DocumentList
+          <EnhancedDocumentList
             documents={documents}
             activeDocumentId={activeDocumentId}
             onDocumentSelect={onDocumentSelect}
@@ -84,7 +85,7 @@ export function NavigationBar({
       <div className="flex items-center gap-2">
         {/* Mobile Document List */}
         <div className="lg:hidden">
-          <DocumentList
+          <EnhancedDocumentList
             documents={documents}
             activeDocumentId={activeDocumentId}
             onDocumentSelect={onDocumentSelect}
