@@ -241,7 +241,10 @@ export function DocumentContainer() {
             <DocumentEditor
               key={activeDocumentId}
               documentId={activeDocument.id}
-              initialDocument={activeDocument}
+              initialDocument={{
+                ...activeDocument,
+                content: activeDocument.content || ''
+              }}
               onSave={handleSave}
               saveStatus={saveStatus}
             />
