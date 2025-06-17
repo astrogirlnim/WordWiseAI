@@ -60,8 +60,12 @@ export default function SignUpPage() {
     try {
       await signUp(values.email, values.password)
       router.push('/')
-    } catch (error: any) {
-      setError(error.message || 'Failed to create account')
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError('An unknown error occurred')
+      }
     } finally {
       setLoading(false)
     }
@@ -152,8 +156,12 @@ export default function SignUpPage() {
               try {
                 await signInWithGoogle()
                 router.push('/')
-              } catch (error: any) {
-                setError(error.message || 'Failed to sign up with Google')
+              } catch (error: unknown) {
+                if (error instanceof Error) {
+                  setError(error.message)
+                } else {
+                  setError('An unknown error occurred')
+                }
               }
             }}
           >

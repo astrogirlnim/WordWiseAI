@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useCallback } from 'react'
+import { AIService, type GrammarError } from '@/services/ai-service'
 
 export function useDebouncedCallback<T extends (...args: any[]) => any>(
   callback: T,
@@ -125,4 +126,69 @@ export function useAutoSave<T extends (...args: any[]) => any>(
     },
     [delay, options.compareArgs, defaultCompareArgs],
   ) as T
+}
+
+// Hook for real-time grammar checking with 300ms debounce
+export function useGrammarCheck(
+  onGrammarErrors: (errors: GrammarError[]) => void,
+  onLatency?: (latency: number) => void
+) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastTextRef = useRef<string>('')
+  const isCheckingRef = useRef(false)
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
+  const checkGrammar = useCallback(
+    (text: string) => {
+      // Skip if text hasn't changed or is too short
+      if (text === lastTextRef.current || text.trim().length < 10) {
+        return
+      }
+
+      lastTextRef.current = text
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+
+      timeoutRef.current = setTimeout(async () => {
+        if (isCheckingRef.current) {
+          console.log('[useGrammarCheck] Previous check still in progress, skipping')
+          return
+        }
+
+        try {
+          isCheckingRef.current = true
+          console.log('[useGrammarCheck] Starting grammar check for text length:', text.length)
+          
+          const result = await AIService.checkGrammarAndSpelling(text)
+          
+          console.log('[useGrammarCheck] Grammar check completed', {
+            errorsFound: result.errors.length,
+            latency: result.latency
+          })
+          
+          onGrammarErrors(result.errors)
+          if (onLatency) {
+            onLatency(result.latency)
+          }
+        } catch (error) {
+          console.error('[useGrammarCheck] Grammar check failed:', error)
+          onGrammarErrors([])
+        } finally {
+          isCheckingRef.current = false
+        }
+      }, 300) // 300ms debounce as required
+    },
+    [onGrammarErrors, onLatency]
+  )
+
+  return checkGrammar
 }

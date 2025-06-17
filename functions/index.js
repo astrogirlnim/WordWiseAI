@@ -158,6 +158,79 @@ exports.pruneOldVersions = onSchedule(
     },
 );
 
+exports.checkGrammarAndSpelling = onCall(async (request) => {
+  logger.log("checkGrammarAndSpelling called", {uid: request.auth?.uid});
+  const userId = request.auth?.uid;
+  if (!userId) {
+    logger.error("User not authenticated");
+    throw new HttpsError("unauthenticated", "You must be logged in to use this feature.");
+  }
+
+  const now = Date.now();
+  const userEntry = userCalls.get(userId) || {count: 0, startTime: now};
+
+  if (now - userEntry.startTime > rateLimit.timeframe) {
+    userEntry.startTime = now;
+    userEntry.count = 0;
+  }
+
+  userEntry.count++;
+  userCalls.set(userId, userEntry);
+
+  if (userEntry.count > rateLimit.maxCalls) {
+    logger.warn("Rate limit exceeded", {userId, count: userEntry.count});
+    throw new HttpsError(
+      "resource-exhausted",
+      "Rate limit exceeded. Please try again later."
+    );
+  }
+
+  const {text} = request.data;
+  if (!text) {
+    logger.error("No text provided in request");
+    throw new HttpsError(
+      "invalid-argument",
+      "The function must be called with one argument 'text'.",
+    );
+  }
+
+  try {
+    const startTime = Date.now();
+    logger.log("Calling OpenAI API for grammar check", {userId, textLength: text.length});
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a grammar and spelling checker. Analyze the provided text and return a JSON array of errors. Each error should have: type (grammar/spelling), message (description), start (character position), end (character position), suggestions (array of corrections). Return only valid JSON, no other text."
+        },
+        {role: "user", content: text},
+      ],
+      temperature: 0,
+    });
+
+    const endTime = Date.now();
+    const latency = endTime - startTime;
+
+    logger.log("Grammar check completed", {userId, latency});
+
+    let errors = [];
+    try {
+      const content = completion.choices[0].message.content;
+      errors = JSON.parse(content);
+    } catch (parseError) {
+      logger.warn("Failed to parse grammar check response as JSON, returning empty array", {parseError});
+      errors = [];
+    }
+
+    return {errors, latency};
+  } catch (error) {
+    logger.error("Error calling OpenAI API for grammar check:", error);
+    throw new HttpsError("internal", "Failed to check grammar and spelling.");
+  }
+});
+
 exports.healthCheck = onRequest(async (req, res) => {
   logger.log("healthCheck endpoint hit");
   try {

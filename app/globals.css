@@ -4,6 +4,7 @@
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+  @apply bg-background text-foreground;
 }
 
 @layer utilities {
@@ -29,7 +30,7 @@ body {
     --accent: 0 0% 96.1%;
     --accent-foreground: 0 0% 9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: hsl(var(--destructive) / <alpha-value>);
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
@@ -88,7 +89,10 @@ body {
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+}
+
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
 }

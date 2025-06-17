@@ -13,9 +13,10 @@ import {
 import { Skeleton } from './ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
 import type { Version } from '@/types/version'
+import { Timestamp, FieldValue } from 'firebase/firestore'
+import { FirestoreTimestamp } from '@/types/document'
 
 interface VersionHistorySidebarProps {
-  documentId: string | null
   isOpen: boolean
   onClose: () => void
   onRestore: (versionId: string) => void
@@ -25,15 +26,23 @@ interface VersionHistorySidebarProps {
   error?: string | null
 }
 
-const getRelativeTime = (timestamp: any) => {
+const getRelativeTime = (timestamp: FirestoreTimestamp) => {
   if (!timestamp) return ''
-  // Firestore Timestamps can be seconds and nanoseconds, or a toDate() method.
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000)
-  return formatDistanceToNow(date, { addSuffix: true })
+  if (timestamp instanceof Timestamp) {
+    return formatDistanceToNow(timestamp.toDate(), { addSuffix: true })
+  }
+  if (typeof timestamp === 'number') {
+    return formatDistanceToNow(new Date(timestamp * 1000), { addSuffix: true })
+  }
+  // We can't get a time from a FieldValue before it's written.
+  if (timestamp instanceof FieldValue) {
+    return 'Just now'
+  }
+  // Fallback for unexpected types
+  return ''
 }
 
 export function VersionHistorySidebar({
-  documentId,
   isOpen,
   onClose,
   onRestore,

@@ -10,8 +10,7 @@ import { useDocuments } from '@/hooks/use-documents'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
 import { VersionHistorySidebar } from './version-history-sidebar'
-import type { Document, AutoSaveStatus } from '@/types/document'
-import { Timestamp } from 'firebase/firestore'
+import type { AutoSaveStatus } from '@/types/document'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
@@ -24,7 +23,6 @@ export function DocumentContainer() {
     loading,
     createDocument,
     updateDocument,
-    deleteDocument,
     restoreDocumentVersion,
   } = useDocuments()
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
@@ -223,56 +221,61 @@ export function DocumentContainer() {
       {/* Main Content Area */}
       <main className="relative flex">
         <div
-          className={`flex-1 transition-all duration-300 ${isAISidebarOpen && !isDistractionFree ? 'mr-80' : 'mr-0'}`}
+          className={`transition-all duration-300 ${isAISidebarOpen && !isDistractionFree ? 'mr-80' : 'mr-0'}`}
         >
-          {isDistractionFree && (
-            <div className="absolute right-4 top-4 z-50">
-              <DistractionFreeToggle
-                isDistractionFree={isDistractionFree}
-                onToggle={handleDistractionFreeToggle}
-              />
-            </div>
-          )}
-          {activeDocument && user?.uid ? (
-            <DocumentEditor
-              key={activeDocumentId}
-              documentId={activeDocument.id}
-              initialDocument={activeDocument}
-              onSave={handleSave}
-              saveStatus={saveStatus}
-              suggestions={[]}
-              onApplySuggestion={() => {}}
-              onDismissSuggestion={() => {}}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <p className="text-muted-foreground">
-                  {documents.length > 0
-                    ? 'Select a document to start editing'
-                    : 'Create a new document to begin'}
-                </p>
-                <button
-                  onClick={handleNewDocument}
-                  className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
-                >
-                  New Document
-                </button>
+          <div className="relative h-full">
+            {isDistractionFree && (
+              <div className="absolute right-4 top-4 z-50">
+                <DistractionFreeToggle
+                  isDistractionFree={isDistractionFree}
+                  onToggle={handleDistractionFreeToggle}
+                />
               </div>
-            </div>
-          )}
+            )}
+            {activeDocument && user?.uid ? (
+              <DocumentEditor
+                key={activeDocumentId}
+                documentId={activeDocument.id}
+                initialDocument={activeDocument}
+                onSave={handleSave}
+                saveStatus={saveStatus}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <p className="text-muted-foreground">
+                    {documents.length > 0
+                      ? 'Select a document to start editing'
+                      : 'Create a new document to begin'}
+                  </p>
+                  <button
+                    onClick={handleNewDocument}
+                    className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
+                  >
+                    New Document
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* AI Sidebar */}
-        {isAISidebarOpen && !isDistractionFree && (
-          <AISidebar isOpen={isAISidebarOpen} onToggle={handleAISidebarToggle} />
+        {!isDistractionFree && (
+          <aside
+            className={`fixed right-0 top-0 z-40 h-full w-80 transform bg-background shadow-lg transition-transform duration-300
+              ${isAISidebarOpen && !isDistractionFree ? 'translate-x-0' : 'translate-x-full'}`}
+          >
+            <AISidebar
+              isOpen={isAISidebarOpen}
+            />
+          </aside>
         )}
       </main>
 
       <VersionHistorySidebar
         isOpen={isVersionHistoryOpen}
-        onClose={() => setIsVersionHistoryOpen(false)}
-        documentId={activeDocumentId}
+        onClose={handleToggleVersionHistory}
         onRestore={handleRestoreVersion}
         onView={handleViewVersion}
         versions={versions}

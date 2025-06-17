@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,7 +30,7 @@ export function EnhancedDocumentList({
   onDocumentSelect,
   onNewDocument,
 }: EnhancedDocumentListProps) {
-  const { user, loading } = useAuth()
+  const { loading } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
 
   const getStatusColor = (status: Document["status"]) => {
