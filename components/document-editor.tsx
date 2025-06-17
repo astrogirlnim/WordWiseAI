@@ -45,7 +45,39 @@ export function DocumentEditor({
 
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
+  const handleContextMenu = (view: unknown, event: MouseEvent) => {
+    console.log('[DocumentEditor] Context menu event captured via handleDOMEvents.');
+    const target = event.target as HTMLElement;
+    const errorSpan = target.closest('.grammar-error');
+    if (errorSpan) {
+        console.log('[DocumentEditor] Found error span:', errorSpan);
+        const errorJson = errorSpan.getAttribute('data-error-json');
+        console.log('[DocumentEditor] Found error JSON:', errorJson);
+        if (errorJson) {
+            try {
+              const error: GrammarError = JSON.parse(errorJson);
+              console.log('[DocumentEditor] Parsed error object:', error);
+              setContextMenu({ error });
+              // Prevent default context menu, since we are showing our own
+              event.preventDefault();
+              return true; 
+            } catch (parseError) {
+              console.error('[DocumentEditor] Failed to parse error JSON:', parseError);
+              setContextMenu(null);
+            }
+        } else {
+            setContextMenu(null);
+        }
+    } else {
+        console.log('[DocumentEditor] Clicked outside an error span.');
+        setContextMenu(null);
+    }
+    // Allow default context menu if not on an error
+    return false;
+  }
+
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         // Disable history to manage it manually if needed, or for performance.
@@ -56,6 +88,11 @@ export function DocumentEditor({
       }),
       GrammarExtension,
     ],
+    editorProps: {
+      handleDOMEvents: {
+        contextmenu: handleContextMenu,
+      },
+    },
     content: initialDocument.content || '',
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
@@ -196,6 +233,7 @@ export function DocumentEditor({
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
       const { tr } = editor.state;
+      console.log('[DocumentEditor] Setting grammarErrors meta:', errors);
       tr.setMeta('grammarErrors', errors);
       editor.view.dispatch(tr);
     }
@@ -244,68 +282,43 @@ export function DocumentEditor({
   const characterCount = getCharacterCount(editor?.getText() || '')
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Document Title */}
-      <div className="border-b px-6 py-4">
-        <input
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          className="w-full border-none bg-transparent text-2xl font-semibold outline-none placeholder:text-muted-foreground"
-          placeholder="Untitled Document"
-        />
-      </div>
-
-      {/* Editor Area */}
-      <ContextMenuPrimitive.Root onOpenChange={(open) => {
-          if (!open) {
-              setContextMenu(null);
-          }
-      }}>
-        <ContextMenuPrimitive.Trigger asChild>
-          <div className="relative flex-1 prose dark:prose-invert max-w-none" onContextMenuCapture={(e) => {
-              const target = e.target as HTMLElement;
-              const errorSpan = target.closest('.grammar-error');
-              if (errorSpan) {
-                  const errorJson = errorSpan.getAttribute('data-error-json');
-                  if (errorJson) {
-                      const error: GrammarError = JSON.parse(errorJson);
-                      setContextMenu({ error });
-                  } else {
-                      setContextMenu(null);
-                  }
-              } else {
-                  setContextMenu(null);
-              }
-          }}>
-            <EditorContent editor={editor} className="h-full w-full resize-none border-none bg-transparent px-6 py-6 text-base leading-relaxed outline-none" />
-          </div>
+    <div className="flex flex-col h-full">
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => onSave?.(editor?.getHTML() || '', title)}
+        className="text-2xl font-bold p-2 bg-transparent border-b border-gray-200 dark:border-gray-700 focus:outline-none"
+        aria-label="Document Title"
+      />
+      <ContextMenuPrimitive.Root>
+        <ContextMenuPrimitive.Trigger>
+          <EditorContent editor={editor} className="flex-grow overflow-y-auto p-4" />
         </ContextMenuPrimitive.Trigger>
-        {contextMenu && (
-            <ContextMenuContent>
-                <ContextMenuLabel>Suggestions for &quot;{contextMenu.error.error}&quot;</ContextMenuLabel>
-                <ContextMenuSeparator />
-                {contextMenu.error.suggestions.length > 0 ? (
-                    contextMenu.error.suggestions.map((suggestion, index) => (
-                        <ContextMenuItem key={index} onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}>
-                            {suggestion}
-                        </ContextMenuItem>
-                    ))
-                ) : (
-                    <ContextMenuItem disabled>No suggestions available</ContextMenuItem>
-                )}
-                <ContextMenuSeparator />
-                <ContextMenuItem onSelect={() => handleIgnoreError(contextMenu.error)}>Ignore</ContextMenuItem>
-                <ContextMenuItem onSelect={() => handleAddToDictionary(contextMenu.error)}>Add to Dictionary</ContextMenuItem>
-            </ContextMenuContent>
+        {contextMenu?.error && (
+          <ContextMenuContent>
+            <ContextMenuLabel className="text-gray-500">{contextMenu.error.explanation}</ContextMenuLabel>
+            <ContextMenuSeparator />
+            {contextMenu.error.suggestions?.map((suggestion, index) => (
+              <ContextMenuItem key={index} onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}>
+                {suggestion}
+              </ContextMenuItem>
+            ))}
+            {contextMenu.error.suggestions?.length === 0 && (
+                <ContextMenuItem disabled>No suggestions available</ContextMenuItem>
+            )}
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={() => handleIgnoreError(contextMenu.error)}>Ignore</ContextMenuItem>
+            <ContextMenuItem onSelect={() => handleAddToDictionary(contextMenu.error)}>
+              Add to Dictionary
+            </ContextMenuItem>
+          </ContextMenuContent>
         )}
       </ContextMenuPrimitive.Root>
-
-      {/* Status Bar */}
       <DocumentStatusBar
+        wordCount={editor ? getWordCount(editor) : 0}
+        characterCount={editor ? getCharacterCount(editor) : 0}
         saveStatus={isChecking ? { status: 'checking' } : saveStatus}
-        wordCount={wordCount}
-        characterCount={characterCount}
       />
     </div>
   )
