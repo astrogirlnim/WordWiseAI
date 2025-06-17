@@ -53,7 +53,7 @@ This checklist breaks the PRD into four dependency-ordered phases.
   - [~] Define `comments` collection schema (docId, anchorStart, anchorEnd). **(High)**  
 
 ### [~] Feature 2 – Realtime Collaboration Data  
-  - [~] Implement OT/CRDT structure in **Realtime DB** keyed by `docId`. **(Critical)**  
+  - [x] Implement OT/CRDT structure in **Realtime DB** keyed by `docId`. **(Critical)**  
   - [~] Create a `presence` node for cursor position and user color. **(High)**  
   - [x] Enforce a **20-editor limit** via Realtime DB security rules. **(Critical)**  
   - [~] Write a disconnect cleanup Cloud Function for `presence` nodes. **(Medium)**  

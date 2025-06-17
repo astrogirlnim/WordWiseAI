@@ -1,15 +1,17 @@
 'use client'
 
 import type React from 'react'
-
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { getWordCount, getCharacterCount } from '@/utils/document-utils'
 import { DocumentStatusBar } from './document-status-bar'
 import type { Document } from '@/types/document'
 import type { AISuggestion } from '@/types/ai-features'
+import { useYjs } from '@/hooks/use-yjs'
+import * as Y from 'yjs'
 
 interface DocumentEditorProps {
+  documentId: string
   initialDocument?: Partial<Document>
   onSave?: (content: string) => Promise<void>
   onContentChange?: (content: string) => void
@@ -19,6 +21,7 @@ interface DocumentEditorProps {
 }
 
 export function DocumentEditor({
+  documentId,
   initialDocument = { content: '', title: 'Untitled Document' },
   onSave = async (content: string) => {
     // Simulate API call
@@ -30,24 +33,52 @@ export function DocumentEditor({
   onApplySuggestion,
   onDismissSuggestion,
 }: DocumentEditorProps) {
-  const [content, setContent] = useState(initialDocument.content || '')
+  const { yDoc } = useYjs({ roomId: documentId })
+  const [content, setContent] = useState('')
   const [title, setTitle] = useState(
     initialDocument.title || 'Untitled Document',
   )
 
+  useEffect(() => {
+    const yText = yDoc.getText('content')
+
+    const observer = () => {
+      const currentContent = yText.toString()
+      setContent(currentContent)
+      onContentChange?.(currentContent)
+    }
+
+    yText.observe(observer)
+
+    // Set initial content if the shared document is empty
+    if (yText.length === 0) {
+      yText.insert(0, initialDocument.content || '')
+    } else {
+      setContent(yText.toString())
+    }
+
+    return () => {
+      yText.unobserve(observer)
+    }
+  }, [yDoc, initialDocument.content, onContentChange])
+
   const { saveStatus } = useAutoSave({
     content,
-    onSave,
+    onSave: () => onSave(content),
     delay: 2000,
   })
 
   const handleContentChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newContent = e.target.value
-      setContent(newContent)
-      onContentChange?.(newContent)
+      const yText = yDoc.getText('content')
+      
+      yDoc.transact(() => {
+        yText.delete(0, yText.length)
+        yText.insert(0, newContent)
+      })
     },
-    [onContentChange],
+    [yDoc],
   )
 
   const handleTitleChange = useCallback(
