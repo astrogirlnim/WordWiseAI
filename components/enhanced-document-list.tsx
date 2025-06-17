@@ -181,7 +181,7 @@ export function EnhancedDocumentList({
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the document "{document.title}".
+                            This action cannot be undone. This will permanently delete the document &quot;{document.title}&quot;.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
