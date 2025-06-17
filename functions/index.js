@@ -138,6 +138,21 @@ exports.healthCheck = onRequest(
         cors: allowedOrigins,
     },
     async (req, res) => {
+        // Manually set CORS headers to be explicit.
+        const origin = req.headers.origin;
+        if (allowedOrigins.includes(origin)) {
+            res.set("Access-Control-Allow-Origin", origin);
+        }
+
+        // Explicitly handle preflight OPTIONS requests.
+        if (req.method === 'OPTIONS') {
+            res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            res.set('Access-Control-Max-Age', '3600');
+            res.status(204).send('');
+            return;
+        }
+
         const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
         if (!openai) {
             logger.error("OpenAI client not initialized. Check API key configuration.");
@@ -172,6 +187,21 @@ exports.checkGrammar = onRequest(
         cors: allowedOrigins,
     },
     async (req, res) => {
+        // Manually set CORS headers to be explicit.
+        const origin = req.headers.origin;
+        if (allowedOrigins.includes(origin)) {
+            res.set("Access-Control-Allow-Origin", origin);
+        }
+
+        // Explicitly handle preflight OPTIONS requests.
+        if (req.method === 'OPTIONS') {
+            res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            res.set('Access-Control-Max-Age', '3600');
+            res.status(204).send('');
+            return;
+        }
+
         // The `cors` option in onRequest should handle OPTIONS requests automatically.
         // This is a safety check for other methods.
         if (req.method !== "POST") {
