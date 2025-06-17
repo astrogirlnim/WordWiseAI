@@ -59,7 +59,6 @@ export function DocumentEditor({
   useEffect(() => {
     console.log(`[DocumentEditor] Initializing document ${documentId}`)
     const yText = yDoc.getText('content')
-    const initialContent = initialDocument.content || ''
 
     const handleSync = () => {
       console.log('[DocumentEditor] Provider synced. Comparing content.')

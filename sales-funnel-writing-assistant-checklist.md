@@ -112,11 +112,11 @@ This checklist breaks the PRD into four dependency-ordered phases.
 ## Phase 4 – Implementation Layer  
 *Criteria: application value delivery; depends on Phases 1-3.*
 
-### [x] Feature 1 – Real-Time Grammar & Spelling  
-  - [x] Send editor deltas to the Cloud Function after 300 ms idle. **(Critical)**  
-  - [x] Underline grammar errors (blue) and spelling errors (red) inline. **(Critical)**  
-  - [x] Show a right-click quick-fix menu with replacement options. **(Critical)**  
-  - [x] Log round-trip latency and fail test if > 2 s (p95). **(Critical)**  
+### [ ] Feature 1 – Real-Time Grammar & Spelling  
+  - [ ] Send editor deltas to the Cloud Function after 300 ms idle. **(Critical)**  
+  - [ ] Underline grammar errors (blue) and spelling errors (red) inline. **(Critical)**  
+  - [ ] Show a right-click quick-fix menu with replacement options. **(Critical)**  
+  - [ ] Log round-trip latency and fail test if > 2 s (p95). **(Critical)**  
 
 ### [ ] Feature 2 – Style & Tone Suggestions  
   - [ ] Detect paragraph tone and display a badge (persuasive, formal, etc.). **(High)**  
