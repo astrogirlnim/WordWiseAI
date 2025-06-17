@@ -19,14 +19,14 @@ const {OpenAI} = require("openai");
 const {onObjectFinalized} = require("firebase-functions/v2/storage");
 const {parse} = require("csv-parse/sync");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const functions = require('firebase-functions');
+const functions = require("firebase-functions");
 
 admin.initializeApp();
 
 const openai = new OpenAI({
   apiKey: functions.config().openai.key,
 });
-console.log('OpenAI API key loaded from functions.config().openai.key');
+console.log("OpenAI API key loaded from functions.config().openai.key");
 
 const
   rateLimit = {
