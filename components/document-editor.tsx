@@ -45,22 +45,15 @@ export function DocumentEditor({
 
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
-  const handleContextMenu = (view: unknown, event: MouseEvent) => {
-    console.log('[DocumentEditor] Context menu event captured via handleDOMEvents.');
+  const handleContextMenuCapture = (event: React.MouseEvent) => {
     const target = event.target as HTMLElement;
     const errorSpan = target.closest('.grammar-error');
     if (errorSpan) {
-        console.log('[DocumentEditor] Found error span:', errorSpan);
         const errorJson = errorSpan.getAttribute('data-error-json');
-        console.log('[DocumentEditor] Found error JSON:', errorJson);
         if (errorJson) {
             try {
               const error: GrammarError = JSON.parse(errorJson);
-              console.log('[DocumentEditor] Parsed error object:', error);
               setContextMenu({ error });
-              // Prevent default context menu, since we are showing our own
-              event.preventDefault();
-              return true; 
             } catch (parseError) {
               console.error('[DocumentEditor] Failed to parse error JSON:', parseError);
               setContextMenu(null);
@@ -69,18 +62,14 @@ export function DocumentEditor({
             setContextMenu(null);
         }
     } else {
-        console.log('[DocumentEditor] Clicked outside an error span.');
         setContextMenu(null);
     }
-    // Allow default context menu if not on an error
-    return false;
   }
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        // Disable history to manage it manually if needed, or for performance.
         history: false,
       }),
       Placeholder.configure({
@@ -88,11 +77,6 @@ export function DocumentEditor({
       }),
       GrammarExtension,
     ],
-    editorProps: {
-      handleDOMEvents: {
-        contextmenu: handleContextMenu,
-      },
-    },
     content: initialDocument.content || '',
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
@@ -104,7 +88,6 @@ export function DocumentEditor({
     onCreate: ({ editor }) => {
       const text = editor.getText()
       setPlainText(text)
-      // Kick off grammar check immediately
       if (text) {
         checkGrammarImmediately(text);
       }
@@ -173,7 +156,6 @@ export function DocumentEditor({
         .insertContentAt(replacementRange.from, suggestion)
         .run()
 
-      // Immediately re-check grammar after applying a suggestion
       if (editor) {
         checkGrammarImmediately(editor.getText())
       }
@@ -210,7 +192,6 @@ export function DocumentEditor({
   const handleAddToDictionary = useCallback(
     (error: GrammarError) => {
       if (!user) return
-      // TODO: Implement user dictionary service
       console.log('Adding to dictionary:', error.error)
       AuditService.logEvent(AuditEvent.SUGGESTION_ADD_TO_DICTIONARY, user.uid, {
         documentId,
@@ -248,38 +229,20 @@ export function DocumentEditor({
             const errorAtCursor = errors.find(e => from >= e.start && from <= e.end);
             if (errorAtCursor) {
                 event.preventDefault();
-                console.log("Keyboard shortcut for suggestions triggered, but pop-up location is not implemented.", errorAtCursor)
-            }
-        }
-
-        if (event.altKey && event.key === 'Enter') {
-            if (contextMenu) {
-                event.preventDefault();
-                const firstSuggestion = contextMenu.error.suggestions[0];
-                if (firstSuggestion) {
-                    handleApplySuggestion(contextMenu.error, firstSuggestion);
-                }
+                setContextMenu({ error: errorAtCursor });
             }
         }
     };
-
-    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-        window.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editor, errors, contextMenu, handleApplySuggestion]);
+  }, [editor, errors]);
 
-  const handleTitleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newTitle = e.target.value
-      setTitle(newTitle)
-      onSave?.(plainText, newTitle)
-    },
-    [plainText, onSave],
-  )
 
-  const wordCount = getWordCount(editor?.getText() || '')
-  const characterCount = getCharacterCount(editor?.getText() || '')
+  if (!editor) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -291,33 +254,35 @@ export function DocumentEditor({
         className="text-2xl font-bold p-2 bg-transparent border-b border-gray-200 dark:border-gray-700 focus:outline-none"
         aria-label="Document Title"
       />
-      <ContextMenuPrimitive.Root>
-        <ContextMenuPrimitive.Trigger>
-          <EditorContent editor={editor} className="flex-grow overflow-y-auto p-4" />
-        </ContextMenuPrimitive.Trigger>
-        {contextMenu?.error && (
-          <ContextMenuContent>
-            <ContextMenuLabel className="text-gray-500">{contextMenu.error.explanation}</ContextMenuLabel>
-            <ContextMenuSeparator />
-            {contextMenu.error.suggestions?.map((suggestion, index) => (
-              <ContextMenuItem key={index} onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}>
-                {suggestion}
+      <div onContextMenu={handleContextMenuCapture} className="flex-grow">
+        <ContextMenuPrimitive.Root onOpenChange={(open) => !open && setContextMenu(null)}>
+          <ContextMenuPrimitive.Trigger asChild>
+            <EditorContent editor={editor} className="flex-grow overflow-y-auto p-4 h-full" />
+          </ContextMenuPrimitive.Trigger>
+          {contextMenu?.error && (
+            <ContextMenuContent>
+              <ContextMenuLabel className="text-gray-500">{contextMenu.error.explanation}</ContextMenuLabel>
+              <ContextMenuSeparator />
+              {contextMenu.error.suggestions?.map((suggestion, index) => (
+                <ContextMenuItem key={index} onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}>
+                  {suggestion}
+                </ContextMenuItem>
+              ))}
+              {contextMenu.error.suggestions?.length === 0 && (
+                  <ContextMenuItem disabled>No suggestions available</ContextMenuItem>
+              )}
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={() => handleIgnoreError(contextMenu.error)}>Ignore</ContextMenuItem>
+              <ContextMenuItem onSelect={() => handleAddToDictionary(contextMenu.error)}>
+                Add to Dictionary
               </ContextMenuItem>
-            ))}
-            {contextMenu.error.suggestions?.length === 0 && (
-                <ContextMenuItem disabled>No suggestions available</ContextMenuItem>
-            )}
-            <ContextMenuSeparator />
-            <ContextMenuItem onSelect={() => handleIgnoreError(contextMenu.error)}>Ignore</ContextMenuItem>
-            <ContextMenuItem onSelect={() => handleAddToDictionary(contextMenu.error)}>
-              Add to Dictionary
-            </ContextMenuItem>
-          </ContextMenuContent>
-        )}
-      </ContextMenuPrimitive.Root>
+            </ContextMenuContent>
+          )}
+        </ContextMenuPrimitive.Root>
+      </div>
       <DocumentStatusBar
-        wordCount={editor ? getWordCount(editor) : 0}
-        characterCount={editor ? getCharacterCount(editor) : 0}
+        wordCount={getWordCount(editor.getText())}
+        characterCount={getCharacterCount(editor.getText())}
         saveStatus={isChecking ? { status: 'checking' } : saveStatus}
       />
     </div>
