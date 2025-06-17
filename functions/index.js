@@ -183,6 +183,7 @@ exports.healthCheck = onRequest({secrets: ["OPENAI_API_KEY"]}, healthCheckApp);
 
 const checkGrammarApp = express();
 checkGrammarApp.use(cors(corsOptions));
+checkGrammarApp.options('*', cors(corsOptions));
 checkGrammarApp.use(express.json()); // For parsing application/json
 checkGrammarApp.post("*", async (req, res) => {
     if (!openai) {
