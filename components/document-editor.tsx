@@ -13,7 +13,7 @@ import * as Y from 'yjs'
 interface DocumentEditorProps {
   documentId: string
   initialDocument?: Partial<Document>
-  onSave?: (content: string) => Promise<void>
+  onSave?: (content: string, title: string) => Promise<void>
   onContentChange?: (content: string) => void
   suggestions?: AISuggestion[]
   onApplySuggestion?: (suggestion: AISuggestion) => void
@@ -23,10 +23,10 @@ interface DocumentEditorProps {
 export function DocumentEditor({
   documentId,
   initialDocument = { content: '', title: 'Untitled Document' },
-  onSave = async (content: string) => {
+  onSave = async (content: string, title: string) => {
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 500))
-    console.log('Document saved:', content.slice(0, 50) + '...')
+    console.log('Document saved:', title, content.slice(0, 50) + '...')
   },
   onContentChange,
   suggestions = [],
@@ -64,7 +64,7 @@ export function DocumentEditor({
 
   const { saveStatus } = useAutoSave({
     content,
-    onSave: () => onSave(content),
+    onSave: () => onSave(content, title),
     delay: 2000,
   })
 

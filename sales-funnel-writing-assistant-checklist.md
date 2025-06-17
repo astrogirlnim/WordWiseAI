@@ -75,11 +75,11 @@ This checklist breaks the PRD into four dependency-ordered phases.
 ## Phase 3 – Interface Layer  
 *Criteria: user-facing components; depends on Phases 1 & 2.*
 
-### [ ] Feature 1 – Core Editor UI  
-  - [ ] Build a distraction-free editor component. **(Critical)**  
-  - [ ] Implement dark/light theme toggle with Tailwind. **(High)**  
-  - [ ] Show live word/character count in the footer. **(Medium)**  
-  - [ ] Display an autosave spinner whenever Firestore write completes. **(High)**  
+### [x] Feature 1 – Core Editor UI  
+  - [x] Build a distraction-free editor component. **(Critical)**  
+  - [x] Implement dark/light theme toggle with Tailwind. **(High)**  
+  - [x] Show live word/character count in the footer. **(Medium)**  
+  - [x] Display an autosave spinner whenever Firestore write completes. **(High)**  
 
 ### [ ] Feature 2 – Collaboration UI  
   - [ ] Render remote cursors with user names and colors. **(High)**  

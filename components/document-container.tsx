@@ -9,62 +9,58 @@ import { WritingGoalsModal } from './writing-goals-modal'
 import { useDocuments } from '@/hooks/use-documents'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
+import type { Document } from '@/types/document'
+import { Timestamp } from 'firebase/firestore'
+import { DistractionFreeToggle } from './distraction-free-toggle'
 
 export function DocumentContainer() {
   const { user } = useAuth()
-  const { documents, loading, createDocument, updateDocument } = useDocuments()
+  const {
+    documents,
+    loading,
+    createDocument,
+    updateDocument,
+    deleteDocument,
+  } = useDocuments()
 
-  const [content, setContent] = useState('')
-  const [activeDocumentId, setActiveDocumentId] = useState<string>('')
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
   const [writingGoals, setWritingGoals] =
     useState<WritingGoals>(defaultWritingGoals)
   const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false)
   const [showGoalsOnNewDocument, setShowGoalsOnNewDocument] = useState(true)
+  const [isDistractionFree, setIsDistractionFree] = useState(false)
 
   // Set active document when documents load
   useEffect(() => {
     if (documents.length > 0 && !activeDocumentId) {
-      const firstDoc = documents[0]
-      setActiveDocumentId(firstDoc.id)
-      setContent(firstDoc.content)
+      setActiveDocumentId(documents[0].id)
     }
   }, [documents, activeDocumentId])
 
-  const handleContentChange = useCallback(
-    async (newContent: string) => {
-      setContent(newContent)
-
-      if (activeDocumentId && user?.uid) {
-        // Auto-save document
-        await updateDocument(activeDocumentId, {
-          content: newContent,
-          wordCount: newContent.trim().split(/\s+/).filter(Boolean).length,
-          characterCount: newContent.length,
-        })
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isDistractionFree) {
+        setIsDistractionFree(false)
       }
-    },
-    [activeDocumentId, user?.uid, updateDocument],
-  )
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isDistractionFree])
 
   const handleDocumentSelect = useCallback(
     (documentId: string) => {
-      const document = documents.find((doc) => doc.id === documentId)
-      if (document) {
-        setActiveDocumentId(documentId)
-        setContent(document.content)
-      }
+      setActiveDocumentId(documentId)
     },
-    [documents],
+    [],
   )
 
   const handleNewDocument = useCallback(async () => {
     if (!user?.uid) return
 
-    const documentId = await createDocument('Untitled Document')
-    if (documentId) {
-      setActiveDocumentId(documentId)
-      setContent('')
+    const newDocId = await createDocument('Untitled Document')
+    if (newDocId) {
+      setActiveDocumentId(newDocId)
 
       if (showGoalsOnNewDocument) {
         setIsGoalsModalOpen(true)
@@ -98,6 +94,10 @@ export function DocumentContainer() {
     setIsAISidebarOpen((prev) => !prev)
   }, [])
 
+  const handleDistractionFreeToggle = useCallback(() => {
+    setIsDistractionFree((prev) => !prev)
+  }, [])
+
   const handleWritingGoalsClick = useCallback(() => {
     setIsGoalsModalOpen(true)
   }, [])
@@ -106,11 +106,17 @@ export function DocumentContainer() {
     setWritingGoals(newGoals)
   }, [])
 
+  const activeDocument =
+    documents.find((doc) => doc.id === activeDocumentId) || null
+
   // Convert documents to the format expected by navigation
   const navigationDocuments = documents.map((doc) => ({
     id: doc.id,
     title: doc.title,
-    lastModified: new Date(doc.updatedAt),
+    lastModified:
+      doc.updatedAt instanceof Timestamp
+        ? doc.updatedAt.toDate()
+        : new Date(doc.updatedAt as number),
     wordCount: doc.wordCount,
     isActive: doc.id === activeDocumentId,
   }))
@@ -134,37 +140,80 @@ export function DocumentContainer() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background">
+    <div className="grid min-h-screen w-full grid-rows-[auto_1fr]">
       {/* Navigation Bar */}
-      <NavigationBar
-        user={mockUser}
-        documents={navigationDocuments}
-        activeDocumentId={activeDocumentId}
-        isAISidebarOpen={isAISidebarOpen}
-        aiSuggestionCount={0}
-        writingGoals={writingGoals}
-        onDocumentSelect={handleDocumentSelect}
-        onNewDocument={handleNewDocument}
-        onUserAction={handleUserAction}
-        onAISidebarToggle={handleAISidebarToggle}
-        onWritingGoalsClick={handleWritingGoalsClick}
-      />
+      {!isDistractionFree && (
+        <NavigationBar
+          user={mockUser}
+          documents={navigationDocuments}
+          activeDocumentId={activeDocumentId || ''}
+          isAISidebarOpen={isAISidebarOpen}
+          aiSuggestionCount={0}
+          writingGoals={writingGoals}
+          isDistractionFree={isDistractionFree}
+          onDocumentSelect={handleDocumentSelect}
+          onNewDocument={handleNewDocument}
+          onUserAction={handleUserAction}
+          onAISidebarToggle={handleAISidebarToggle}
+          onWritingGoalsClick={handleWritingGoalsClick}
+          onDistractionFreeToggle={handleDistractionFreeToggle}
+        />
+      )}
 
       {/* Main Content Area */}
-      <div className="relative flex flex-1">
+      <main className="relative flex">
         <div
-          className={`flex-1 transition-all duration-300 ${isAISidebarOpen ? 'mr-80' : 'mr-0'}`}
+          className={`flex-1 transition-all duration-300 ${isAISidebarOpen && !isDistractionFree ? 'mr-80' : 'mr-0'}`}
         >
-          <DocumentEditor
-            onContentChange={handleContentChange}
-            suggestions={[]}
-            onApplySuggestion={() => {}}
-          />
+          {isDistractionFree && (
+            <div className="absolute right-4 top-4 z-50">
+              <DistractionFreeToggle
+                isDistractionFree={isDistractionFree}
+                onToggle={handleDistractionFreeToggle}
+              />
+            </div>
+          )}
+          {activeDocument && user?.uid ? (
+            <DocumentEditor
+              key={activeDocument.id}
+              documentId={activeDocument.id}
+              initialDocument={activeDocument}
+              onSave={async (content: string, title: string) => {
+                await updateDocument(activeDocument.id, {
+                  content,
+                  title,
+                  wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+                  characterCount: content.length,
+                })
+              }}
+              suggestions={[]}
+              onApplySuggestion={() => {}}
+              onDismissSuggestion={() => {}}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground">
+                  {documents.length > 0
+                    ? 'Select a document to start editing'
+                    : 'Create a new document to begin'}
+                </p>
+                <button
+                  onClick={handleNewDocument}
+                  className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
+                >
+                  New Document
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* AI Sidebar */}
-        <AISidebar isOpen={isAISidebarOpen} onToggle={handleAISidebarToggle} />
-      </div>
+        {isAISidebarOpen && !isDistractionFree && (
+          <AISidebar isOpen={isAISidebarOpen} onToggle={handleAISidebarToggle} />
+        )}
+      </main>
 
       {/* Writing Goals Modal */}
       <WritingGoalsModal

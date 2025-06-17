@@ -8,6 +8,8 @@ import { Separator } from '@/components/ui/separator'
 import { PenTool } from 'lucide-react'
 import type { User, DocumentListItem } from '@/types/navigation'
 import type { WritingGoals } from '@/types/writing-goals'
+import { ThemeToggle } from './theme-toggle'
+import { DistractionFreeToggle } from './distraction-free-toggle'
 
 interface NavigationBarProps {
   user: User
@@ -16,11 +18,13 @@ interface NavigationBarProps {
   isAISidebarOpen: boolean
   aiSuggestionCount?: number
   writingGoals: WritingGoals
+  isDistractionFree: boolean
   onDocumentSelect?: (documentId: string) => void
   onNewDocument?: () => void
   onUserAction?: (action: string) => void
   onAISidebarToggle?: () => void
   onWritingGoalsClick?: () => void
+  onDistractionFreeToggle?: () => void
 }
 
 export function NavigationBar({
@@ -30,11 +34,13 @@ export function NavigationBar({
   isAISidebarOpen,
   aiSuggestionCount = 0,
   writingGoals,
+  isDistractionFree,
   onDocumentSelect,
   onNewDocument,
   onUserAction,
   onAISidebarToggle,
   onWritingGoalsClick,
+  onDistractionFreeToggle,
 }: NavigationBarProps) {
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
@@ -101,6 +107,19 @@ export function NavigationBar({
           isOpen={isAISidebarOpen}
           onToggle={onAISidebarToggle || (() => {})}
           suggestionCount={aiSuggestionCount}
+        />
+
+        <Separator orientation="vertical" className="h-4" />
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
+
+        <Separator orientation="vertical" className="h-4" />
+
+        {/* Distraction Free Toggle */}
+        <DistractionFreeToggle
+          isDistractionFree={isDistractionFree}
+          onToggle={onDistractionFreeToggle || (() => {})}
         />
 
         <Separator orientation="vertical" className="h-4" />
