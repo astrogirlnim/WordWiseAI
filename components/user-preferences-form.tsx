@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,53 +10,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { User, Settings, Save } from "lucide-react"
 import type { UserProfile } from "@/types/user"
+import { userService } from "@/services/user-service"
 
 interface UserPreferencesFormProps {
   onSave?: (profile: UserProfile) => void
 }
 
 export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
-  const { user } = useUser()
+  const { user } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    loadUserProfile()
-  }, [user?.id])
-
-  const loadUserProfile = async () => {
-    if (!user?.id) return
-
-    try {
-      const response = await fetch("/api/user/me")
-      if (response.ok) {
-        const userData = await response.json()
-        setProfile(userData)
+    const loadUserProfile = async () => {
+      if (!user?.uid) {
+        setLoading(false)
+        return
       }
-    } catch (error) {
-      console.error("Error loading user profile:", error)
-    } finally {
-      setLoading(false)
+      try {
+        setLoading(true)
+        const userProfile = await userService.getUserProfile(user.uid)
+        if (userProfile) {
+          setProfile({ ...userProfile, email: user.email || '' })
+        }
+      } catch (error) {
+        console.error("Error loading user profile:", error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
+
+    loadUserProfile()
+  }, [user?.uid, user?.email])
 
   const handleSave = async () => {
-    if (!profile) return
+    if (!profile || !user?.uid) return
 
     try {
       setSaving(true)
-      const response = await fetch("/api/user/me", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
-      })
-
-      if (response.ok) {
-        const updatedProfile = await response.json()
-        setProfile(updatedProfile)
-        onSave?.(updatedProfile)
-      }
+      await userService.updateUserProfile(user.uid, profile)
+      onSave?.(profile)
     } catch (error) {
       console.error("Error saving user profile:", error)
     } finally {
