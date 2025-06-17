@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write .",
-    "prepare": "husky"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@google-cloud/opentelemetry-cloud-trace-exporter": "^2.4.1",
@@ -93,9 +92,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.34.1",
+    "eslint-config-next": "^15.3.3",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-react": "^7.37.5",
-    "husky": "^9.1.7",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
