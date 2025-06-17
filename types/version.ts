@@ -1,6 +1,9 @@
+import { FirestoreTimestamp } from './document'
+
 export interface Version {
   id: string;
-  content: string;
-  createdAt: number;
-  diff: string; // This could be a string representation of the diff, or a more complex object
+  content: string; // Storing full content for simplicity. Diff can be computed.
+  createdAt: FirestoreTimestamp;
+  authorId: string;
+  authorName: string; // Denormalized for easier display
 } 

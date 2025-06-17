@@ -1,11 +1,10 @@
 'use client'
 
 import type React from 'react'
-import { useState, useCallback, useEffect } from 'react'
-import { useAutoSave } from '@/hooks/use-auto-save'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { getWordCount, getCharacterCount } from '@/utils/document-utils'
 import { DocumentStatusBar } from './document-status-bar'
-import type { Document } from '@/types/document'
+import type { Document, AutoSaveStatus } from '@/types/document'
 import type { AISuggestion } from '@/types/ai-features'
 import { useYjs } from '@/hooks/use-yjs'
 import * as Y from 'yjs'
@@ -13,83 +12,127 @@ import * as Y from 'yjs'
 interface DocumentEditorProps {
   documentId: string
   initialDocument?: Partial<Document>
-  onSave?: (content: string, title: string) => Promise<void>
+  onSave?: (content: string, title: string) => void
   onContentChange?: (content: string) => void
   suggestions?: AISuggestion[]
   onApplySuggestion?: (suggestion: AISuggestion) => void
   onDismissSuggestion?: (suggestionId: string) => void
+  saveStatus: AutoSaveStatus
 }
 
 export function DocumentEditor({
   documentId,
   initialDocument = { content: '', title: 'Untitled Document' },
-  onSave = async (content: string, title: string) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    console.log('Document saved:', title, content.slice(0, 50) + '...')
-  },
+  onSave,
   onContentChange,
   suggestions = [],
   onApplySuggestion,
   onDismissSuggestion,
+  saveStatus,
 }: DocumentEditorProps) {
+  console.log('[DocumentEditor] Rendering with document:', documentId, 'initial content length:', initialDocument?.content?.length || 0)
+  
   const { yDoc } = useYjs({ roomId: documentId })
   const [content, setContent] = useState('')
-  const [title, setTitle] = useState(
-    initialDocument.title || 'Untitled Document',
-  )
+  const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
+  const isInitializedRef = useRef(false)
+  const lastSavedContentRef = useRef('')
 
+  // Initialize YJS content only once and set up observer
   useEffect(() => {
+    console.log('[DocumentEditor] Setting up YJS for document:', documentId)
     const yText = yDoc.getText('content')
 
     const observer = () => {
       const currentContent = yText.toString()
+      console.log('[DocumentEditor] YJS content changed, new length:', currentContent.length)
       setContent(currentContent)
       onContentChange?.(currentContent)
     }
 
     yText.observe(observer)
 
-    // Set initial content if the shared document is empty
-    if (yText.length === 0) {
-      yText.insert(0, initialDocument.content || '')
-    } else {
-      setContent(yText.toString())
+    // Initialize content only if YJS is empty and we have initial content
+    if (!isInitializedRef.current) {
+      const yjsContent = yText.toString()
+      const initContent = initialDocument.content || ''
+      
+      console.log('[DocumentEditor] Initializing content - YJS length:', yjsContent.length, 'Initial length:', initContent.length)
+      
+      if (yjsContent === '' && initContent !== '') {
+        console.log('[DocumentEditor] Setting initial content in YJS')
+        yDoc.transact(() => {
+          yText.insert(0, initContent)
+        })
+      } else if (yjsContent !== '') {
+        console.log('[DocumentEditor] Using existing YJS content')
+        setContent(yjsContent)
+        onContentChange?.(yjsContent)
+      } else {
+        console.log('[DocumentEditor] Both YJS and initial content are empty')
+        setContent(initContent)
+        onContentChange?.(initContent)
+      }
+      
+      lastSavedContentRef.current = yjsContent || initContent
+      isInitializedRef.current = true
     }
 
     return () => {
+      console.log('[DocumentEditor] Cleaning up YJS observer')
       yText.unobserve(observer)
     }
-  }, [yDoc, initialDocument.content, onContentChange])
+  }, [yDoc, documentId, initialDocument.content, onContentChange])
 
-  const { saveStatus } = useAutoSave({
-    content,
-    onSave: () => onSave(content, title),
-    delay: 2000,
-  })
+  // Update title when initialDocument changes
+  useEffect(() => {
+    console.log('[DocumentEditor] Title updated:', initialDocument.title)
+    setTitle(initialDocument.title || 'Untitled Document')
+  }, [initialDocument.title])
 
   const handleContentChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newContent = e.target.value
-      const yText = yDoc.getText('content')
+      console.log('[DocumentEditor] Textarea content changed, new length:', newContent.length)
       
-      yDoc.transact(() => {
-        yText.delete(0, yText.length)
-        yText.insert(0, newContent)
-      })
+      const yText = yDoc.getText('content')
+      const currentYjsContent = yText.toString()
+      
+      // Only update YJS if content actually differs to prevent feedback loops
+      if (currentYjsContent !== newContent) {
+        console.log('[DocumentEditor] Updating YJS content')
+        yDoc.transact(() => {
+          yText.delete(0, yText.length)
+          yText.insert(0, newContent)
+        })
+      }
+      
+      // Only trigger save if content actually changed
+      if (newContent !== lastSavedContentRef.current && onSave) {
+        console.log('[DocumentEditor] Content changed, triggering save')
+        onSave(newContent, title)
+        lastSavedContentRef.current = newContent
+      }
     },
-    [yDoc],
+    [yDoc, onSave, title],
   )
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setTitle(e.target.value)
+      const newTitle = e.target.value
+      console.log('[DocumentEditor] Title changed:', newTitle)
+      setTitle(newTitle)
+      if (onSave) {
+        onSave(content, newTitle)
+      }
     },
-    [],
+    [onSave, content],
   )
 
   const wordCount = getWordCount(content)
   const characterCount = getCharacterCount(content)
+
+  console.log('[DocumentEditor] Rendering editor with content length:', content.length)
 
   return (
     <div className="flex h-full flex-col">

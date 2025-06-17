@@ -87,10 +87,10 @@ This checklist breaks the PRD into four dependency-ordered phases.
   - [ ] Implement inline comment thread pop-ups anchored to selections. **(High)**  
   - [ ] Allow comments to be resolved and reopened. **(Medium)**  
 
-### [ ] Feature 3 – Version History UI  
-  - [ ] List snapshots with timestamp and author in a sidebar. **(High)**  
-  - [ ] Provide a diff viewer highlighting additions and deletions. **(Critical)**  
-  - [ ] Add "Restore this version" button that overwrites current doc. **(High)**  
+### [x] Feature 3 – Version History UI  
+  - [x] List snapshots with timestamp and author in a sidebar. **(High)**  
+  - [x] Provide a diff viewer highlighting additions and deletions. **(Critical)**  
+  - [x] Add "Restore this version" button that overwrites current doc. **(High)**  
   - [ ] Paginate the list after 50 items. **(Medium)**  
 
 ### [ ] Feature 4 – Forms & Settings  

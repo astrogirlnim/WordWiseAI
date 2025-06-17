@@ -11,6 +11,7 @@ import type { WritingGoals } from '@/types/writing-goals'
 import { ThemeToggle } from './theme-toggle'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { EnhancedDocumentList } from './enhanced-document-list'
+import { VersionHistoryButton } from './version-history-button'
 
 interface NavigationBarProps {
   user: User
@@ -26,6 +27,7 @@ interface NavigationBarProps {
   onAISidebarToggle?: () => void
   onWritingGoalsClick?: () => void
   onDistractionFreeToggle?: () => void
+  onVersionHistoryClick?: () => void
 }
 
 export function NavigationBar({
@@ -42,6 +44,7 @@ export function NavigationBar({
   onAISidebarToggle,
   onWritingGoalsClick,
   onDistractionFreeToggle,
+  onVersionHistoryClick,
 }: NavigationBarProps) {
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
@@ -122,6 +125,10 @@ export function NavigationBar({
           isDistractionFree={isDistractionFree}
           onToggle={onDistractionFreeToggle || (() => {})}
         />
+
+        <Separator orientation="vertical" className="h-4" />
+
+        <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
 
         <Separator orientation="vertical" className="h-4" />
 

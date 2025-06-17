@@ -9,9 +9,13 @@ import { WritingGoalsModal } from './writing-goals-modal'
 import { useDocuments } from '@/hooks/use-documents'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
-import type { Document } from '@/types/document'
+import { VersionHistorySidebar } from './version-history-sidebar'
+import type { Document, AutoSaveStatus } from '@/types/document'
 import { Timestamp } from 'firebase/firestore'
 import { DistractionFreeToggle } from './distraction-free-toggle'
+import { VersionDiffViewer } from './version-diff-viewer'
+import { useDocumentVersions } from '@/hooks/use-document-versions'
+import { useAutoSave } from '@/hooks/use-auto-save'
 
 export function DocumentContainer() {
   const { user } = useAuth()
@@ -21,15 +25,25 @@ export function DocumentContainer() {
     createDocument,
     updateDocument,
     deleteDocument,
+    restoreDocumentVersion,
   } = useDocuments()
-
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
+  const { versions, loading: versionsLoading, error: versionsError, reloadVersions } = useDocumentVersions(activeDocumentId || null)
+
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
   const [writingGoals, setWritingGoals] =
     useState<WritingGoals>(defaultWritingGoals)
   const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false)
   const [showGoalsOnNewDocument, setShowGoalsOnNewDocument] = useState(true)
   const [isDistractionFree, setIsDistractionFree] = useState(false)
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
+  const [diffContent, setDiffContent] = useState<{
+    oldContent: string
+    newContent: string
+  } | null>(null)
+  const [saveStatus, setSaveStatus] = useState<AutoSaveStatus>({
+    status: 'saved'
+  })
 
   // Set active document when documents load
   useEffect(() => {
@@ -53,6 +67,35 @@ export function DocumentContainer() {
       setActiveDocumentId(documentId)
     },
     [],
+  )
+
+  const handleToggleVersionHistory = useCallback(() => {
+    setIsVersionHistoryOpen((prev) => !prev)
+  }, [])
+
+  const handleRestoreVersion = useCallback(
+    async (versionId: string) => {
+      if (!activeDocumentId || !restoreDocumentVersion) return
+
+      await restoreDocumentVersion(activeDocumentId, versionId)
+      await reloadVersions()
+      setIsVersionHistoryOpen(false)
+      // toast(...)
+    },
+    [activeDocumentId, restoreDocumentVersion, reloadVersions],
+  )
+
+  const handleViewVersion = useCallback(
+    (versionContent: string) => {
+      const currentDoc = documents.find((d) => d.id === activeDocumentId)
+      if (currentDoc) {
+        setDiffContent({
+          oldContent: versionContent,
+          newContent: currentDoc.content,
+        })
+      }
+    },
+    [activeDocumentId, documents],
   )
 
   const handleNewDocument = useCallback(async () => {
@@ -116,6 +159,34 @@ export function DocumentContainer() {
     plan: 'pro' as const,
   }
 
+  const handleSave = useAutoSave(
+    async (content: string, title: string) => {
+      if (!activeDocumentId) return
+              console.log('[DocumentContainer] Starting save process for', activeDocumentId)
+        setSaveStatus({ status: 'saving' })
+        try {
+          await updateDocument(activeDocumentId, {
+            content,
+            title,
+            wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+            characterCount: content.length,
+          })
+          setSaveStatus({ status: 'saved' })
+          console.log('[DocumentContainer] Save completed successfully')
+        } catch (error) {
+          console.error('[DocumentContainer] Failed to save document', error)
+          setSaveStatus({ status: 'error' })
+        }
+    },
+    2000,
+    {
+      compareArgs: (prev, current) => {
+        // Compare content and title to avoid unnecessary saves
+        return prev[0] === current[0] && prev[1] === current[1]
+      }
+    }
+  )
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -145,6 +216,7 @@ export function DocumentContainer() {
           onAISidebarToggle={handleAISidebarToggle}
           onWritingGoalsClick={handleWritingGoalsClick}
           onDistractionFreeToggle={handleDistractionFreeToggle}
+          onVersionHistoryClick={handleToggleVersionHistory}
         />
       )}
 
@@ -166,14 +238,8 @@ export function DocumentContainer() {
               key={activeDocument.id}
               documentId={activeDocument.id}
               initialDocument={activeDocument}
-              onSave={async (content: string, title: string) => {
-                await updateDocument(activeDocument.id, {
-                  content,
-                  title,
-                  wordCount: content.trim().split(/\s+/).filter(Boolean).length,
-                  characterCount: content.length,
-                })
-              }}
+              onSave={handleSave}
+              saveStatus={saveStatus}
               suggestions={[]}
               onApplySuggestion={() => {}}
               onDismissSuggestion={() => {}}
@@ -202,6 +268,26 @@ export function DocumentContainer() {
           <AISidebar isOpen={isAISidebarOpen} onToggle={handleAISidebarToggle} />
         )}
       </main>
+
+      <VersionHistorySidebar
+        isOpen={isVersionHistoryOpen}
+        onClose={() => setIsVersionHistoryOpen(false)}
+        documentId={activeDocumentId}
+        onRestore={handleRestoreVersion}
+        onView={handleViewVersion}
+        versions={versions}
+        loading={versionsLoading}
+        error={versionsError}
+      />
+
+      {diffContent && (
+        <VersionDiffViewer
+          isOpen={!!diffContent}
+          onClose={() => setDiffContent(null)}
+          oldContent={diffContent.oldContent}
+          newContent={diffContent.newContent}
+        />
+      )}
 
       {/* Writing Goals Modal */}
       <WritingGoalsModal
