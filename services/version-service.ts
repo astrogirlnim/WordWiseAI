@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   limit,
+  deleteDoc,
 } from 'firebase/firestore'
 import { firestore } from '@/lib/firebase'
 import type { Version } from '@/types/version'
@@ -109,6 +110,27 @@ export class VersionService {
     } catch (error) {
       console.error('[VersionService.createVersion] Error creating version:', error)
       throw new Error('Failed to create version')
+    }
+  }
+
+  /**
+   * Permanently deletes a single version document from Firestore.
+   * @param documentId The parent document identifier
+   * @param versionId  The version identifier to delete
+   */
+  static async deleteVersion(documentId: string, versionId: string): Promise<void> {
+    try {
+      console.log('[VersionService.deleteVersion] Deleting version', versionId, 'for document', documentId)
+      const versionRef = doc(
+        firestore,
+        `documents/${documentId}/versions`,
+        versionId,
+      )
+      await deleteDoc(versionRef)
+      console.log('[VersionService.deleteVersion] Version deleted successfully')
+    } catch (error) {
+      console.error('[VersionService.deleteVersion] Error deleting version:', error)
+      throw new Error('Failed to delete version')
     }
   }
 } 

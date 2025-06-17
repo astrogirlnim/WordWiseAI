@@ -13,12 +13,24 @@ import {
 import { Skeleton } from './ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
 import type { Version } from '@/types/version'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './ui/alert-dialog'
 
 interface VersionHistorySidebarProps {
   isOpen: boolean
   onClose: () => void
   onRestore: (versionId: string) => void
   onView: (versionContent: string) => void
+  onDelete: (versionId: string) => void
   versions: Version[]
   loading?: boolean
   error?: string | null
@@ -47,6 +59,7 @@ export function VersionHistorySidebar({
   onClose,
   onRestore,
   onView,
+  onDelete,
   versions,
   loading = false,
   error = null,
@@ -103,6 +116,27 @@ export function VersionHistorySidebar({
                   >
                     Restore
                   </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this version?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently remove the selected version from the document history.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete(version.id)}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             ))}

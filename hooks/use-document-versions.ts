@@ -33,5 +33,21 @@ export function useDocumentVersions(documentId: string | null) {
     loadVersions()
   }, [loadVersions])
 
-  return { versions, loading, error, reloadVersions: loadVersions }
+  const deleteVersion = useCallback(
+    async (versionId: string) => {
+      if (!documentId) return
+
+      try {
+        await VersionService.deleteVersion(documentId, versionId)
+        console.log('[useDocumentVersions] Deleted version', versionId, 'for document', documentId)
+        await loadVersions()
+      } catch (err) {
+        console.error('[useDocumentVersions] Error deleting version', err)
+        throw err
+      }
+    },
+    [documentId, loadVersions],
+  )
+
+  return { versions, loading, error, reloadVersions: loadVersions, deleteVersion }
 } 

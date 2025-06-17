@@ -17,6 +17,7 @@ import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
+import { AuditService, AuditEvent } from '@/services/audit-service'
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
@@ -34,7 +35,7 @@ export function DocumentContainer() {
     deleteDocument,
   } = useDocuments()
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
-  const { versions, loading: versionsLoading, error: versionsError, reloadVersions } = useDocumentVersions(activeDocumentId || null)
+  const { versions, loading: versionsLoading, error: versionsError, reloadVersions, deleteVersion } = useDocumentVersions(activeDocumentId || null)
   const { toast } = useToast()
 
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
@@ -225,6 +226,35 @@ export function DocumentContainer() {
     }
   )
 
+  const handleDeleteVersion = useCallback(
+    async (versionId: string) => {
+      if (!activeDocumentId || !deleteVersion || !user?.uid) return
+
+      try {
+        await deleteVersion(versionId)
+
+        // Optional audit log
+        await AuditService.logEvent(AuditEvent.VERSION_DELETE, user.uid, {
+          documentId: activeDocumentId,
+          versionId,
+        })
+
+        toast({
+          title: 'Version Deleted',
+          description: 'The selected version has been permanently removed.',
+        })
+      } catch (error) {
+        console.error('Failed to delete version:', error)
+        toast({
+          title: 'Error Deleting Version',
+          description: 'An unexpected error occurred. Please try again.',
+          variant: 'destructive',
+        })
+      }
+    },
+    [activeDocumentId, deleteVersion, toast, user?.uid],
+  )
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -313,6 +343,7 @@ export function DocumentContainer() {
         onClose={() => setIsVersionHistoryOpen(false)}
         onRestore={handleRestoreVersion}
         onView={handleViewVersion}
+        onDelete={handleDeleteVersion}
         versions={versions}
         loading={versionsLoading}
         error={versionsError}
