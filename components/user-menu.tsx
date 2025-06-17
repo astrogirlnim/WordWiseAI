@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,10 +9,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { User, Settings, CreditCard, HelpCircle, LogOut, Crown, ChevronDown } from "lucide-react"
-import type { User as UserType } from "@/types/navigation"
+} from '@/components/ui/dropdown-menu'
+import { Badge } from '@/components/ui/badge'
+import {
+  User,
+  Settings,
+  CreditCard,
+  HelpCircle,
+  LogOut,
+  Crown,
+  ChevronDown,
+} from 'lucide-react'
+import type { User as UserType } from '@/types/navigation'
 
 interface UserMenuProps {
   user: UserType
@@ -31,22 +39,22 @@ export function UserMenu({
   onHelpClick,
   onSignOut,
 }: UserMenuProps) {
-  const getPlanBadge = (plan: UserType["plan"]) => {
+  const getPlanBadge = (plan: UserType['plan']) => {
     switch (plan) {
-      case "pro":
+      case 'pro':
         return (
           <Badge variant="default" className="text-xs">
-            <Crown className="h-3 w-3 mr-1" />
+            <Crown className="mr-1 h-3 w-3" />
             Pro
           </Badge>
         )
-      case "team":
+      case 'team':
         return (
           <Badge variant="secondary" className="text-xs">
             Team
           </Badge>
         )
-      case "free":
+      case 'free':
         return (
           <Badge variant="outline" className="text-xs">
             Free
@@ -57,21 +65,28 @@ export function UserMenu({
 
   const getInitials = (name: string) => {
     return name
-      .split(" ")
+      .split(' ')
       .map((n) => n[0])
-      .join("")
+      .join('')
       .toUpperCase()
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="flex items-center gap-2 px-3 h-9">
+        <Button variant="ghost" className="flex h-9 items-center gap-2 px-3">
           <Avatar className="h-6 w-6">
-            <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-            <AvatarFallback className="text-xs">{getInitials(user.name)}</AvatarFallback>
+            <AvatarImage
+              src={user.avatar || '/placeholder.svg'}
+              alt={user.name}
+            />
+            <AvatarFallback className="text-xs">
+              {getInitials(user.name)}
+            </AvatarFallback>
           </Avatar>
-          <span className="hidden sm:inline-block max-w-[120px] truncate">{user.name}</span>
+          <span className="hidden max-w-[120px] truncate sm:inline-block">
+            {user.name}
+          </span>
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
@@ -82,37 +97,42 @@ export function UserMenu({
               <span className="font-medium">{user.name}</span>
               {getPlanBadge(user.plan)}
             </div>
-            <span className="text-xs text-muted-foreground font-normal">{user.email}</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              {user.email}
+            </span>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         <DropdownMenuItem onClick={onProfileClick} className="cursor-pointer">
-          <User className="h-4 w-4 mr-2" />
+          <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
 
         <DropdownMenuItem onClick={onSettingsClick} className="cursor-pointer">
-          <Settings className="h-4 w-4 mr-2" />
+          <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
 
         <DropdownMenuItem onClick={onBillingClick} className="cursor-pointer">
-          <CreditCard className="h-4 w-4 mr-2" />
+          <CreditCard className="mr-2 h-4 w-4" />
           Billing
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
         <DropdownMenuItem onClick={onHelpClick} className="cursor-pointer">
-          <HelpCircle className="h-4 w-4 mr-2" />
+          <HelpCircle className="mr-2 h-4 w-4" />
           Help & Support
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={onSignOut} className="cursor-pointer text-red-600">
-          <LogOut className="h-4 w-4 mr-2" />
+        <DropdownMenuItem
+          onClick={onSignOut}
+          className="cursor-pointer text-red-600"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
           Sign Out
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -1,23 +1,24 @@
-"use client"
+'use client'
 
-import { useState, useCallback, useEffect } from "react"
-import { useAuth } from "@/lib/auth-context"
-import { DocumentEditor } from "./document-editor"
-import { AISidebar } from "./ai-sidebar"
-import { NavigationBar } from "./navigation-bar"
-import { WritingGoalsModal } from "./writing-goals-modal"
-import { useDocuments } from "@/hooks/use-documents"
-import { defaultWritingGoals } from "@/utils/writing-goals-data"
-import type { WritingGoals } from "@/types/writing-goals"
+import { useState, useCallback, useEffect } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { DocumentEditor } from './document-editor'
+import { AISidebar } from './ai-sidebar'
+import { NavigationBar } from './navigation-bar'
+import { WritingGoalsModal } from './writing-goals-modal'
+import { useDocuments } from '@/hooks/use-documents'
+import { defaultWritingGoals } from '@/utils/writing-goals-data'
+import type { WritingGoals } from '@/types/writing-goals'
 
 export function DocumentContainer() {
   const { user } = useAuth()
   const { documents, loading, createDocument, updateDocument } = useDocuments()
 
-  const [content, setContent] = useState("")
-  const [activeDocumentId, setActiveDocumentId] = useState<string>("")
+  const [content, setContent] = useState('')
+  const [activeDocumentId, setActiveDocumentId] = useState<string>('')
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
-  const [writingGoals, setWritingGoals] = useState<WritingGoals>(defaultWritingGoals)
+  const [writingGoals, setWritingGoals] =
+    useState<WritingGoals>(defaultWritingGoals)
   const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false)
   const [showGoalsOnNewDocument, setShowGoalsOnNewDocument] = useState(true)
 
@@ -60,10 +61,10 @@ export function DocumentContainer() {
   const handleNewDocument = useCallback(async () => {
     if (!user?.uid) return
 
-    const documentId = await createDocument("Untitled Document")
+    const documentId = await createDocument('Untitled Document')
     if (documentId) {
       setActiveDocumentId(documentId)
-      setContent("")
+      setContent('')
 
       if (showGoalsOnNewDocument) {
         setIsGoalsModalOpen(true)
@@ -73,23 +74,23 @@ export function DocumentContainer() {
 
   const handleUserAction = useCallback((action: string) => {
     switch (action) {
-      case "profile":
-        console.log("Opening profile...")
+      case 'profile':
+        console.log('Opening profile...')
         break
-      case "settings":
-        console.log("Opening settings...")
+      case 'settings':
+        console.log('Opening settings...')
         break
-      case "billing":
-        console.log("Opening billing...")
+      case 'billing':
+        console.log('Opening billing...')
         break
-      case "help":
-        console.log("Opening help...")
+      case 'help':
+        console.log('Opening help...')
         break
-      case "signout":
-        console.log("Signing out...")
+      case 'signout':
+        console.log('Signing out...')
         break
       default:
-        console.log("Unknown action:", action)
+        console.log('Unknown action:', action)
     }
   }, [])
 
@@ -101,12 +102,9 @@ export function DocumentContainer() {
     setIsGoalsModalOpen(true)
   }, [])
 
-  const handleSaveWritingGoals = useCallback(
-    (newGoals: WritingGoals) => {
-      setWritingGoals(newGoals)
-    },
-    [],
-  )
+  const handleSaveWritingGoals = useCallback((newGoals: WritingGoals) => {
+    setWritingGoals(newGoals)
+  }, [])
 
   // Convert documents to the format expected by navigation
   const navigationDocuments = documents.map((doc) => ({
@@ -118,17 +116,17 @@ export function DocumentContainer() {
   }))
 
   const mockUser = {
-    id: user?.uid || "",
-    name: user?.displayName || "User",
-    email: user?.email || "",
-    plan: "pro" as const,
+    id: user?.uid || '',
+    name: user?.displayName || 'User',
+    email: user?.email || '',
+    plan: 'pro' as const,
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
           <p className="text-muted-foreground">Loading your documents...</p>
         </div>
       </div>
@@ -136,7 +134,7 @@ export function DocumentContainer() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col w-full">
+    <div className="flex min-h-screen w-full flex-col bg-background">
       {/* Navigation Bar */}
       <NavigationBar
         user={mockUser}
@@ -153,8 +151,10 @@ export function DocumentContainer() {
       />
 
       {/* Main Content Area */}
-      <div className="flex flex-1 relative">
-        <div className={`flex-1 transition-all duration-300 ${isAISidebarOpen ? "mr-80" : "mr-0"}`}>
+      <div className="relative flex flex-1">
+        <div
+          className={`flex-1 transition-all duration-300 ${isAISidebarOpen ? 'mr-80' : 'mr-0'}`}
+        >
           <DocumentEditor
             onContentChange={handleContentChange}
             suggestions={[]}
@@ -163,10 +163,7 @@ export function DocumentContainer() {
         </div>
 
         {/* AI Sidebar */}
-        <AISidebar
-          isOpen={isAISidebarOpen}
-          onToggle={handleAISidebarToggle}
-        />
+        <AISidebar isOpen={isAISidebarOpen} onToggle={handleAISidebarToggle} />
       </div>
 
       {/* Writing Goals Modal */}

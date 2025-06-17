@@ -1,13 +1,13 @@
-"use client"
+'use client'
 
-import { DocumentList } from "./document-list"
-import { UserMenu } from "./user-menu"
-import { AISidebarToggle } from "./ai-sidebar-toggle"
-import { WritingGoalsButton } from "./writing-goals-button"
-import { Separator } from "@/components/ui/separator"
-import { PenTool } from "lucide-react"
-import type { User, DocumentListItem } from "@/types/navigation"
-import type { WritingGoals } from "@/types/writing-goals"
+import { DocumentList } from './document-list'
+import { UserMenu } from './user-menu'
+import { AISidebarToggle } from './ai-sidebar-toggle'
+import { WritingGoalsButton } from './writing-goals-button'
+import { Separator } from '@/components/ui/separator'
+import { PenTool } from 'lucide-react'
+import type { User, DocumentListItem } from '@/types/navigation'
+import type { WritingGoals } from '@/types/writing-goals'
 
 interface NavigationBarProps {
   user: User
@@ -42,16 +42,16 @@ export function NavigationBar({
   }
 
   return (
-    <div className="flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 relative z-50">
+    <div className="relative z-50 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Left Section */}
       <div className="flex items-center gap-4">
         {/* Logo/Brand */}
         <div className="flex items-center gap-2">
           <PenTool className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">WordWise AI</span>
+          <span className="text-lg font-semibold">WordWise AI</span>
         </div>
 
-        <Separator orientation="vertical" className="h-4 hidden lg:block" />
+        <Separator orientation="vertical" className="hidden h-4 lg:block" />
 
         {/* Document List */}
         <div className="hidden lg:block">
@@ -63,11 +63,14 @@ export function NavigationBar({
           />
         </div>
 
-        <Separator orientation="vertical" className="h-4 hidden lg:block" />
+        <Separator orientation="vertical" className="hidden h-4 lg:block" />
 
         {/* Writing Goals */}
         <div className="hidden md:block">
-          <WritingGoalsButton currentGoals={writingGoals} onClick={onWritingGoalsClick || (() => {})} />
+          <WritingGoalsButton
+            currentGoals={writingGoals}
+            onClick={onWritingGoalsClick || (() => {})}
+          />
         </div>
       </div>
 
@@ -85,24 +88,31 @@ export function NavigationBar({
 
         {/* Mobile Writing Goals */}
         <div className="md:hidden">
-          <WritingGoalsButton currentGoals={writingGoals} onClick={onWritingGoalsClick || (() => {})} />
+          <WritingGoalsButton
+            currentGoals={writingGoals}
+            onClick={onWritingGoalsClick || (() => {})}
+          />
         </div>
 
         <Separator orientation="vertical" className="h-4" />
 
         {/* AI Sidebar Toggle */}
-        <AISidebarToggle isOpen={isAISidebarOpen} onToggle={onAISidebarToggle || (() => {})} suggestionCount={aiSuggestionCount} />
+        <AISidebarToggle
+          isOpen={isAISidebarOpen}
+          onToggle={onAISidebarToggle || (() => {})}
+          suggestionCount={aiSuggestionCount}
+        />
 
         <Separator orientation="vertical" className="h-4" />
 
         {/* User Menu */}
         <UserMenu
           user={user}
-          onProfileClick={() => handleUserAction("profile")}
-          onSettingsClick={() => handleUserAction("settings")}
-          onBillingClick={() => handleUserAction("billing")}
-          onHelpClick={() => handleUserAction("help")}
-          onSignOut={() => handleUserAction("signout")}
+          onProfileClick={() => handleUserAction('profile')}
+          onSettingsClick={() => handleUserAction('settings')}
+          onBillingClick={() => handleUserAction('billing')}
+          onHelpClick={() => handleUserAction('help')}
+          onSignOut={() => handleUserAction('signout')}
         />
       </div>
     </div>

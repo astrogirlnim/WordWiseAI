@@ -2,10 +2,10 @@ export interface Document {
   id: string
   title: string
   content: string
-  userId: string
+  ownerId: string
   orgId: string
   goalId?: string
-  status: "draft" | "review" | "final" | "archived"
+  status: 'draft' | 'review' | 'final' | 'archived'
   analysisSummary: {
     overallScore: number
     brandAlignmentScore: number
@@ -19,8 +19,15 @@ export interface Document {
   updatedAt: number
 }
 
+export interface DocumentVersion {
+  id: string;
+  content: string;
+  diff: string; // Or a more structured diff object
+  createdAt: number;
+}
+
 export interface AutoSaveStatus {
-  status: "saving" | "saved" | "error"
+  status: 'saving' | 'saved' | 'error'
   lastSaved?: number
 }
 
@@ -39,7 +46,7 @@ export interface VoiceReport {
   violations: {
     type: string
     description: string
-    severity: "low" | "medium" | "high"
+    severity: 'low' | 'medium' | 'high'
     suggestions: string[]
   }[]
   createdAt: number

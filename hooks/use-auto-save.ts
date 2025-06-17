@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import type { AutoSaveStatus } from "@/types/document"
+import { useState, useEffect, useRef, useCallback } from 'react'
+import type { AutoSaveStatus } from '@/types/document'
 
 interface UseAutoSaveProps {
   content: string
@@ -9,8 +9,14 @@ interface UseAutoSaveProps {
   delay?: number
 }
 
-export function useAutoSave({ content, onSave, delay = 2000 }: UseAutoSaveProps) {
-  const [saveStatus, setSaveStatus] = useState<AutoSaveStatus>({ status: "saved" })
+export function useAutoSave({
+  content,
+  onSave,
+  delay = 2000,
+}: UseAutoSaveProps) {
+  const [saveStatus, setSaveStatus] = useState<AutoSaveStatus>({
+    status: 'saved',
+  })
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const onSaveRef = useRef(onSave)
   const lastContentRef = useRef(content)
@@ -22,15 +28,15 @@ export function useAutoSave({ content, onSave, delay = 2000 }: UseAutoSaveProps)
 
   const triggerSave = useCallback(async (contentToSave: string) => {
     try {
-      setSaveStatus({ status: "saving" })
+      setSaveStatus({ status: 'saving' })
       await onSaveRef.current(contentToSave)
       setSaveStatus({
-        status: "saved",
+        status: 'saved',
         lastSaved: Date.now(),
       })
     } catch (error) {
-      setSaveStatus({ status: "error" })
-      console.error("Auto-save failed:", error)
+      setSaveStatus({ status: 'error' })
+      console.error('Auto-save failed:', error)
     }
   }, [])
 

@@ -14,11 +14,11 @@ export function formatLastSaved(date: Date): string {
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
 
   if (diffInSeconds < 60) {
-    return "Just now"
+    return 'Just now'
   } else if (diffInSeconds < 3600) {
     const minutes = Math.floor(diffInSeconds / 60)
-    return `${minutes} minute${minutes > 1 ? "s" : ""} ago`
+    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
   } else {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 }

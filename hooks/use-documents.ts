@@ -1,9 +1,9 @@
-"use client"
+'use client'
 
-import { useState, useEffect, useCallback } from "react"
-import { useAuth } from "@/lib/auth-context"
-import { DocumentService } from "@/services/document-service"
-import type { Document } from "@/types/document"
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { DocumentService } from '@/services/document-service'
+import type { Document } from '@/types/document'
 
 export function useDocuments() {
   const { user } = useAuth()
@@ -20,8 +20,8 @@ export function useDocuments() {
       setDocuments(userDocuments)
       setError(null)
     } catch (err) {
-      setError("Failed to load documents")
-      console.error("Error loading documents:", err)
+      setError('Failed to load documents')
+      console.error('Error loading documents:', err)
     } finally {
       setLoading(false)
     }
@@ -36,8 +36,8 @@ export function useDocuments() {
         await loadDocuments() // Refresh the list
         return documentId
       } catch (err) {
-        setError("Failed to create document")
-        console.error("Error creating document:", err)
+        setError('Failed to create document')
+        console.error('Error creating document:', err)
         return null
       }
     },
@@ -51,10 +51,14 @@ export function useDocuments() {
       try {
         await DocumentService.updateDocument(user.uid, documentId, updates)
         // Update local state
-        setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? { ...doc, ...updates } : doc)))
+        setDocuments((prev) =>
+          prev.map((doc) =>
+            doc.id === documentId ? { ...doc, ...updates } : doc,
+          ),
+        )
       } catch (err) {
-        setError("Failed to update document")
-        console.error("Error updating document:", err)
+        setError('Failed to update document')
+        console.error('Error updating document:', err)
       }
     },
     [user?.uid],
@@ -68,8 +72,8 @@ export function useDocuments() {
         await DocumentService.deleteDocument(user.uid, documentId)
         setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
       } catch (err) {
-        setError("Failed to delete document")
-        console.error("Error deleting document:", err)
+        setError('Failed to delete document')
+        console.error('Error deleting document:', err)
       }
     },
     [user?.uid],

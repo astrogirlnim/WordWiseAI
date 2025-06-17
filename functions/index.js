@@ -107,3 +107,139 @@ exports.healthCheck = functions.https.onCall(async () => {
     return { success: false, error: 'OpenAI API is not reachable' }
   }
 })
+
+exports.cleanupPresence = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
+    const presenceRef = admin.database().ref('documents');
+    const now = Date.now();
+    const cutoff = now - 2 * 60 * 1000; // 2 minutes ago
+
+    const snapshot = await presenceRef.once('value');
+    const updates = {};
+
+    snapshot.forEach((doc) => {
+        const presence = doc.child('presence');
+        presence.forEach((user) => {
+            if (user.val().timestamp < cutoff) {
+                updates[user.key] = null;
+            }
+        });
+        if (Object.keys(updates).length > 0) {
+            presence.ref.update(updates);
+        }
+    });
+
+    return null;
+});
+
+exports.processGlossary = functions.storage.object().onFinalize(async (object) => {
+    const filePath = object.name;
+    const contentType = object.contentType;
+
+    if (!filePath.startsWith('glossaries/')) {
+        return null;
+    }
+
+    if (contentType !== 'text/csv' && contentType !== 'application/json') {
+        console.log('Unsupported file type.');
+        return null;
+    }
+
+    const fileBucket = object.bucket;
+    const bucket = admin.storage().bucket(fileBucket);
+    const file = bucket.file(filePath);
+
+    const contents = (await file.download()).toString('utf8');
+    const pathParts = filePath.split('/');
+    const userId = pathParts[1];
+    const fileId = pathParts[2].split('.')[0];
+
+    let terms;
+    if (contentType === 'application/json') {
+        terms = JSON.parse(contents);
+    } else {
+        // Simple CSV parsing
+        terms = contents.split('\n').map(line => {
+            const [term, definition] = line.split(',');
+            return { term, definition };
+        });
+    }
+
+    try {
+        await admin.firestore().collection('glossaries').doc(fileId).set({
+            userId,
+            terms,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Glossary ${fileId} processed successfully.`);
+    } catch (error) {
+        console.error(`Error processing glossary ${fileId}:`, error);
+    }
+
+    return null;
+});
+
+exports.pruneSnapshots = functions.pubsub.schedule('every 24 hours').onRun(async (context) => {
+    const db = admin.firestore();
+    const docsRef = db.collection('docs');
+    const snapshot = await docsRef.get();
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const timestamp30DaysAgo = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+
+    snapshot.forEach(async (doc) => {
+        const versionsRef = doc.ref.collection('versions');
+        const versionsSnapshot = await versionsRef.orderBy('createdAt', 'desc').get();
+
+        if (versionsSnapshot.size > 100) {
+            const versionsToDelete = versionsSnapshot.docs.slice(100);
+            versionsToDelete.forEach(async (versionDoc) => {
+                await versionDoc.ref.delete();
+            });
+        }
+
+        const oldVersionsQuery = versionsRef.where('createdAt', '<', timestamp30DaysAgo);
+        const oldVersionsSnapshot = await oldVersionsQuery.get();
+        oldVersionsSnapshot.forEach(async (versionDoc) => {
+            await versionDoc.ref.delete();
+        });
+    });
+
+    return null;
+});
+
+exports.logDocumentChanges = functions.firestore
+    .document('docs/{docId}')
+    .onWrite(async (change, context) => {
+        const docId = context.params.docId;
+        const db = admin.firestore();
+        const logRef = db.collection('auditLogs');
+
+        if (!change.before.exists) {
+            // Document created
+            await logRef.add({
+                docId,
+                eventType: 'create',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                userId: change.after.data().ownerId,
+            });
+        } else if (!change.after.exists) {
+            // Document deleted
+            await logRef.add({
+                docId,
+                eventType: 'delete',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                userId: change.before.data().ownerId,
+            });
+        } else {
+            // Document updated
+            await logRef.add({
+                docId,
+                eventType: 'update',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                userId: change.after.data().ownerId,
+            });
+        }
+
+        return null;
+    });

@@ -3,11 +3,13 @@
 ---
 
 ## ✅ Project Overview
+
 Build an AI-first sales funnel and landing page creation assistant specifically designed for marketing professionals. The MVP focuses on high-converting copy optimization, funnel-specific suggestions, conversion rate analysis, and goal-based writing feedback tailored for sales pages, opt-in forms, email sequences, and click funnels.
 
 ---
 
 ## ✅ Target User & Core Workflows
+
 1. **Marketing Manager** creates and optimizes landing pages with conversion-focused AI suggestions
 2. **Copywriter** writes sales pages, email sequences, and ad copy with real-time conversion optimization
 3. **Growth Hacker** A/B tests different copy variations and analyzes performance metrics
@@ -19,6 +21,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 ## ✅ Technical Foundation
 
 ### 🔹 Data Models (Minimal Changes from Existing)
+
 - `UserProfile`: preferences, role (marketing-manager|copywriter|growth-hacker), orgId, funnel preferences
 - `Organization`: brand guidelines, conversion tone preferences, target audience definitions
 - `Document`: title, content, funnelType, conversionGoal, ownerId, orgId, status, conversionAnalysis
@@ -28,6 +31,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 - `UsageAnalytics`: conversion suggestion metrics, funnel performance trends
 
 ### 🔹 API Endpoints (Reuse Existing Structure)
+
 - `GET/PUT /api/user/me`
 - `POST/GET/PUT /api/documents/:id` (documents now represent funnel pages)
 - `POST /api/suggestions` and `POST /api/suggestions/:id/{accept|reject}`
@@ -36,6 +40,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 - `GET/PUT /api/organization/:id/guidelines` (brand + conversion guidelines)
 
 ### 🔹 Key Components (Leverage Existing UI)
+
 - `DocumentEditor` → `FunnelPageEditor` (same component, different context)
 - `SuggestionPanel` → `ConversionSuggestionPanel` (conversion-focused suggestions)
 - `ToneReportSidebar` → `ConversionAnalysisSidebar` (funnel performance insights)
@@ -48,6 +53,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 ## ✅ Funnel-Specific Features
 
 ### 🔹 Document Types (Funnel Pages)
+
 - **Landing Pages**: Lead magnets, product sales, webinar registration
 - **Sales Pages**: Long-form sales letters, product descriptions, checkout pages
 - **Email Sequences**: Welcome series, nurture campaigns, sales sequences
@@ -55,12 +61,14 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 - **Opt-in Forms**: Lead capture, newsletter signup, free trial registration
 
 ### 🔹 Conversion Goals (Enhanced Writing Goals)
+
 - **Audience**: cold-traffic | warm-leads | existing-customers | high-intent-prospects
 - **Funnel Stage**: awareness | interest | consideration | conversion | retention
 - **Primary Action**: email-capture | purchase | signup | download | book-call
 - **Copy Style**: urgency-driven | benefit-focused | story-based | authority-positioning
 
 ### 🔹 AI Suggestions (Conversion-Focused)
+
 - **Psychological Triggers**: Scarcity, social proof, authority, urgency
 - **Objection Handling**: Price concerns, trust issues, feature questions
 - **Call-to-Action Optimization**: Button text, placement, urgency language
@@ -70,6 +78,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 ---
 
 ## ✅ MVP Launch Requirements
+
 1. Users can log in with Clerk and access funnel pages tied to their marketing organization
 2. Marketers can create, edit, and auto-save funnel pages with Firebase Realtime DB
 3. Writers receive conversion-focused AI suggestions via GPT-4o (urgency, social proof, CTAs)
@@ -84,6 +93,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 ---
 
 ## ✅ Key Differentiators from Generic Writing Tool
+
 - **Conversion-First AI**: All suggestions prioritize conversion rate optimization over general writing quality
 - **Funnel Stage Awareness**: AI understands where each page fits in the sales funnel
 - **Psychological Trigger Detection**: Identifies missing persuasion elements (urgency, scarcity, social proof)
@@ -94,6 +104,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 ---
 
 ## ✅ Success Metrics
+
 - **User Engagement**: Daily active marketing professionals using the tool
 - **Content Creation**: Number of funnel pages created and optimized daily
 - **AI Suggestion Adoption**: Percentage of conversion suggestions accepted vs. rejected
@@ -103,6 +114,7 @@ Build an AI-first sales funnel and landing page creation assistant specifically 
 ---
 
 ## ✅ Future Enhancements (Post-MVP)
+
 - Integration with landing page builders (Leadpages, ClickFunnels, Unbounce)
 - A/B testing framework for copy variations
 - Conversion rate tracking and analytics dashboard

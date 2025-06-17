@@ -1,30 +1,36 @@
-"use client"
+'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { TrendingUp, MessageCircle } from "lucide-react"
-import type { ToneAnalysis } from "@/types/ai-features"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
+import { TrendingUp, MessageCircle } from 'lucide-react'
+import type { ToneAnalysis } from '@/types/ai-features'
 
 interface ToneAnalysisProps {
   analysis: ToneAnalysis
 }
 
 export function ToneAnalysisComponent({ analysis }: ToneAnalysisProps) {
-  const getToneColor = (tone: ToneAnalysis["overall"]) => {
+  const getToneColor = (tone: ToneAnalysis['overall']) => {
     switch (tone) {
-      case "professional":
-        return "bg-blue-500"
-      case "casual":
-        return "bg-green-500"
-      case "friendly":
-        return "bg-yellow-500"
-      case "formal":
-        return "bg-purple-500"
-      case "confident":
-        return "bg-red-500"
+      case 'professional':
+        return 'bg-blue-500'
+      case 'casual':
+        return 'bg-green-500'
+      case 'friendly':
+        return 'bg-yellow-500'
+      case 'formal':
+        return 'bg-purple-500'
+      case 'confident':
+        return 'bg-red-500'
       default:
-        return "bg-gray-500"
+        return 'bg-gray-500'
     }
   }
 
@@ -33,19 +39,23 @@ export function ToneAnalysisComponent({ analysis }: ToneAnalysisProps) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <MessageCircle className="h-4 w-4" />
               Overall Tone
             </CardTitle>
-            <Badge className={`${getToneColor(analysis.overall)} text-white`}>{analysis.overall}</Badge>
+            <Badge className={`${getToneColor(analysis.overall)} text-white`}>
+              {analysis.overall}
+            </Badge>
           </div>
-          <CardDescription className="text-xs">{analysis.confidence}% confidence</CardDescription>
+          <CardDescription className="text-xs">
+            {analysis.confidence}% confidence
+          </CardDescription>
         </CardHeader>
       </Card>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <TrendingUp className="h-4 w-4" />
             Tone Breakdown
           </CardTitle>
@@ -92,8 +102,11 @@ export function ToneAnalysisComponent({ analysis }: ToneAnalysisProps) {
         <CardContent>
           <ul className="space-y-2">
             {analysis.suggestions.map((suggestion, index) => (
-              <li key={index} className="text-xs text-muted-foreground flex items-start gap-2">
-                <span className="w-1 h-1 bg-muted-foreground rounded-full mt-2 flex-shrink-0" />
+              <li
+                key={index}
+                className="flex items-start gap-2 text-xs text-muted-foreground"
+              >
+                <span className="mt-2 h-1 w-1 flex-shrink-0 rounded-full bg-muted-foreground" />
                 {suggestion}
               </li>
             ))}

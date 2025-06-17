@@ -194,3 +194,4 @@ firebase-import-*.json
 .runtimeconfig.*.json 
 *storybook.log
 storybook-static
+.env.local

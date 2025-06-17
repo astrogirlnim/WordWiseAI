@@ -1,7 +1,7 @@
-import { ref, push, set, get, onValue, off } from "firebase/database"
-import { database } from "@/lib/firebase"
-import type { Document } from "@/types/document"
-import type { WritingGoals } from "@/types/writing-goals"
+import { ref, push, set, get, onValue, off } from 'firebase/database'
+import { database } from '@/lib/firebase'
+import type { Document } from '@/types/document'
+import type { WritingGoals } from '@/types/writing-goals'
 
 export class DocumentService {
   static async createDocument(userId: string, title: string): Promise<string> {
@@ -9,12 +9,12 @@ export class DocumentService {
       const documentsRef = ref(database, `documents/${userId}`)
       const newDocRef = push(documentsRef)
 
-      const document: Omit<Document, "id"> = {
+      const document: Omit<Document, 'id'> = {
         title,
-        content: "",
+        content: '',
         userId,
-        orgId: "", // Default empty for MVP
-        status: "draft",
+        orgId: '', // Default empty for MVP
+        status: 'draft',
         analysisSummary: {
           overallScore: 0,
           brandAlignmentScore: 0,
@@ -31,12 +31,16 @@ export class DocumentService {
       await set(newDocRef, document)
       return newDocRef.key!
     } catch (error) {
-      console.error("Error creating document:", error)
-      throw new Error("Failed to create document")
+      console.error('Error creating document:', error)
+      throw new Error('Failed to create document')
     }
   }
 
-  static async updateDocument(userId: string, documentId: string, updates: Partial<Document>): Promise<void> {
+  static async updateDocument(
+    userId: string,
+    documentId: string,
+    updates: Partial<Document>,
+  ): Promise<void> {
     try {
       const docRef = ref(database, `documents/${userId}/${documentId}`)
       const updateData = {
@@ -47,12 +51,15 @@ export class DocumentService {
 
       await set(docRef, updateData)
     } catch (error) {
-      console.error("Error updating document:", error)
-      throw new Error("Failed to update document")
+      console.error('Error updating document:', error)
+      throw new Error('Failed to update document')
     }
   }
 
-  static async getDocument(userId: string, documentId: string): Promise<Document | null> {
+  static async getDocument(
+    userId: string,
+    documentId: string,
+  ): Promise<Document | null> {
     try {
       const docRef = ref(database, `documents/${userId}/${documentId}`)
       const snapshot = await get(docRef)
@@ -64,7 +71,7 @@ export class DocumentService {
 
       return null
     } catch (error) {
-      console.error("Error getting document:", error)
+      console.error('Error getting document:', error)
       return null
     }
   }
@@ -88,7 +95,7 @@ export class DocumentService {
 
       return []
     } catch (error) {
-      console.error("Error getting user documents:", error)
+      console.error('Error getting user documents:', error)
       return []
     }
   }
@@ -109,16 +116,19 @@ export class DocumentService {
       }
     })
 
-    return () => off(docRef, "value", unsubscribe)
+    return () => off(docRef, 'value', unsubscribe)
   }
 
-  static async deleteDocument(userId: string, documentId: string): Promise<void> {
+  static async deleteDocument(
+    userId: string,
+    documentId: string,
+  ): Promise<void> {
     try {
       const docRef = ref(database, `documents/${userId}/${documentId}`)
       await set(docRef, null)
     } catch (error) {
-      console.error("Error deleting document:", error)
-      throw new Error("Failed to delete document")
+      console.error('Error deleting document:', error)
+      throw new Error('Failed to delete document')
     }
   }
 }
