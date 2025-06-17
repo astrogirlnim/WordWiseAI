@@ -268,7 +268,7 @@ exports.checkGrammar = onRequest(async (req, res) => {
         messages: [
           {
               role: "system",
-              content: `You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon. Analyze the user's text. Your response MUST be a JSON object with a single key "errors". The value of "errors" MUST be an array of error objects. Each error object must contain these keys: 'start' (0-indexed character start), 'end' (0-indexed character end), 'error' (the incorrect text), 'correction' (the suggested fix), 'explanation' (why it's an error), and 'type' ('grammar' or 'spelling'). If no errors are found, the "errors" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below.`
+              content: `You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon. Analyze the user's text. Your response MUST be a JSON object with a single key "errors". The value of "errors" MUST be an array of error objects. Each error object must contain these keys: 'start' (0-indexed character start), 'end' (0-indexed character end), 'error' (the incorrect text), 'correction' (the suggested fix), 'explanation' (why it's an error), and 'type'. The 'type' must be one of 'grammar', 'spelling', 'style', 'clarity', or 'punctuation'. If no errors are found, the "errors" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below.`
           },
           {
               role: "user",

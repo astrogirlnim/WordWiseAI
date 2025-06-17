@@ -7,7 +7,7 @@ const DEBOUNCE_DELAY = 500; // ms
 const MIN_TEXT_LENGTH = 10;
 const THROTTLE_INTERVAL = 2000; // 30 req/min -> 1 req every 2s
 
-export function useGrammarChecker(documentId: string, text: string) {
+export function useGrammarChecker(documentId: string, plainText: string) {
   const [errors, setErrors] = useState<GrammarError[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const lastRequestTime = useRef<number>(0);
@@ -43,19 +43,17 @@ export function useGrammarChecker(documentId: string, text: string) {
   const debouncedCheck = useCallback(debounce(checkGrammar, DEBOUNCE_DELAY), [checkGrammar]);
 
   useEffect(() => {
-    // We don't want to use the debounced check if the text is empty
-    if (text) {
-        debouncedCheck(text);
+    if (plainText) {
+        debouncedCheck(plainText);
     } else {
         setErrors([]);
         debouncedCheck.cancel();
     }
     
-    // Cleanup on unmount
     return () => {
       debouncedCheck.cancel();
     };
-  }, [text, debouncedCheck]);
+  }, [plainText, debouncedCheck]);
 
   return { errors, isChecking };
 } 

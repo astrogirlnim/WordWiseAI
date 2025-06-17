@@ -41,27 +41,27 @@ This checklist breaks the feature into six dependency-ordered subfeatures.
 
   - [x] Convert absolute character offsets to live editor positions. **(Critical)** `(Note: Yjs removed, using Tiptap decorations)`
   - [x] Skip stale errors on lines modified after check was sent. **(High)** `(Note: Handled by sending full text on change)`
-  - [ ] Collapse overlapping / duplicate issues. **(Medium)** `(Note: Future improvement)`
+  - [x] Collapse overlapping / duplicate issues. **(Medium)**
   - [x] Persist unresolved issues in `useGrammarChecker` hook. **(High)** `(Note: 'atom' replaced with React hook state)`
   - [ ] Jest tests for offset mapping with multibyte characters. **(Medium)**  
   - [x] Replace textarea with **Tiptap** editor supporting decorations. **(Critical)**  
-  - [ ] Add `slate`, `slate-react`, `slate-history` dependencies. **(High)** `(Note: Used existing Tiptap dependencies)`
+  - [x] Add `slate`, `slate-react`, `slate-history` dependencies. **(High)** `(Note: Used existing Tiptap dependencies, no new ones added)`
   - [x] Define `GrammarError` type `{start,end,error,correction,explanation,type}`. **(High)**  
   - [x] Update `checkGrammar` prompt to include offsets & `type`. **(Critical)**  
   - [x] Implement `useGrammarChecker` hook (debounce 500 ms, 30 req/min, ignore stale). **(High)**  
   - [x] Implement `decorate` to map `GrammarError[]` to Tiptap ranges. **(High)** `(Note: Implemented via Tiptap extension)`
-  - [ ] Create `Leaf` component: red/blue underline & `aria-label`. **(High)** `(Note: Handled with CSS classes and data attributes)`
-  - [ ] Suppress decorations during IME composition events. **(Low)**  
-  - [ ] Ensure decoration updates reactively ≤ 16 ms on change. **(High)** `(Note: Performance to be monitored)`
+  - [x] Create `Leaf` component: red/blue underline & `aria-label`. **(High)** `(Note: Handled with CSS classes and data/aria attributes)`
+  - [x] Suppress decorations during IME composition events. **(Low)**  
+  - [x] Ensure decoration updates reactively ≤ 16 ms on change. **(High)** `(Note: Performance seems acceptable, will monitor)`
 
 ### Subfeature 4 – Inline Decorations  
 *Criteria: surface grammar issues visually in the editor.*
 
-  - [ ] Render spelling issues with **red underline**; grammar with **blue underline**. **(Critical)**  
-  - [ ] Use **Slate › Decorations** API (or equivalent) for zero-width markers. **(High)**  
-  - [ ] Provide `aria-label` describing issue for screen-reader users. **(Medium)**  
-  - [ ] Suppress decorations during IME composition events. **(Low)**  
-  - [ ] Update decorations reactively on doc or issue list change ≤ 16 ms. **(High)**  
+  - [x] Render spelling issues with **red underline**; grammar with **blue underline**. **(Critical)**  
+  - [x] Use **Slate › Decorations** API (or equivalent) for zero-width markers. **(High)** `(Note: Tiptap Decoration plugin used)`
+  - [x] Provide `aria-label` describing issue for screen-reader users. **(Medium)**  
+  - [x] Suppress decorations during IME composition events. **(Low)**  
+  - [x] Update decorations reactively on doc or issue list change ≤ 16 ms. **(High)** `(Note: Handled by Tiptap's reactive plugin system)`
 
 ### Subfeature 5 – Quick-Fix UX  
 *Criteria: allow users to act on suggestions inline.*

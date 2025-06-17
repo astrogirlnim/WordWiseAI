@@ -4,5 +4,5 @@ export interface GrammarError {
   error: string
   correction: string
   explanation: string
-  type: 'grammar' | 'spelling'
+  type: 'grammar' | 'spelling' | 'style' | 'clarity' | 'punctuation'
 } 

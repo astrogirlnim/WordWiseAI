@@ -29,8 +29,9 @@ export function DocumentEditor({
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
   const [content, setContent] = useState(initialDocument.content || '')
+  const [plainText, setPlainText] = useState('')
 
-  const { errors, isChecking } = useGrammarChecker(documentId, content)
+  const { errors, isChecking } = useGrammarChecker(documentId, plainText)
 
   const editor = useEditor({
     extensions: [
@@ -41,24 +42,36 @@ export function DocumentEditor({
       Placeholder.configure({
         placeholder: 'Start writing...',
       }),
-      GrammarExtension.configure({
-        errors,
-      }),
+      GrammarExtension,
     ],
     content: content,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
+      const text = editor.getText()
       setContent(html)
+      setPlainText(text)
       onContentChange?.(html)
       onSave?.(html, title)
     },
+    onCreate: ({ editor }) => {
+      setPlainText(editor.getText())
+    },
   })
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      const { tr } = editor.state;
+      tr.setMeta('grammarErrors', errors);
+      editor.view.dispatch(tr);
+    }
+  }, [errors, editor]);
 
   useEffect(() => {
     if (editor && initialDocument.content !== content) {
       console.log(`[DocumentEditor] Setting editor content for document ${documentId}`)
       setContent(initialDocument.content || '')
       editor.commands.setContent(initialDocument.content || '', false)
+      setPlainText(editor.getText())
     }
     if (initialDocument.title !== title) {
         setTitle(initialDocument.title || 'Untitled Document')

@@ -1,47 +1,64 @@
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, EditorState, Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { GrammarError } from '@/types/grammar';
 
-export const GrammarExtension = Extension.create<{ errors: GrammarError[] }>({
-  name: 'grammar',
+// Helper function to check for composing state
+function isComposing(state: EditorState): boolean {
+  // The 'composing' property is on the state object, but not in the default types.
+  // We cast to any to access it. This is a common pattern for this property.
+  return (state as any).composing;
+}
 
-  addOptions() {
-    return {
-      errors: [],
-    };
-  },
+interface GrammarPluginState {
+  decorations: DecorationSet;
+}
+
+export const GrammarExtension = Extension.create({
+  name: 'grammar',
 
   addProseMirrorPlugins() {
     return [
-      new Plugin({
+      new Plugin<GrammarPluginState>({
         key: new PluginKey('grammar'),
         state: {
-          init() {
-            return DecorationSet.empty;
+          init: (): GrammarPluginState => {
+            return { decorations: DecorationSet.empty };
           },
-          apply: (tr, oldSet) => {
-            // No need to update decorations on transactions, we'll do it via props
-            return oldSet.map(tr.mapping, tr.doc);
-          },
-        },
-        props: {
-          decorations: (state) => {
-            const decorations: Decoration[] = [];
-            const { errors } = this.options;
-
-            errors.forEach((error) => {
-              decorations.push(
-                Decoration.inline(error.start, error.end, {
+          apply: (tr: Transaction, pluginState: GrammarPluginState, oldState: EditorState, newState: EditorState): GrammarPluginState => {
+            const newErrors = tr.getMeta('grammarErrors') as GrammarError[] | undefined;
+            
+            if (newErrors !== undefined) {
+              const decorations = DecorationSet.create(newState.doc, newErrors.flatMap((error: GrammarError) => {
+                if (error.start >= error.end || error.end > newState.doc.content.size) {
+                  console.warn('[GrammarExtension] Invalid error range, skipping:', error);
+                  return [];
+                }
+                return Decoration.inline(error.start, error.end, {
                   class: `grammar-error ${error.type}`,
                   'data-error': error.error,
                   'data-correction': error.correction,
                   'data-explanation': error.explanation,
-                }),
-              );
-            });
+                  'aria-label': `Potential ${error.type} error: “${error.error}”. Suggestion: “${error.correction}”.`,
+                });
+              }));
+              return { decorations };
+            }
 
-            return DecorationSet.create(state.doc, decorations);
+            if (tr.docChanged) {
+              return { decorations: pluginState.decorations.map(tr.mapping, newState.doc) };
+            }
+
+            return pluginState;
+          },
+        },
+        props: {
+          decorations(state) {
+            if (isComposing(state)) {
+              return DecorationSet.empty;
+            }
+            const pluginState = this.getState(state);
+            return pluginState ? pluginState.decorations : DecorationSet.empty;
           },
         },
       }),
