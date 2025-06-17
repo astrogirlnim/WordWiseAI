@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  deleteUser,
 } from 'firebase/auth'
 import { auth } from './firebase'
 
@@ -16,6 +17,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  deleteAccount: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -45,12 +47,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth)
   }
 
+  const deleteAccount = async () => {
+    if (auth.currentUser) {
+      await deleteUser(auth.currentUser)
+    } else {
+      throw new Error("No user is currently signed in.");
+    }
+  }
+
   const value = {
     user,
     loading,
     signIn,
     signUp,
     logout,
+    deleteAccount,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -87,40 +87,40 @@ _Criteria: persistent data structures; depends on Phase 1._
 
 _Criteria: user-facing components; depends on Phases 1 & 2._
 
-### [ ] Feature 1 – Core Editor UI
+### [x] Feature 1 – Core Editor UI
 
-- [ ] Build a distraction-free editor component. **(Critical)**
-- [ ] Implement dark/light theme toggle with Tailwind. **(High)**
-- [ ] Show live word/character count in the footer. **(Medium)**
-- [ ] Display an autosave spinner whenever Firestore write completes. **(High)**
+- [x] Build a distraction-free editor component. **(Critical)**
+- [x] Implement dark/light theme toggle with Tailwind. **(High)**
+- [x] Show live word/character count in the footer. **(Medium)**
+- [x] Display an autosave spinner whenever Firestore write completes. **(High)**
 
-### [ ] Feature 2 – Collaboration UI
+### [x] Feature 2 – Collaboration UI
 
-- [ ] Render remote cursors with user names and colors. **(High)**
-- [ ] Show active-collaborator avatars in the header. **(Medium)**
-- [ ] Implement inline comment thread pop-ups anchored to selections. **(High)**
-- [ ] Allow comments to be resolved and reopened. **(Medium)**
+- [x] Render remote cursors with user names and colors. **(High)**
+- [x] Show active-collaborator avatars in the header. **(Medium)**
+- [x] Implement inline comment thread pop-ups anchored to selections. **(High)**
+- [x] Allow comments to be resolved and reopened. **(Medium)**
 
-### [ ] Feature 3 – Version History UI
+### [x] Feature 3 – Version History UI
 
-- [ ] List snapshots with timestamp and author in a sidebar. **(High)**
-- [ ] Provide a diff viewer highlighting additions and deletions. **(Critical)**
-- [ ] Add "Restore this version" button that overwrites current doc. **(High)**
-- [ ] Paginate the list after 50 items. **(Medium)**
+- [x] List snapshots with timestamp and author in a sidebar. **(High)**
+- [x] Provide a diff viewer highlighting additions and deletions. **(Critical)**
+- [x] Add "Restore this version" button that overwrites current doc. **(High)**
+- [x] Paginate the list after 50 items. **(Medium)**
 
-### [ ] Feature 4 – Forms & Settings
+### [x] Feature 4 – Forms & Settings
 
-- [ ] Build login/registration forms with React Hook Form + Zod. **(Critical)**
-- [ ] Build glossary upload form supporting CSV/JSON drag-and-drop. **(High)**
-- [ ] Create user-profile settings (display name, brand tone preset). **(Medium)**
-- [ ] Implement account-deletion screen triggering cleanup. **(Medium)**
+- [x] Build login/registration forms with React Hook Form + Zod. **(Critical)**
+- [x] Build glossary upload form supporting CSV/JSON drag-and-drop. **(High)**
+- [x] Create user-profile settings (display name, brand tone preset). **(Medium)**
+- [x] Implement account-deletion screen triggering cleanup. **(Medium)**
 
-### [ ] Feature 5 – Readability Metrics Visualization
+### [x] Feature 5 – Readability Metrics Visualization
 
-- [ ] Render a Flesch-Kincaid gauge with Recharts. **(High)**
-- [ ] Display a bar chart of sentence lengths. **(Medium)**
-- [ ] Add tooltips explaining each readability metric. **(Medium)**
-- [ ] Provide a toggle to hide/show the metrics panel. **(Low)**
+- [x] Render a Flesch-Kincaid gauge with Recharts. **(High)**
+- [x] Display a bar chart of sentence lengths. **(Medium)**
+- [x] Add tooltips explaining each readability metric. **(Medium)**
+- [x] Provide a toggle to hide/show the metrics panel. **(Low)**
 
 ---
 

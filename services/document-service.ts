@@ -1,134 +1,97 @@
-import { ref, push, set, get, onValue, off } from 'firebase/database'
-import { database } from '@/lib/firebase'
-import type { Document } from '@/types/document'
-import type { WritingGoals } from '@/types/writing-goals'
+import { firestore } from '@/lib/firebase'
+import {
+  collection,
+  query,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+  getDocs,
+  orderBy,
+  getDoc,
+  deleteDoc,
+  where,
+} from 'firebase/firestore'
+import type { Document, DocumentVersion } from '@/types/document'
 
 export class DocumentService {
-  static async createDocument(userId: string, title: string): Promise<string> {
+  static async createDocument(
+    userId: string,
+    document: Omit<Document, 'id' | 'createdAt' | 'updatedAt' | 'ownerId'>,
+  ): Promise<string> {
     try {
-      const documentsRef = ref(database, `documents/${userId}`)
-      const newDocRef = push(documentsRef)
-
-      const document: Omit<Document, 'id'> = {
-        title,
-        content: '',
-        userId,
-        orgId: '', // Default empty for MVP
-        status: 'draft',
-        analysisSummary: {
-          overallScore: 0,
-          brandAlignmentScore: 0,
-          lastAnalyzedAt: 0,
-          suggestionCount: 0,
-        },
-        lastSaved: Date.now(),
-        wordCount: 0,
-        characterCount: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
-
-      await set(newDocRef, document)
-      return newDocRef.key!
+      const docRef = await addDoc(collection(firestore, 'documents'), {
+        ...document,
+        ownerId: userId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+      return docRef.id
     } catch (error) {
       console.error('Error creating document:', error)
       throw new Error('Failed to create document')
     }
   }
 
+  static async getDocument(documentId: string): Promise<Document | null> {
+    try {
+      const docRef = doc(firestore, 'documents', documentId)
+      const docSnap = await getDoc(docRef)
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Document
+      }
+      return null
+    } catch (error) {
+      console.error('Error getting document:', error)
+      throw new Error('Failed to get document')
+    }
+  }
+
+  static getDocuments(userId: string, callback: (documents: Document[]) => void) {
+    const q = query(
+      collection(firestore, 'documents'),
+      where('ownerId', '==', userId),
+    )
+    return onSnapshot(q, (querySnapshot) => {
+      const documents: Document[] = []
+      querySnapshot.forEach((doc) => {
+        documents.push({ id: doc.id, ...doc.data() } as Document)
+      })
+      callback(documents)
+    })
+  }
+
   static async updateDocument(
-    userId: string,
     documentId: string,
     updates: Partial<Document>,
   ): Promise<void> {
     try {
-      const docRef = ref(database, `documents/${userId}/${documentId}`)
-      const updateData = {
-        ...updates,
-        updatedAt: Date.now(),
-        lastSaved: Date.now(),
-      }
-
-      await set(docRef, updateData)
+      const docRef = doc(firestore, 'documents', documentId)
+      await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() })
     } catch (error) {
       console.error('Error updating document:', error)
       throw new Error('Failed to update document')
     }
   }
 
-  static async getDocument(
-    userId: string,
-    documentId: string,
-  ): Promise<Document | null> {
+  static async deleteDocument(documentId: string): Promise<void> {
     try {
-      const docRef = ref(database, `documents/${userId}/${documentId}`)
-      const snapshot = await get(docRef)
-
-      if (snapshot.exists()) {
-        const document = { id: documentId, ...snapshot.val() } as Document
-        return document
-      }
-
-      return null
-    } catch (error) {
-      console.error('Error getting document:', error)
-      return null
-    }
-  }
-
-  static async getUserDocuments(userId: string): Promise<Document[]> {
-    try {
-      const documentsRef = ref(database, `documents/${userId}`)
-      const snapshot = await get(documentsRef)
-
-      if (snapshot.exists()) {
-        const documentsData = snapshot.val()
-        const documents = Object.entries(documentsData).map(([id, data]) => ({
-          id,
-          ...(data as any),
-        })) as Document[]
-
-        // Sort by updatedAt descending
-        documents.sort((a, b) => b.updatedAt - a.updatedAt)
-        return documents
-      }
-
-      return []
-    } catch (error) {
-      console.error('Error getting user documents:', error)
-      return []
-    }
-  }
-
-  static subscribeToDocument(
-    userId: string,
-    documentId: string,
-    callback: (document: Document | null) => void,
-  ): () => void {
-    const docRef = ref(database, `documents/${userId}/${documentId}`)
-
-    const unsubscribe = onValue(docRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const document = { id: documentId, ...snapshot.val() } as Document
-        callback(document)
-      } else {
-        callback(null)
-      }
-    })
-
-    return () => off(docRef, 'value', unsubscribe)
-  }
-
-  static async deleteDocument(
-    userId: string,
-    documentId: string,
-  ): Promise<void> {
-    try {
-      const docRef = ref(database, `documents/${userId}/${documentId}`)
-      await set(docRef, null)
+      await deleteDoc(doc(firestore, 'documents', documentId))
     } catch (error) {
       console.error('Error deleting document:', error)
       throw new Error('Failed to delete document')
     }
+  }
+
+  static async getDocumentVersions(docId: string): Promise<DocumentVersion[]> {
+    const versionsRef = collection(firestore, 'documents', docId, 'versions')
+    const q = query(versionsRef, orderBy('createdAt', 'desc'))
+    const querySnapshot = await getDocs(q)
+    const versions: DocumentVersion[] = []
+    querySnapshot.forEach((doc) => {
+      versions.push({ id: doc.id, ...doc.data() } as DocumentVersion)
+    })
+    return versions
   }
 }

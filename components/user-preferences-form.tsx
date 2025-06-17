@@ -107,9 +107,9 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="displayName">Display Name</Label>
               <Input
-                id="name"
+                id="displayName"
                 value={profile.name}
                 onChange={(e) =>
                   setProfile({ ...profile, name: e.target.value })
@@ -173,6 +173,26 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
                 })
               }
             />
+          </div>
+
+          <div>
+            <Label htmlFor="brandTonePreset">Brand Tone Preset</Label>
+            <Select
+              onValueChange={(value) =>
+                setProfile({
+                  ...profile,
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="energetic">Energetic</SelectItem>
+                <SelectItem value="inspirational">Inspirational</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
