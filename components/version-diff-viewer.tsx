@@ -22,8 +22,16 @@ export function VersionDiffViewer({
   oldContent,
   newContent,
 }: VersionDiffViewerProps) {
+  const stripHtmlTags = (html: string) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, '');
+  };
+
+  const cleanOldContent = stripHtmlTags(oldContent);
+  const cleanNewContent = stripHtmlTags(newContent);
+
   const dmp = new diff_match_patch()
-  const diffs = dmp.diff_main(oldContent, newContent)
+  const diffs = dmp.diff_main(cleanOldContent, cleanNewContent)
   dmp.diff_cleanupSemantic(diffs)
 
   return (
