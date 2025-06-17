@@ -30,109 +30,96 @@ export function DocumentEditor({
   onDismissSuggestion,
   saveStatus,
 }: DocumentEditorProps) {
-  console.log('[DocumentEditor] Rendering with document:', documentId, 'initial content length:', initialDocument?.content?.length || 0)
-  
-  const { yDoc } = useYjs({ roomId: documentId })
+  console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
+  const { yDoc, provider } = useYjs({ roomId: documentId })
   const [content, setContent] = useState('')
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
-  const isInitializedRef = useRef(false)
-  const lastSavedContentRef = useRef('')
+  const isInitialized = useRef(false)
 
-  // Initialize YJS content only once and set up observer
+  // This effect synchronizes the Yjs document with the initial content from the database.
+  // It runs only once when the document ID changes.
   useEffect(() => {
-    console.log('[DocumentEditor] Setting up YJS for document:', documentId)
+    console.log(`[DocumentEditor] Initializing document ${documentId}`)
     const yText = yDoc.getText('content')
+    const initialContent = initialDocument.content || ''
 
-    const observer = () => {
-      const currentContent = yText.toString()
-      console.log('[DocumentEditor] YJS content changed, new length:', currentContent.length)
-      setContent(currentContent)
-      onContentChange?.(currentContent)
-    }
-
-    yText.observe(observer)
-
-    // Initialize content only if YJS is empty and we have initial content
-    if (!isInitializedRef.current) {
-      const yjsContent = yText.toString()
-      const initContent = initialDocument.content || ''
-      
-      console.log('[DocumentEditor] Initializing content - YJS length:', yjsContent.length, 'Initial length:', initContent.length)
-      
-      if (yjsContent === '' && initContent !== '') {
-        console.log('[DocumentEditor] Setting initial content in YJS')
-        yDoc.transact(() => {
-          yText.insert(0, initContent)
-        })
-      } else if (yjsContent !== '') {
-        console.log('[DocumentEditor] Using existing YJS content')
-        setContent(yjsContent)
-        onContentChange?.(yjsContent)
-      } else {
-        console.log('[DocumentEditor] Both YJS and initial content are empty')
-        setContent(initContent)
-        onContentChange?.(initContent)
-      }
-      
-      lastSavedContentRef.current = yjsContent || initContent
-      isInitializedRef.current = true
-    }
-
-    return () => {
-      console.log('[DocumentEditor] Cleaning up YJS observer')
-      yText.unobserve(observer)
-    }
-  }, [yDoc, documentId, initialDocument.content, onContentChange])
-
-  // Update title when initialDocument changes
-  useEffect(() => {
-    console.log('[DocumentEditor] Title updated:', initialDocument.title)
-    setTitle(initialDocument.title || 'Untitled Document')
-  }, [initialDocument.title])
-
-  const handleContentChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newContent = e.target.value
-      console.log('[DocumentEditor] Textarea content changed, new length:', newContent.length)
-      
-      const yText = yDoc.getText('content')
+    const handleSync = () => {
+      console.log('[DocumentEditor] Provider synced. Comparing content.')
       const currentYjsContent = yText.toString()
-      
-      // Only update YJS if content actually differs to prevent feedback loops
-      if (currentYjsContent !== newContent) {
-        console.log('[DocumentEditor] Updating YJS content')
+
+      // If Yjs content is different from the DB, update Yjs.
+      if (currentYjsContent !== initialContent) {
+        console.log(`[DocumentEditor] Discrepancy found. Updating Yjs content for ${documentId}.`)
         yDoc.transact(() => {
           yText.delete(0, yText.length)
-          yText.insert(0, newContent)
+          yText.insert(0, initialContent)
         })
+      } else {
+        console.log(`[DocumentEditor] Content for ${documentId} is already in sync.`)
       }
       
-      // Only trigger save if content actually changed
-      if (newContent !== lastSavedContentRef.current && onSave) {
-        console.log('[DocumentEditor] Content changed, triggering save')
-        onSave(newContent, title)
-        lastSavedContentRef.current = newContent
-      }
-    },
-    [yDoc, onSave, title],
-  )
+      // Set the textarea content from Yjs, making Yjs the source of truth for the UI.
+      setContent(yText.toString())
+      isInitialized.current = true
+    }
 
+    if (provider) {
+      // The 'synced' event fires when the provider has connected and synchronized its state.
+      provider.on('synced', handleSync)
+    }
+
+    // Set up the observer to keep the React state in sync with Yjs.
+    const handleObserver = () => {
+      setContent(yText.toString())
+    }
+    yText.observe(handleObserver)
+
+    // Initial content for the title
+    setTitle(initialDocument.title || 'Untitled Document')
+
+    return () => {
+      console.log(`[DocumentEditor] Cleaning up ${documentId}`)
+      if (provider) {
+        provider.off('synced', handleSync)
+      }
+      yText.unobserve(handleObserver)
+    }
+  }, [documentId, initialDocument.content, initialDocument.title, provider, yDoc])
+
+  // This effect handles changes to the document content from user input.
+  const handleContentChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (!isInitialized.current) return
+
+      const newContent = e.target.value
+      const yText = yDoc.getText('content')
+      
+      // Instead of replacing the whole content, we calculate the diff.
+      // For a simple textarea, we'll still replace, but a more advanced editor
+      // would provide granular diffs.
+      yDoc.transact(() => {
+        yText.delete(0, yText.length)
+        yText.insert(0, newContent)
+      })
+
+      onContentChange?.(newContent)
+      onSave?.(newContent, title)
+    },
+    [yDoc, title, onSave, onContentChange],
+  )
+  
+  // This effect handles changes to the document title.
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newTitle = e.target.value
-      console.log('[DocumentEditor] Title changed:', newTitle)
       setTitle(newTitle)
-      if (onSave) {
-        onSave(content, newTitle)
-      }
+      onSave?.(content, newTitle)
     },
-    [onSave, content],
+    [content, onSave],
   )
 
   const wordCount = getWordCount(content)
   const characterCount = getCharacterCount(content)
-
-  console.log('[DocumentEditor] Rendering editor with content length:', content.length)
 
   return (
     <div className="flex h-full flex-col">
@@ -153,8 +140,9 @@ export function DocumentEditor({
           value={content}
           onChange={handleContentChange}
           className="h-full w-full resize-none border-none bg-transparent px-6 py-6 text-base leading-relaxed outline-none placeholder:text-muted-foreground"
-          placeholder="Start writing..."
+          placeholder={isInitialized.current ? "Start writing..." : "Connecting..."}
           spellCheck={true}
+          disabled={!isInitialized.current}
         />
       </div>
 

@@ -235,7 +235,7 @@ export function DocumentContainer() {
           )}
           {activeDocument && user?.uid ? (
             <DocumentEditor
-              key={activeDocument.id}
+              key={activeDocumentId}
               documentId={activeDocument.id}
               initialDocument={activeDocument}
               onSave={handleSave}

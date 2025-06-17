@@ -91,13 +91,15 @@ This checklist breaks the PRD into four dependency-ordered phases.
   - [x] List snapshots with timestamp and author in a sidebar. **(High)**  
   - [x] Provide a diff viewer highlighting additions and deletions. **(Critical)**  
   - [x] Add "Restore this version" button that overwrites current doc. **(High)**  
+  - [x] Fix text duplication bugs in version restore functionality. **(Critical)**
+  - [x] Fix multiple identical version creation on every change. **(Critical)**
   - [ ] Paginate the list after 50 items. **(Medium)**  
 
-### [ ] Feature 4 – Forms & Settings  
-  - [ ] Build login/registration forms with React Hook Form + Zod. **(Critical)**  
-  - [ ] Build glossary upload form supporting CSV/JSON drag-and-drop. **(High)**  
-  - [ ] Create user-profile settings (display name, brand tone preset). **(Medium)**  
-  - [ ] Implement account-deletion screen triggering cleanup. **(Medium)**  
+### [x] Feature 4 – Forms & Settings  
+  - [x] Build login/registration forms with React Hook Form + Zod. **(Critical)**  
+  - [x] Build glossary upload form supporting CSV/JSON drag-and-drop. **(High)**  
+  - [x] Create user-profile settings (display name, brand tone preset). **(Medium)**  
+  - [x] Implement account-deletion screen triggering cleanup. **(Medium)**  
 
 ### [ ] Feature 5 – Readability Metrics Visualization  
   - [ ] Render a Flesch-Kincaid gauge with Recharts. **(High)**  

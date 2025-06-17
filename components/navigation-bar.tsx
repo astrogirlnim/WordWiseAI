@@ -12,6 +12,8 @@ import { ThemeToggle } from './theme-toggle'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { EnhancedDocumentList } from './enhanced-document-list'
 import { VersionHistoryButton } from './version-history-button'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
 
 interface NavigationBarProps {
   user: User
@@ -46,9 +48,21 @@ export function NavigationBar({
   onDistractionFreeToggle,
   onVersionHistoryClick,
 }: NavigationBarProps) {
+  const { logout } = useAuth()
+  const router = useRouter()
+
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
     console.log(`User action: ${action}`)
+
+    if (action === 'settings') {
+      router.push('/settings')
+    }
+  }
+
+  const handleSignOut = async () => {
+    await logout()
+    router.push('/sign-in')
   }
 
   return (
@@ -139,7 +153,7 @@ export function NavigationBar({
           onSettingsClick={() => handleUserAction('settings')}
           onBillingClick={() => handleUserAction('billing')}
           onHelpClick={() => handleUserAction('help')}
-          onSignOut={() => handleUserAction('signout')}
+          onSignOut={handleSignOut}
         />
       </div>
     </div>
