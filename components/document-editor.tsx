@@ -38,7 +38,6 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
-  const [content, setContent] = useState('')
   const [plainText, setPlainText] = useState('')
 
   const { user } = useAuth()
@@ -61,13 +60,17 @@ export function DocumentEditor({
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
       const text = editor.getText()
-      setContent(html)
       setPlainText(text)
       onContentChange?.(html)
       onSave?.(html, title)
     },
     onCreate: ({ editor }) => {
-      setPlainText(editor.getText())
+      const text = editor.getText()
+      setPlainText(text)
+      // Kick off grammar check immediately
+      if (text) {
+        checkGrammarImmediately(text);
+      }
     },
   })
 
@@ -185,23 +188,6 @@ export function DocumentEditor({
   )
 
   useEffect(() => {
-    if (editor && initialDocument.content && initialDocument.content !== content) {
-      console.log(`[DocumentEditor] Syncing content and running initial check for document ${documentId}`);
-      
-      // Sync component state
-      setContent(initialDocument.content);
-      
-      const text = editor.getText();
-      setPlainText(text);
-      
-      // Kick off grammar check immediately
-      if (text) {
-        checkGrammarImmediately(text);
-      }
-    }
-  }, [documentId, initialDocument.content, editor, content, checkGrammarImmediately]);
-  
-  useEffect(() => {
     if (initialDocument.title && initialDocument.title !== title) {
         setTitle(initialDocument.title)
     }
@@ -249,9 +235,9 @@ export function DocumentEditor({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newTitle = e.target.value
       setTitle(newTitle)
-      onSave?.(content, newTitle)
+      onSave?.(plainText, newTitle)
     },
-    [content, onSave],
+    [plainText, onSave],
   )
 
   const wordCount = getWordCount(editor?.getText() || '')
