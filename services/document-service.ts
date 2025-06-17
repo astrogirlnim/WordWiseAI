@@ -1,124 +1,146 @@
-import { ref, push, set, get, onValue, off } from "firebase/database"
-import { database } from "@/lib/firebase"
-import type { Document } from "@/types/document"
-import type { WritingGoals } from "@/types/writing-goals"
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  onSnapshot,
+  deleteDoc,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore'
+import { firestore } from '../lib/firebase'
+import type {
+  Document as DocumentType,
+  FirestoreTimestamp,
+} from '@/types/document'
+import type { WritingGoals } from '@/types/writing-goals'
+
+const getMillis = (timestamp: FirestoreTimestamp | undefined): number => {
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toMillis()
+  }
+  if (typeof timestamp === 'number') {
+    return timestamp
+  }
+  return 0 // Or handle as an error, depending on requirements
+}
 
 export class DocumentService {
-  static async createDocument(userId: string, title: string): Promise<string> {
+  static async createDocument(
+    ownerId: string,
+    title: string,
+  ): Promise<string> {
     try {
-      const documentsRef = ref(database, `documents/${userId}`)
-      const newDocRef = push(documentsRef)
-
-      const document: Omit<Document, "id"> = {
+      const docData: Omit<DocumentType, 'id'> = {
         title,
-        content: "",
-        userId,
-        orgId: "", // Default empty for MVP
-        status: "draft",
+        content: '',
+        ownerId,
+        orgId: '', // Default empty for MVP
+        status: 'draft',
         analysisSummary: {
           overallScore: 0,
           brandAlignmentScore: 0,
-          lastAnalyzedAt: 0,
+          lastAnalyzedAt: serverTimestamp(),
           suggestionCount: 0,
         },
-        lastSaved: Date.now(),
+        lastSaved: serverTimestamp(),
         wordCount: 0,
         characterCount: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       }
 
-      await set(newDocRef, document)
-      return newDocRef.key!
+      const docRef = await addDoc(collection(firestore, 'documents'), docData)
+      return docRef.id
     } catch (error) {
-      console.error("Error creating document:", error)
-      throw new Error("Failed to create document")
+      console.error('Error creating document:', error)
+      throw new Error('Failed to create document')
     }
   }
 
-  static async updateDocument(userId: string, documentId: string, updates: Partial<Document>): Promise<void> {
+  static async updateDocument(
+    documentId: string,
+    updates: Partial<DocumentType>,
+  ): Promise<void> {
     try {
-      const docRef = ref(database, `documents/${userId}/${documentId}`)
+      const docRef = doc(firestore, 'documents', documentId)
       const updateData = {
         ...updates,
-        updatedAt: Date.now(),
-        lastSaved: Date.now(),
+        updatedAt: serverTimestamp(),
+        lastSaved: serverTimestamp(),
       }
-
-      await set(docRef, updateData)
+      await updateDoc(docRef, updateData)
     } catch (error) {
-      console.error("Error updating document:", error)
-      throw new Error("Failed to update document")
+      console.error('Error updating document:', error)
+      throw new Error('Failed to update document')
     }
   }
 
-  static async getDocument(userId: string, documentId: string): Promise<Document | null> {
+  static async getDocument(documentId: string): Promise<DocumentType | null> {
     try {
-      const docRef = ref(database, `documents/${userId}/${documentId}`)
-      const snapshot = await get(docRef)
+      const docRef = doc(firestore, 'documents', documentId)
+      const docSnap = await getDoc(docRef)
 
-      if (snapshot.exists()) {
-        const document = { id: documentId, ...snapshot.val() } as Document
-        return document
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as DocumentType
       }
 
       return null
     } catch (error) {
-      console.error("Error getting document:", error)
+      console.error('Error getting document:', error)
       return null
     }
   }
 
-  static async getUserDocuments(userId: string): Promise<Document[]> {
+  static async getUserDocuments(ownerId: string): Promise<DocumentType[]> {
     try {
-      const documentsRef = ref(database, `documents/${userId}`)
-      const snapshot = await get(documentsRef)
-
-      if (snapshot.exists()) {
-        const documentsData = snapshot.val()
-        const documents = Object.entries(documentsData).map(([id, data]) => ({
-          id,
-          ...(data as any),
-        })) as Document[]
-
-        // Sort by updatedAt descending
-        documents.sort((a, b) => b.updatedAt - a.updatedAt)
-        return documents
-      }
-
-      return []
+      const q = query(
+        collection(firestore, 'documents'),
+        where('ownerId', '==', ownerId),
+      )
+      const querySnapshot = await getDocs(q)
+      const documents = querySnapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as DocumentType),
+      )
+      // Sort by updatedAt descending
+      documents.sort((a, b) => {
+        const timeA = getMillis(a.updatedAt)
+        const timeB = getMillis(b.updatedAt)
+        return timeB - timeA
+      })
+      return documents
     } catch (error) {
-      console.error("Error getting user documents:", error)
+      console.error('Error getting user documents:', error)
       return []
     }
   }
 
   static subscribeToDocument(
-    userId: string,
     documentId: string,
-    callback: (document: Document | null) => void,
+    callback: (document: DocumentType | null) => void,
   ): () => void {
-    const docRef = ref(database, `documents/${userId}/${documentId}`)
-
-    const unsubscribe = onValue(docRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const document = { id: documentId, ...snapshot.val() } as Document
-        callback(document)
+    const docRef = doc(firestore, 'documents', documentId)
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        callback({ id: docSnap.id, ...docSnap.data() } as DocumentType)
       } else {
         callback(null)
       }
     })
-
-    return () => off(docRef, "value", unsubscribe)
+    return unsubscribe
   }
 
-  static async deleteDocument(userId: string, documentId: string): Promise<void> {
+  static async deleteDocument(documentId: string): Promise<void> {
     try {
-      const docRef = ref(database, `documents/${userId}/${documentId}`)
-      await set(docRef, null)
+      const docRef = doc(firestore, 'documents', documentId)
+      await deleteDoc(docRef)
     } catch (error) {
-      console.error("Error deleting document:", error)
-      throw new Error("Failed to delete document")
+      console.error('Error deleting document:', error)
+      throw new Error('Failed to delete document')
     }
   }
 }

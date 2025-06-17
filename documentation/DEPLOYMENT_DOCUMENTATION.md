@@ -1,9 +1,11 @@
 # WordWise AI - Deployment Documentation
 
 ## Project Overview
+
 AI-powered writing assistant for marketing teams built with Next.js 14 and Firebase.
 
 ## Tech Stack
+
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
 - **Authentication**: Firebase Authentication
 - **Database**: Firebase Realtime DB (documents), Firestore (AI data)
@@ -33,6 +35,7 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE K
 ### Firebase Collections Structure
 
 **Firestore Collections:**
+
 - `users` - User profiles and preferences
 - `organizations` - Brand guidelines and settings
 - `ai_analyses` - AI analysis results and history
@@ -41,6 +44,7 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE K
 - `voice_reports` - Brand alignment reports
 
 **Realtime Database Structure:**
+
 ```
 documents/
   {userId}/
@@ -58,6 +62,7 @@ documents/
 ## Core Architecture
 
 ### File Structure
+
 ```
 app/
 ├── api/                    # API routes
@@ -103,9 +108,11 @@ types/
 ## Component Documentation
 
 ### DocumentContainer
+
 **File**: `components/document-container.tsx`
 **Purpose**: Main application orchestrator
 **Key Features**:
+
 - Manages document state and AI analysis
 - Coordinates between editor, sidebar, and navigation
 - Handles real-time auto-save to Firebase
@@ -114,9 +121,11 @@ types/
 **Dependencies**: All major components, Firebase services
 
 ### DocumentEditor
+
 **File**: `components/document-editor.tsx`
 **Purpose**: Real-time text editor with auto-save
 **Key Features**:
+
 - Auto-save every 2 seconds to Firebase Realtime DB
 - Word/character counting
 - Document title editing
@@ -125,9 +134,11 @@ types/
 **Props**: `onContentChange`, `suggestions`, `onApplySuggestion`
 
 ### NavigationBar
+
 **File**: `components/navigation-bar.tsx`
 **Purpose**: Top navigation with document management
 **Key Features**:
+
 - Document list dropdown with status indicators
 - Writing goals button
 - AI sidebar toggle
@@ -136,9 +147,11 @@ types/
 **Props**: `user`, `documents`, `writingGoals`, event handlers
 
 ### AISidebar
+
 **File**: `components/ai-sidebar.tsx`
 **Purpose**: Collapsible AI assistant panel
 **Key Features**:
+
 - Real-time AI suggestions
 - Tone alignment reports
 - Tone analysis charts
@@ -147,9 +160,11 @@ types/
 **Props**: `suggestions`, `toneAnalysis`, `toneAlignmentReport`, `isOpen`
 
 ### WritingGoalsModal
+
 **File**: `components/writing-goals-modal.tsx`
 **Purpose**: Goal configuration for documents
 **Key Features**:
+
 - Marketing-focused goal options
 - Audience, formality, domain, intent selection
 - Per-document goal persistence
@@ -158,9 +173,11 @@ types/
 **Props**: `isOpen`, `currentGoals`, `onSave`
 
 ### ToneAlignmentReportComponent
+
 **File**: `components/tone-alignment-report.tsx`
 **Purpose**: Brand voice compliance analysis
 **Key Features**:
+
 - Overall alignment scoring (0-100)
 - Category breakdown (audience, formality, domain, intent)
 - Actionable recommendations with priority levels
@@ -169,9 +186,11 @@ types/
 **Props**: `report`, `onApplyRecommendation`
 
 ### UserPreferencesForm
+
 **File**: `components/user-preferences-form.tsx`
 **Purpose**: User settings and role management
 **Key Features**:
+
 - Role selection (Marketing Manager, Brand Strategist, Content Writer)
 - Auto-save interval configuration
 - Preferred tone settings
@@ -180,9 +199,11 @@ types/
 **API Integration**: `/api/user/me` (GET/PUT)
 
 ### SuggestionHistoryPanel
+
 **File**: `components/suggestion-history-panel.tsx`
 **Purpose**: Historical suggestion tracking
 **Key Features**:
+
 - Filter by status (all, applied, dismissed)
 - Suggestion details with confidence scores
 - Interaction timestamps
@@ -191,9 +212,11 @@ types/
 **API Integration**: `/api/suggestions/history` (GET)
 
 ### VoiceReportPanel
+
 **File**: `components/voice-report-panel.tsx`
 **Purpose**: Brand guideline compliance reports
 **Key Features**:
+
 - On-demand report generation
 - Tone matching analysis
 - Violation detection with severity levels
@@ -202,9 +225,11 @@ types/
 **API Integration**: `/api/voice-report/[documentId]` (GET/POST)
 
 ### EnhancedDocumentList
+
 **File**: `components/enhanced-document-list.tsx`
 **Purpose**: Document management with metadata
 **Key Features**:
+
 - Document status indicators (draft, review, final, archived)
 - Brand alignment scores
 - Last modified timestamps
@@ -215,42 +240,51 @@ types/
 ## API Endpoints
 
 ### User Management
+
 - `GET /api/user/me` - Fetch user profile
 - `PUT /api/user/me` - Update user preferences
 
 ### Document Operations
+
 - `GET /api/documents/[id]` - Fetch document
 - `PUT /api/documents/[id]` - Update document
 - `POST /api/documents` - Create document
 
 ### AI Suggestions
+
 - `POST /api/suggestions/[id]/accept` - Accept suggestion
 - `POST /api/suggestions/[id]/reject` - Reject suggestion
 - `GET /api/suggestions/history` - Get suggestion history
 
 ### Writing Goals
+
 - `GET /api/goals/[documentId]` - Fetch document goals
 - `POST /api/goals/[documentId]` - Save document goals
 
 ### Voice Reports
+
 - `GET /api/voice-report/[documentId]` - Fetch latest report
 - `POST /api/voice-report/[documentId]` - Generate new report
 
 ## Services
 
 ### DocumentService
+
 **File**: `services/document-service.ts`
 **Purpose**: Firebase Realtime DB operations
 **Key Methods**:
+
 - `createDocument()` - Create new document
 - `updateDocument()` - Update existing document
 - `getUserDocuments()` - Fetch user's documents
 - `subscribeToDocument()` - Real-time document updates
 
 ### AIService
+
 **File**: `services/ai-service.ts`
 **Purpose**: AI analysis and Firestore operations
 **Key Methods**:
+
 - `generateAnalysis()` - Create AI analysis
 - `saveSuggestionFeedback()` - Track user interactions
 - `getUserSuggestionHistory()` - Fetch interaction history
@@ -272,12 +306,15 @@ types/
 ## Deployment Checklist
 
 ### Pre-deployment
+
 - [ ] Set all environment variables
 - [ ] Configure Firebase project with Realtime DB and Firestore
 - [ ] Configure Firebase security rules
 
 ### Firebase Security Rules
+
 **Realtime Database**:
+
 ```json
 {
   "rules": {
@@ -292,12 +329,13 @@ types/
 ```
 
 **Firestore**:
+
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{collection}/{document} {
-      allow read, write: if request.auth != null && 
+      allow read, write: if request.auth != null &&
         request.auth.uid == resource.data.userId;
     }
   }
@@ -305,6 +343,7 @@ service cloud.firestore {
 ```
 
 ### Post-deployment
+
 - [ ] Test authentication flow
 - [ ] Verify document CRUD operations
 - [ ] Test AI suggestion generation

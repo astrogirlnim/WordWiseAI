@@ -17,6 +17,16 @@ CLAUDE.md
 .next/
 next-env.d.ts
 
+# API keys
+open_ai_api_keys.txt
+
+# Cursor files
+.cursorrules
+.cursor/
+
+# Admin sdk files
+wordwise-ai-mvp-firebase-adminsdk-fbsvc-23becbcacd.json
+
 # Production
 /build
 /dist
@@ -182,3 +192,6 @@ firebase-export-*.json
 firebase-import-*.json
 .runtimeconfig.json
 .runtimeconfig.*.json 
+*storybook.log
+storybook-static
+.env.local

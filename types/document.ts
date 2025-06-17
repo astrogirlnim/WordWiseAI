@@ -1,27 +1,31 @@
+import { FieldValue, Timestamp } from 'firebase/firestore'
+
+export type FirestoreTimestamp = Timestamp | FieldValue | number
+
 export interface Document {
   id: string
   title: string
   content: string
-  userId: string
+  ownerId: string
   orgId: string
   goalId?: string
-  status: "draft" | "review" | "final" | "archived"
+  status: 'draft' | 'review' | 'final' | 'archived'
   analysisSummary: {
     overallScore: number
     brandAlignmentScore: number
-    lastAnalyzedAt: number
+    lastAnalyzedAt: FirestoreTimestamp
     suggestionCount: number
   }
-  lastSaved: number
+  lastSaved: FirestoreTimestamp
   wordCount: number
   characterCount: number
-  createdAt: number
-  updatedAt: number
+  createdAt: FirestoreTimestamp
+  updatedAt: FirestoreTimestamp
 }
 
 export interface AutoSaveStatus {
-  status: "saving" | "saved" | "error"
-  lastSaved?: number
+  status: 'saving' | 'saved' | 'error' | 'checking'
+  lastSaved?: FirestoreTimestamp
 }
 
 export interface VoiceReport {
@@ -39,8 +43,8 @@ export interface VoiceReport {
   violations: {
     type: string
     description: string
-    severity: "low" | "medium" | "high"
+    severity: 'low' | 'medium' | 'high'
     suggestions: string[]
   }[]
-  createdAt: number
+  createdAt: FirestoreTimestamp
 }

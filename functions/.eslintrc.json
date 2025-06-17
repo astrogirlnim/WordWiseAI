@@ -1,0 +1,10 @@
+{
+  "root": true,
+  "extends": ["google"],
+  "parserOptions": {
+    "ecmaVersion": 2020
+  },
+  "rules": {
+    "quotes": ["error", "double"]
+  }
+} 

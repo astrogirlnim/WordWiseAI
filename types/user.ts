@@ -2,10 +2,9 @@ import type { WritingGoals } from "./writing-goals"
 
 export interface UserProfile {
   id: string
-  clerkId: string
   email: string
   name: string
-  role: "marketing-manager" | "brand-strategist" | "content-writer"
+  role: string
   orgId: string
   preferences: {
     defaultWritingGoals: WritingGoals
@@ -13,6 +12,7 @@ export interface UserProfile {
     showAdvancedSuggestions: boolean
     preferredTone: string
   }
+  brandVoiceGlossaryId?: string
   acceptedSuggestions: string[]
   rejectedSuggestions: string[]
   createdAt: number

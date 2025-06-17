@@ -3,12 +3,12 @@ export interface ToneAlignmentScore {
   current: number
   target: number
   alignment: number // 0-100, how well current matches target
-  status: "excellent" | "good" | "needs-improvement" | "poor"
+  status: 'excellent' | 'good' | 'needs-improvement' | 'poor'
 }
 
 export interface ToneAlignmentReport {
   overallScore: number
-  overallStatus: "excellent" | "good" | "needs-improvement" | "poor"
+  overallStatus: 'excellent' | 'good' | 'needs-improvement' | 'poor'
   scores: {
     audience: ToneAlignmentScore
     formality: ToneAlignmentScore
@@ -25,8 +25,8 @@ export interface ToneAlignmentReport {
 
 export interface ToneRecommendation {
   id: string
-  category: "audience" | "formality" | "domain" | "intent" | "brand"
-  priority: "high" | "medium" | "low"
+  category: 'audience' | 'formality' | 'domain' | 'intent' | 'brand'
+  priority: 'high' | 'medium' | 'low'
   title: string
   description: string
   suggestion: string

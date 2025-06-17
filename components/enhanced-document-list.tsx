@@ -1,8 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useState } from "react"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,41 +23,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, ChevronDown, Clock, BarChart3 } from "lucide-react"
+import { FileText, Plus, ChevronDown, Clock, BarChart3, Trash } from "lucide-react"
 import type { Document } from "@/types/document"
 import { formatLastSaved } from "@/utils/document-utils"
+import { Timestamp } from "firebase/firestore"
 
 interface EnhancedDocumentListProps {
+  documents: Document[]
   activeDocumentId?: string
   onDocumentSelect?: (documentId: string) => void
   onNewDocument?: () => void
+  onDeleteDocument?: (documentId: string) => Promise<void>
 }
 
-export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNewDocument }: EnhancedDocumentListProps) {
-  const { user } = useUser()
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [loading, setLoading] = useState(true)
+export function EnhancedDocumentList({
+  documents,
+  activeDocumentId,
+  onDocumentSelect,
+  onNewDocument,
+  onDeleteDocument,
+}: EnhancedDocumentListProps) {
+  const { loading } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    loadDocuments()
-  }, [user?.id])
-
-  const loadDocuments = async () => {
-    if (!user?.id) return
-
-    try {
-      const response = await fetch("/api/documents")
-      if (response.ok) {
-        const docs = await response.json()
-        setDocuments(docs)
-      }
-    } catch (error) {
-      console.error("Error loading documents:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const getStatusColor = (status: Document["status"]) => {
     switch (status) {
@@ -70,11 +70,28 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
     return "text-red-600"
   }
 
-  const activeDocument = documents.find((doc) => doc.id === activeDocumentId) || documents[0]
+  const activeDocument =
+    documents.find((doc) => doc.id === activeDocumentId) || documents[0]
 
   const handleDocumentSelect = (documentId: string) => {
     onDocumentSelect?.(documentId)
     setIsOpen(false)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (deleteCandidateId) {
+      setIsDeleting(true)
+      try {
+        await onDeleteDocument?.(deleteCandidateId)
+      } finally {
+        setIsDeleting(false)
+        setDeleteCandidateId(null)
+      }
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteCandidateId(null)
   }
 
   if (loading) {
@@ -91,7 +108,9 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap-2 px-3 h-9">
           <FileText className="h-4 w-4" />
-          <span className="max-w-[200px] truncate">{activeDocument?.title || "Select Document"}</span>
+          <span className="max-w-[200px] truncate">
+            {activeDocument?.title || "Select Document"}
+          </span>
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
@@ -109,19 +128,84 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
           {documents.map((document) => (
             <DropdownMenuItem
               key={document.id}
-              className="flex flex-col items-start gap-2 p-4 cursor-pointer"
+              className="group flex flex-col items-start gap-2 p-4 cursor-pointer"
               onClick={() => handleDocumentSelect(document.id)}
+              onSelect={(e) => {
+                if (deleteCandidateId) e.preventDefault()
+              }}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="font-medium truncate flex-1">{document.title}</span>
+                <span className="font-medium truncate flex-1">
+                  {document.title}
+                </span>
                 <div className="flex items-center gap-2">
-                  <Badge variant={getStatusColor(document.status)} className="text-xs">
+                  <Badge
+                    variant={getStatusColor(document.status)}
+                    className="text-xs"
+                  >
                     {document.status}
                   </Badge>
                   {document.id === activeDocumentId && (
                     <Badge variant="secondary" className="text-xs">
                       Active
                     </Badge>
+                  )}
+                  {onDeleteDocument && (
+                    <AlertDialog
+                      open={deleteCandidateId === document.id}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          handleDeleteCancel()
+                        }
+                      }}
+                    >
+                      <AlertDialogTrigger
+                        asChild
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteCandidateId(document.id)
+                        }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                          aria-label={`Delete document ${document.title}`}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the document &quot;{document.title}&quot;.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteCancel()
+                          }}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteConfirm()
+                            }}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting && (
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
+                            )}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                 </div>
               </div>
@@ -130,14 +214,22 @@ export function EnhancedDocumentList({ activeDocumentId, onDocumentSelect, onNew
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {formatLastSaved(new Date(document.updatedAt))}
+                    {formatLastSaved(
+                      document.updatedAt instanceof Timestamp
+                        ? document.updatedAt.toDate()
+                        : new Date(document.updatedAt as number),
+                    )}
                   </div>
                   <span>{document.wordCount} words</span>
                 </div>
 
                 <div className="flex items-center gap-1">
                   <BarChart3 className="h-3 w-3" />
-                  <span className={getAlignmentColor(document.analysisSummary.brandAlignmentScore)}>
+                  <span
+                    className={getAlignmentColor(
+                      document.analysisSummary.brandAlignmentScore,
+                    )}
+                  >
                     {document.analysisSummary.brandAlignmentScore}%
                   </span>
                 </div>

@@ -1,62 +1,115 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useState, useEffect, useCallback } from "react"
+import { useDropzone, type FileRejection } from "react-dropzone"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { User, Settings, Save } from "lucide-react"
+import { User, Settings, Save, UploadCloud, File as FileIcon, X, AlertTriangle } from "lucide-react"
 import type { UserProfile } from "@/types/user"
+import { userService } from "@/services/user-service"
+import { getStorage, ref, uploadBytes } from "firebase/storage"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog"
 
 interface UserPreferencesFormProps {
   onSave?: (profile: UserProfile) => void
 }
 
 export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
-  const { user } = useUser()
+  const { user } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [glossaryFile, setGlossaryFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadUserProfile()
-  }, [user?.id])
+  const onDrop = useCallback((acceptedFiles: File[], fileRejections: FileRejection[]) => {
+    setUploadError(null)
+    if (fileRejections.length > 0) {
+      setUploadError(fileRejections[0].errors[0].message)
+      setGlossaryFile(null)
+      return
+    }
+    if (acceptedFiles.length > 0) {
+      setGlossaryFile(acceptedFiles[0])
+    }
+  }, [])
 
-  const loadUserProfile = async () => {
-    if (!user?.id) return
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'text/csv': ['.csv'],
+      'application/json': ['.json'],
+    },
+    maxFiles: 1,
+    maxSize: 5 * 1024 * 1024, // 5MB
+  })
 
+  const handleGlossaryUpload = async () => {
+    if (!glossaryFile || !user?.uid) return
+
+    setUploading(true)
+    setUploadError(null)
     try {
-      const response = await fetch("/api/user/me")
-      if (response.ok) {
-        const userData = await response.json()
-        setProfile(userData)
-      }
+      const storage = getStorage()
+      const storageRef = ref(storage, `glossaries/${user.uid}/${glossaryFile.name}`)
+      await uploadBytes(storageRef, glossaryFile)
+      // The backend function will process this file.
+      // We can optionally update the user profile to link to the new glossary
+      setGlossaryFile(null)
     } catch (error) {
-      console.error("Error loading user profile:", error)
+      console.error("Error uploading glossary:", error)
+      setUploadError("Failed to upload file.")
     } finally {
-      setLoading(false)
+      setUploading(false)
     }
   }
 
+  const handleDeleteAccount = async () => {
+    if (!user?.uid) return;
+    // This should trigger a cloud function to delete all user data
+    // For now, we'll just log it.
+    console.log("Deleting account for user:", user.uid)
+    // Here you would typically call a cloud function:
+    // const deleteUser = httpsCallable(functions, 'deleteUserAccount');
+    // await deleteUser();
+    // Then sign out the user
+  }
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user?.uid) {
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+        const userProfile = await userService.getUserProfile(user.uid)
+        if (userProfile) {
+          setProfile({ ...userProfile, email: user.email || '' })
+        }
+      } catch (error) {
+        console.error("Error loading user profile:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadUserProfile()
+  }, [user?.uid, user?.email])
+
   const handleSave = async () => {
-    if (!profile) return
+    if (!profile || !user?.uid) return
 
     try {
       setSaving(true)
-      const response = await fetch("/api/user/me", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
-      })
-
-      if (response.ok) {
-        const updatedProfile = await response.json()
-        setProfile(updatedProfile)
-        onSave?.(updatedProfile)
-      }
+      await userService.updateUserProfile(user.uid, profile)
+      onSave?.(profile)
     } catch (error) {
       console.error("Error saving user profile:", error)
     } finally {
@@ -187,6 +240,94 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
                 })
               }
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UploadCloud className="h-5 w-5" />
+            Glossary & Brand Voice
+          </CardTitle>
+          <CardDescription>Upload a CSV or JSON file with your brand&apos;s terminology.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
+            ${isDragActive ? 'border-primary bg-primary/10' : 'border-border'}`}
+          >
+            <input {...getInputProps()} />
+            {isDragActive ? (
+              <p>Drop the file here ...</p>
+            ) : (
+              <p>Drag &apos;n&apos; drop a file here, or click to select a file</p>
+            )}
+            <p className="text-sm text-muted-foreground mt-2">CSV or JSON, up to 5MB</p>
+          </div>
+          {glossaryFile && (
+            <div className="mt-4 flex items-center justify-between p-2 border rounded-lg">
+              <div className="flex items-center gap-2">
+                <FileIcon className="h-5 w-5" />
+                <span>{glossaryFile.name}</span>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setGlossaryFile(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {uploadError && <p className="text-sm text-red-600 mt-2">{uploadError}</p>}
+          {glossaryFile && (
+            <div className="flex justify-end">
+              <Button onClick={handleGlossaryUpload} disabled={uploading}>
+                {uploading ? "Uploading..." : "Upload Glossary"}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            Danger Zone
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 border border-destructive/50 rounded-lg">
+            <div>
+              <Label>Delete Account</Label>
+              <p className="text-sm text-muted-foreground">Permanently delete your account and all associated data. This action cannot be undone.</p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">Delete Account</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This can&apos;t be undone and will permanently delete your
+                    account and all associated data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-4">
+                  <Label htmlFor="delete-confirm">
+                    If you&apos;re sure, please type &quot;DELETE&quot; below to
+                    confirm.
+                  </Label>
+                  <Input id="delete-confirm" className="mt-2" />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
+                    Yes, delete my account
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
       </Card>

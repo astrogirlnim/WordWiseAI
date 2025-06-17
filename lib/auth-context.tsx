@@ -1,14 +1,23 @@
-"use client"
+'use client'
 
-import { createContext, useContext, useEffect, useState } from "react"
-import { User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth"
-import { auth } from "./firebase"
+import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  User,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from 'firebase/auth'
+import { auth } from './firebase'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -35,6 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await createUserWithEmailAndPassword(auth, email, password)
   }
 
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider()
+    await signInWithPopup(auth, provider)
+  }
+
   const logout = async () => {
     await signOut(auth)
   }
@@ -44,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn,
     signUp,
+    signInWithGoogle,
     logout,
   }
 
@@ -53,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
-} 
+}

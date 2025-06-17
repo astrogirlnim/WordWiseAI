@@ -3,7 +3,7 @@ export interface User {
   name: string
   email: string
   avatar?: string
-  plan: "free" | "pro" | "team"
+  plan: 'free' | 'pro' | 'team'
 }
 
 export interface DocumentListItem {
