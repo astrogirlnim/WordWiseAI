@@ -8,6 +8,7 @@ import { AISidebar } from './ai-sidebar'
 import { NavigationBar } from './navigation-bar'
 import { WritingGoalsModal } from './writing-goals-modal'
 import { useDocuments } from '@/hooks/use-documents'
+import { useToast } from '@/hooks/use-toast'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
 import { VersionHistorySidebar } from './version-history-sidebar'
@@ -30,9 +31,11 @@ export function DocumentContainer() {
     createDocument,
     updateDocument,
     restoreDocumentVersion,
+    deleteDocument,
   } = useDocuments()
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
   const { versions, loading: versionsLoading, error: versionsError, reloadVersions } = useDocumentVersions(activeDocumentId || null)
+  const { toast } = useToast()
 
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
   const [writingGoals, setWritingGoals] =
@@ -114,6 +117,37 @@ export function DocumentContainer() {
       }
     }
   }, [user?.uid, createDocument, showGoalsOnNewDocument])
+
+  const handleDeleteDocument = useCallback(
+    async (documentId: string) => {
+      if (!deleteDocument) return
+
+      const docToDelete = documents.find((d) => d.id === documentId)
+      if (!docToDelete) return
+
+      try {
+        await deleteDocument(documentId)
+
+        if (activeDocumentId === documentId) {
+          const remainingDocs = documents.filter((d) => d.id !== documentId)
+          setActiveDocumentId(remainingDocs.length > 0 ? remainingDocs[0].id : null)
+        }
+
+        toast({
+          title: 'Document Deleted',
+          description: `"${docToDelete.title}" has been permanently deleted.`,
+        })
+      } catch (error) {
+        console.error('Failed to delete document:', error)
+        toast({
+          title: 'Error Deleting Document',
+          description: 'An unexpected error occurred. Please try again.',
+          variant: 'destructive',
+        })
+      }
+    },
+    [deleteDocument, documents, activeDocumentId, toast],
+  )
 
   const handleUserAction = useCallback((action: string) => {
     switch (action) {
@@ -221,6 +255,7 @@ export function DocumentContainer() {
           onWritingGoalsClick={handleWritingGoalsClick}
           onDistractionFreeToggle={handleDistractionFreeToggle}
           onVersionHistoryClick={handleToggleVersionHistory}
+          onDeleteDocument={handleDeleteDocument}
         />
       )}
 

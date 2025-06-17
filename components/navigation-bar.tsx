@@ -30,6 +30,7 @@ interface NavigationBarProps {
   onWritingGoalsClick?: () => void
   onDistractionFreeToggle?: () => void
   onVersionHistoryClick?: () => void
+  onDeleteDocument?: (documentId: string) => Promise<void>
 }
 
 export function NavigationBar({
@@ -47,6 +48,7 @@ export function NavigationBar({
   onWritingGoalsClick,
   onDistractionFreeToggle,
   onVersionHistoryClick,
+  onDeleteDocument,
 }: NavigationBarProps) {
   const { logout } = useAuth()
   const router = useRouter()
@@ -84,6 +86,7 @@ export function NavigationBar({
             activeDocumentId={activeDocumentId}
             onDocumentSelect={onDocumentSelect}
             onNewDocument={onNewDocument}
+            onDeleteDocument={onDeleteDocument}
           />
         </div>
 
@@ -107,6 +110,7 @@ export function NavigationBar({
             activeDocumentId={activeDocumentId}
             onDocumentSelect={onDocumentSelect}
             onNewDocument={onNewDocument}
+            onDeleteDocument={onDeleteDocument}
           />
         </div>
 

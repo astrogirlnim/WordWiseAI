@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { DocumentService } from '@/services/document-service'
 import { VersionService } from '@/services/version-service'
+import { AuditService, AuditEvent } from '@/services/audit-service'
 import type { Document } from '@/types/document'
 
 export function useDocuments() {
@@ -168,6 +169,11 @@ export function useDocuments() {
       try {
         console.log('[deleteDocument] Deleting document:', documentId)
         await DocumentService.deleteDocument(documentId)
+
+        // Log the delete event
+        await AuditService.logEvent(AuditEvent.DOCUMENT_DELETE, user.uid, {
+          documentId,
+        })
         
         // Clean up tracking
         delete lastSavedContentRef.current[documentId]

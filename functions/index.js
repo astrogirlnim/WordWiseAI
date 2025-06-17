@@ -11,14 +11,12 @@
 // Cloud Functions will be added here when AI features are implemented
 // For now, this file exists to satisfy Firebase project structure
 
-const express = require("express");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onRequest} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const {OpenAI} = require("openai");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const cors = require("cors");
 const path = require("path");
 
 // Environment-aware configuration
@@ -30,22 +28,10 @@ if (isEmulator) {
   console.log("Running in emulator mode, loaded .env.local");
 }
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    logger.log("CORS check for origin:", origin);
-    const allowedOrigins = [
-        "http://localhost:3000",
-        "https://wordwise-ai-mvp.web.app",
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-    } else {
-        logger.error("CORS policy violation for origin:", origin);
-        callback(new Error("Not allowed by CORS"));
-    }
-  },
-  optionsSuccessStatus: 200,
-};
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://wordwise-ai-mvp.web.app",
+];
 
 admin.initializeApp();
 
@@ -146,156 +132,167 @@ exports.pruneOldVersions = onSchedule(
     },
 );
 
-const healthCheckApp = express();
-healthCheckApp.use(cors(corsOptions));
-healthCheckApp.get("*", async (req, res) => {
-  const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
-  if (!openai) {
-    logger.error("OpenAI client not initialized. Check API key configuration.");
-    return res.status(500).send({
-      status: "error",
-      message: "OpenAI client is not configured.",
-    });
-  }
-  logger.log("healthCheck endpoint hit");
-  try {
-    const startTime = Date.now();
-    await openai.models.list();
-    const endTime = Date.now();
-    res.status(200).send({
-      status: "ok",
-      openai_latency: `${endTime - startTime}ms`,
-    });
-    logger.log("healthCheck success", {latency: endTime - startTime});
-  } catch (error) {
-    logger.error("Health check failed:", error);
-    res.status(500).send({
-      status: "error",
-      message: "OpenAI API is unreachable.",
-    });
-  }
-});
-exports.healthCheck = onRequest({secrets: ["OPENAI_API_KEY"]}, healthCheckApp);
+exports.healthCheck = onRequest(
+    {
+        secrets: ["OPENAI_API_KEY"],
+        cors: allowedOrigins,
+    },
+    async (req, res) => {
+        const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
+        if (!openai) {
+            logger.error("OpenAI client not initialized. Check API key configuration.");
+            return res.status(500).send({
+                status: "error",
+                message: "OpenAI client is not configured.",
+            });
+        }
+        logger.log("healthCheck endpoint hit");
+        try {
+            const startTime = Date.now();
+            await openai.models.list();
+            const endTime = Date.now();
+            res.status(200).send({
+                status: "ok",
+                openai_latency: `${endTime - startTime}ms`,
+            });
+            logger.log("healthCheck success", {latency: endTime - startTime});
+        } catch (error) {
+            logger.error("Health check failed:", error);
+            res.status(500).send({
+                status: "error",
+                message: "OpenAI API is unreachable.",
+            });
+        }
+    },
+);
 
-const checkGrammarApp = express();
-checkGrammarApp.use(cors(corsOptions));
-checkGrammarApp.options("*", cors(corsOptions));
-checkGrammarApp.use(express.json()); // For parsing application/json
-checkGrammarApp.post("*", async (req, res) => {
-    const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
-    if (!openai) {
-      logger.error("OpenAI client not initialized. Check API key configuration.");
-      return res.status(500).send({error: {message: "Server configuration error."}});
-    }
-    logger.log("checkGrammar onRequest called", {headers: req.headers, body: req.body});
+exports.checkGrammar = onRequest(
+    {
+        secrets: ["OPENAI_API_KEY"],
+        cors: allowedOrigins,
+    },
+    async (req, res) => {
+        // The `cors` option in onRequest should handle OPTIONS requests automatically.
+        // This is a safety check for other methods.
+        if (req.method !== "POST") {
+            res.status(405).send({error: {message: "Method Not Allowed"}});
+            return;
+        }
 
-    // body is parsed by express.json(), so we access it directly
-    const {documentId, text} = req.body.data;
+        const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
+        if (!openai) {
+            logger.error("OpenAI client not initialized. Check API key configuration.");
+            return res.status(500).send({error: {message: "Server configuration error."}});
+        }
+        logger.log("checkGrammar onRequest called", {headers: req.headers, body: req.body});
 
-    // 1. Verify Firebase Auth token from Authorization header
-    const idToken = req.headers.authorization?.split("Bearer ")[1];
-    let userId;
-    if (idToken) {
-      try {
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        userId = decodedToken.uid;
-        logger.log("Authenticated user", {userId});
-      } catch (error) {
-        logger.error("Error verifying auth token:", error);
-        res.status(401).send({error: {message: "Unauthorized"}});
-        return;
-      }
-    }
+        // For `onRequest` with a JSON body, Firebase automatically parses `req.body`.
+        const {documentId, text} = req.body.data;
 
-    if (!userId) {
-      logger.error("User not authenticated for checkGrammar");
-      res.status(401).send({error: {message: "Unauthorized. You must be logged in to check grammar."}});
-      return;
-    }
+        // 1. Verify Firebase Auth token from Authorization header
+        const idToken = req.headers.authorization?.split("Bearer ")[1];
+        let userId;
+        if (idToken) {
+            try {
+                const decodedToken = await admin.auth().verifyIdToken(idToken);
+                userId = decodedToken.uid;
+                logger.log("Authenticated user", {userId});
+            } catch (error) {
+                logger.error("Error verifying auth token:", error);
+                res.status(401).send({error: {message: "Unauthorized"}});
+                return;
+            }
+        }
 
-    if (!documentId || typeof text !== "string") {
-      logger.error("Invalid arguments for checkGrammar", {documentId, textExists: !!text});
-      res.status(400).send({error: {message: "The function requires 'documentId' and 'text'."}});
-      return;
-    }
+        if (!userId) {
+            logger.error("User not authenticated for checkGrammar");
+            res.status(401).send({error: {message: "Unauthorized. You must be logged in to check grammar."}});
+            return;
+        }
 
-    const startTime = Date.now();
+        if (!documentId || typeof text !== "string") {
+            logger.error("Invalid arguments for checkGrammar", {documentId, textExists: !!text});
+            res.status(400).send({error: {message: "The function requires 'documentId' and 'text'."}});
+            return;
+        }
 
-    try {
-      // 2. Verify document access rights (simplified for now)
-      const docRef = admin.firestore().collection("documents").doc(documentId);
-      const docSnap = await docRef.get();
+        const startTime = Date.now();
 
-      if (!docSnap.exists) {
-        logger.error("Document not found", {documentId});
-        res.status(404).send({error: {message: "Document not found."}});
-        return;
-      }
+        try {
+            // 2. Verify document access rights (simplified for now)
+            const docRef = admin.firestore().collection("documents").doc(documentId);
+            const docSnap = await docRef.get();
 
-      // 3. Caching logic
-      const cacheKey = `${userId}:${documentId}:${text}`;
-      const cached = grammarCheckCache.get(cacheKey);
-      if (cached && (Date.now() - cached.timestamp < 10000)) {
-          logger.log("Returning cached grammar check response", {cacheKey});
-          const latency = Date.now() - startTime;
-          res.status(200).send({data: {errors: cached.data.errors, latency}});
-          return;
-      }
+            if (!docSnap.exists) {
+                logger.error("Document not found", {documentId});
+                res.status(404).send({error: {message: "Document not found."}});
+                return;
+            }
 
-      // 4. Forward text to GPT-4o
-      logger.log("Calling OpenAI API for grammar check", {userId, documentId, textLength: text.length});
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-              role: "system",
-              content: "You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon.Analyze the user's text. Your response MUST be a JSON object with a single key \"errors\". The value of \"errors\" MUST be an array of error objects. Each error object must contain these keys: \"id\" (a unique string for the error), \"start\" (0-indexed character start), \"end\" (0-indexed character end), \"error\" (the incorrect text), \"suggestions\" (an array of up to 3 suggested corrections), \"explanation\" (why it's an error), and \"type\". The \"type\" must be one of \"grammar\", \"spelling\", \"style\", \"clarity\", or \"punctuation\". It is critical that the \"start\" and \"end\" values are precise. The substring of the user's text from the \"start\" index to the \"end\" index MUST be exactly equal to the \"error\" string. If no errors are found, the \"errors\" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below."
-          },
-          {
-              role: "user",
-              content: text
-          },
-        ],
-        response_format: {type: "json_object"},
-      });
+            // 3. Caching logic
+            const cacheKey = `${userId}:${documentId}:${text}`;
+            const cached = grammarCheckCache.get(cacheKey);
+            if (cached && (Date.now() - cached.timestamp < 10000)) {
+                logger.log("Returning cached grammar check response", {cacheKey});
+                const latency = Date.now() - startTime;
+                res.status(200).send({data: {errors: cached.data.errors, latency}});
+                return;
+            }
 
-      const aiResponse = completion.choices[0].message.content;
-      logger.log("Raw OpenAI Response:", {aiResponse});
+            // 4. Forward text to GPT-4o
+            logger.log("Calling OpenAI API for grammar check", {userId, documentId, textLength: text.length});
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon.Analyze the user's text. Your response MUST be a JSON object with a single key \"errors\". The value of \"errors\" MUST be an array of error objects. Each error object must contain these keys: \"id\" (a unique string for the error), \"start\" (0-indexed character start), \"end\" (0-indexed character end), \"error\" (the incorrect text), \"suggestions\" (an array of up to 3 suggested corrections), \"explanation\" (why it's an error), and \"type\". The \"type\" must be one of \"grammar\", \"spelling\", \"style\", \"clarity\", or \"punctuation\". It is critical that the \"start\" and \"end\" values are precise. The substring of the user's text from the \"start\" index to the \"end\" index MUST be exactly equal to the \"error\" string. If no errors are found, the \"errors\" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below."
+                    },
+                    {
+                        role: "user",
+                        content: text
+                    },
+                ],
+                response_format: {type: "json_object"},
+            });
 
-      // 5. Parse and handle response
-      let errors = [];
-      if (aiResponse) {
-          try {
-              const parsedResponse = JSON.parse(aiResponse);
-              if (parsedResponse && Array.isArray(parsedResponse.errors)) {
-                  errors = parsedResponse.errors.map((e) => ({
-                    ...e,
-                    id: e.id || `${e.start}-${e.error}`, // Fallback ID
-                    suggestions: e.suggestions || (e.correction ? [e.correction] : []) // Handle old format
-                  }));
-                  logger.log(`Found ${errors.length} grammar errors.`, {documentId});
-              } else {
-                  logger.warn("Parsed response does not contain an 'errors' array.", {documentId, aiResponse});
-              }
-          } catch (e) {
-              logger.error("Failed to parse JSON response from OpenAI", {error: e, aiResponse});
-          }
-      }
+            const aiResponse = completion.choices[0].message.content;
+            logger.log("Raw OpenAI Response:", {aiResponse});
 
-      const latency = Date.now() - startTime;
-      const result = {errors, latency};
+            // 5. Parse and handle response
+            let errors = [];
+            if (aiResponse) {
+                try {
+                    const parsedResponse = JSON.parse(aiResponse);
+                    if (parsedResponse && Array.isArray(parsedResponse.errors)) {
+                        errors = parsedResponse.errors.map((e) => ({
+                            ...e,
+                            id: e.id || `${e.start}-${e.error}`, // Fallback ID
+                            suggestions: e.suggestions || (e.correction ? [e.correction] : []) // Handle old format
+                        }));
+                        logger.log(`Found ${errors.length} grammar errors.`, {documentId});
+                    } else {
+                        logger.warn("Parsed response does not contain an 'errors' array.", {documentId, aiResponse});
+                    }
+                } catch (e) {
+                    logger.error("Failed to parse JSON response from OpenAI", {error: e, aiResponse});
+                }
+            }
 
-      grammarCheckCache.set(cacheKey, {timestamp: Date.now(), data: result});
+            const latency = Date.now() - startTime;
+            const result = {errors, latency};
 
-      // 6. Return response
-      logger.log("Returning grammar check response", {latency, errorCount: errors.length});
-      res.status(200).send({data: {errors, latency}});
-    } catch (error) {
-      logger.error("Error in checkGrammar function", {error: error.message, documentId});
-      res.status(500).send({error: {message: "An unexpected error occurred while checking grammar."}});
-    }
-});
-exports.checkGrammar = onRequest({secrets: ["OPENAI_API_KEY"]}, checkGrammarApp);
+            grammarCheckCache.set(cacheKey, {timestamp: Date.now(), data: result});
+
+            // 6. Return response
+            logger.log("Returning grammar check response", {latency, errorCount: errors.length});
+            res.status(200).send({data: {errors, latency}});
+        } catch (error) {
+            logger.error("Error in checkGrammar function", {error: error.message, documentId});
+            res.status(500).send({error: {message: "An unexpected error occurred while checking grammar."}});
+        }
+    },
+);
 
 exports.analyzeTone = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
   if (!openai) {

@@ -4,6 +4,17 @@ import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -12,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, ChevronDown, Clock, BarChart3 } from "lucide-react"
+import { FileText, Plus, ChevronDown, Clock, BarChart3, Trash } from "lucide-react"
 import type { Document } from "@/types/document"
 import { formatLastSaved } from "@/utils/document-utils"
 import { Timestamp } from "firebase/firestore"
@@ -22,6 +33,7 @@ interface EnhancedDocumentListProps {
   activeDocumentId?: string
   onDocumentSelect?: (documentId: string) => void
   onNewDocument?: () => void
+  onDeleteDocument?: (documentId: string) => Promise<void>
 }
 
 export function EnhancedDocumentList({
@@ -29,9 +41,12 @@ export function EnhancedDocumentList({
   activeDocumentId,
   onDocumentSelect,
   onNewDocument,
+  onDeleteDocument,
 }: EnhancedDocumentListProps) {
   const { loading } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const getStatusColor = (status: Document["status"]) => {
     switch (status) {
@@ -61,6 +76,22 @@ export function EnhancedDocumentList({
   const handleDocumentSelect = (documentId: string) => {
     onDocumentSelect?.(documentId)
     setIsOpen(false)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (deleteCandidateId) {
+      setIsDeleting(true)
+      try {
+        await onDeleteDocument?.(deleteCandidateId)
+      } finally {
+        setIsDeleting(false)
+        setDeleteCandidateId(null)
+      }
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteCandidateId(null)
   }
 
   if (loading) {
@@ -97,8 +128,11 @@ export function EnhancedDocumentList({
           {documents.map((document) => (
             <DropdownMenuItem
               key={document.id}
-              className="flex flex-col items-start gap-2 p-4 cursor-pointer"
+              className="group flex flex-col items-start gap-2 p-4 cursor-pointer"
               onClick={() => handleDocumentSelect(document.id)}
+              onSelect={(e) => {
+                if (deleteCandidateId) e.preventDefault()
+              }}
             >
               <div className="flex items-center justify-between w-full">
                 <span className="font-medium truncate flex-1">
@@ -115,6 +149,63 @@ export function EnhancedDocumentList({
                     <Badge variant="secondary" className="text-xs">
                       Active
                     </Badge>
+                  )}
+                  {onDeleteDocument && (
+                    <AlertDialog
+                      open={deleteCandidateId === document.id}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          handleDeleteCancel()
+                        }
+                      }}
+                    >
+                      <AlertDialogTrigger
+                        asChild
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteCandidateId(document.id)
+                        }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                          aria-label={`Delete document ${document.title}`}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the document "{document.title}".
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteCancel()
+                          }}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteConfirm()
+                            }}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting && (
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
+                            )}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                 </div>
               </div>
