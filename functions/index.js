@@ -31,31 +31,25 @@ if (isEmulator) {
 }
 
 const corsOptions = {
-  origin: isEmulator ? "http://localhost:3000" : "https://wordwise-ai-mvp.web.app",
-  optionsSuccessStatus: 200
+  origin: (origin, callback) => {
+    logger.log("CORS check for origin:", origin);
+    const allowedOrigins = [
+        "http://localhost:3000",
+        "https://wordwise-ai-mvp.web.app",
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+    } else {
+        logger.error("CORS policy violation for origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+    }
+  },
+  optionsSuccessStatus: 200,
 };
 
 admin.initializeApp();
 
-// Safely initialize OpenAI client
-let openai;
-const openaiApiKey = process.env.OPENAI_API_KEY;
-const isDeploying = process.env.IS_FIREBASE_CLI;
-
-if (!openaiApiKey && !isDeploying) {
-  console.error("FATAL_ERROR: OpenAI API key is not configured. Please set OPENAI_API_KEY in .env.local or in the Firebase environment configuration for production.");
-  // Prevent functions from being initialized without the key, which would cause a crash.
-  openai = null;
-} else if (openaiApiKey) {
-  try {
-    openai = new OpenAI({apiKey: openaiApiKey});
-    console.log("OpenAI client configured successfully.");
-  } catch (error) {
-    console.error("FATAL_ERROR: Failed to initialize OpenAI client:", error);
-    console.log("OpenAI client not initialized during deployment pre-check, will be available in production.");
-    openai = null;
-  }
-}
+// Safely initialize OpenAI client - REMOVED
 
 const
   rateLimit = {
@@ -67,6 +61,7 @@ const userCalls = new Map();
 const grammarCheckCache = new Map();
 
 exports.generateSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
+  const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
   if (!openai) {
     logger.error("OpenAI client not initialized. Check API key configuration.");
     throw new HttpsError("internal", "Server configuration error.");
@@ -154,6 +149,7 @@ exports.pruneOldVersions = onSchedule(
 const healthCheckApp = express();
 healthCheckApp.use(cors(corsOptions));
 healthCheckApp.get("*", async (req, res) => {
+  const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
   if (!openai) {
     logger.error("OpenAI client not initialized. Check API key configuration.");
     return res.status(500).send({
@@ -183,9 +179,10 @@ exports.healthCheck = onRequest({secrets: ["OPENAI_API_KEY"]}, healthCheckApp);
 
 const checkGrammarApp = express();
 checkGrammarApp.use(cors(corsOptions));
-checkGrammarApp.options('*', cors(corsOptions));
+checkGrammarApp.options("*", cors(corsOptions));
 checkGrammarApp.use(express.json()); // For parsing application/json
 checkGrammarApp.post("*", async (req, res) => {
+    const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
     if (!openai) {
       logger.error("OpenAI client not initialized. Check API key configuration.");
       return res.status(500).send({error: {message: "Server configuration error."}});

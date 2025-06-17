@@ -27,8 +27,8 @@ importers:
         specifier: ^12.7.0
         version: 12.7.0
       firebase-functions:
-        specifier: 5.1.1
-        version: 5.1.1(firebase-admin@12.7.0)
+        specifier: ^6.3.2
+        version: 6.3.2(firebase-admin@12.7.0)
       node-fetch:
         specifier: ^2.7.0
         version: 2.7.0
@@ -50,7 +50,7 @@ importers:
         version: 7.37.5(eslint@8.57.1)
       firebase-functions-test:
         specifier: ^3.1.0
-        version: 3.4.1(firebase-admin@12.7.0)(firebase-functions@5.1.1(firebase-admin@12.7.0))(jest@30.0.0(@types/node@24.0.3))
+        version: 3.4.1(firebase-admin@12.7.0)(firebase-functions@6.3.2(firebase-admin@12.7.0))(jest@30.0.0(@types/node@24.0.3))
 
 packages:
 
@@ -553,9 +553,6 @@ packages:
 
   '@types/express@4.17.23':
     resolution: {integrity: sha512-Crp6WY9aTYP3qPi2wGDo9iUe/rceX01UMhnF1jmwDcKCFM6cx7YhGP/Mpr3y9AASpfHixIG0E6azCcL5OcDHsQ==}
-
-  '@types/express@4.17.3':
-    resolution: {integrity: sha512-I8cGRJj3pyOLs/HndoP+25vOqhqWkAZsWMEmq1qXy/b/M3ppufecUwaK2/TVDVxcV61/iSdhykUjQQ2DLSrTdg==}
 
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
@@ -1501,12 +1498,12 @@ packages:
       firebase-functions: '>=4.9.0'
       jest: '>=28.0.0'
 
-  firebase-functions@5.1.1:
-    resolution: {integrity: sha512-KkyKZE98Leg/C73oRyuUYox04PQeeBThdygMfeX+7t1cmKWYKa/ZieYa89U8GHgED+0mF7m7wfNZOfbURYxIKg==}
+  firebase-functions@6.3.2:
+    resolution: {integrity: sha512-FC3A1/nhqt1ZzxRnj5HZLScQaozAcFSD/vSR8khqSoFNOfxuXgwJS6ZABTB7+v+iMD5z6Mmxw6OfqITUBuI7OQ==}
     engines: {node: '>=14.10.0'}
     hasBin: true
     peerDependencies:
-      firebase-admin: ^11.10.0 || ^12.0.0
+      firebase-admin: ^11.10.0 || ^12.0.0 || ^13.0.0
 
   flat-cache@3.2.0:
     resolution: {integrity: sha512-CYcENa+FtcUKLmhhqyctpclsq7QF38pKjZHsGNiSQF5r4FtoKDWabFDl3hzaEQMvT1LHEysw5twgLvpYYb4vbw==}
@@ -3744,12 +3741,6 @@ snapshots:
       '@types/qs': 6.14.0
       '@types/serve-static': 1.15.8
 
-  '@types/express@4.17.3':
-    dependencies:
-      '@types/body-parser': 1.19.6
-      '@types/express-serve-static-core': 4.19.6
-      '@types/serve-static': 1.15.8
-
   '@types/http-errors@2.0.5': {}
 
   '@types/istanbul-lib-coverage@2.0.6': {}
@@ -4930,19 +4921,19 @@ snapshots:
       - encoding
       - supports-color
 
-  firebase-functions-test@3.4.1(firebase-admin@12.7.0)(firebase-functions@5.1.1(firebase-admin@12.7.0))(jest@30.0.0(@types/node@24.0.3)):
+  firebase-functions-test@3.4.1(firebase-admin@12.7.0)(firebase-functions@6.3.2(firebase-admin@12.7.0))(jest@30.0.0(@types/node@24.0.3)):
     dependencies:
       '@types/lodash': 4.17.17
       firebase-admin: 12.7.0
-      firebase-functions: 5.1.1(firebase-admin@12.7.0)
+      firebase-functions: 6.3.2(firebase-admin@12.7.0)
       jest: 30.0.0(@types/node@24.0.3)
       lodash: 4.17.21
       ts-deepmerge: 2.0.7
 
-  firebase-functions@5.1.1(firebase-admin@12.7.0):
+  firebase-functions@6.3.2(firebase-admin@12.7.0):
     dependencies:
       '@types/cors': 2.8.19
-      '@types/express': 4.17.3
+      '@types/express': 4.17.23
       cors: 2.8.5
       express: 4.21.2
       firebase-admin: 12.7.0
