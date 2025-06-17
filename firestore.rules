@@ -16,7 +16,8 @@ service cloud.firestore {
 
       // Allow the document owner to read/write versions sub-collection
       match /versions/{versionId} {
-        allow list, read, create, update, delete: if request.auth != null && get(/databases/$(database)/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read, list: if request.auth != null;
+        allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/$(documentId)).data.ownerId == request.auth.uid;
       }
 
       // Allow the document owner to manage style suggestions
