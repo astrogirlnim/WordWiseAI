@@ -3,18 +3,34 @@
 import { UserPreferencesForm } from '@/components/user-preferences-form'
 import { NavigationBar } from '@/components/navigation-bar'
 import { useAuth } from '@/lib/auth-context'
+import { useDocuments } from '@/hooks/use-documents'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import type { Document } from '@/types/document'
 
 export default function SettingsPage() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+  const { documents, loading: docsLoading } = useDocuments()
   const router = useRouter()
+  const [activeDocumentId, setActiveDocumentId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/sign-in')
     }
-  }, [user, loading, router])
+  }, [user, authLoading, router])
+
+  const handleDocumentSelect = (documentId: string) => {
+    setActiveDocumentId(documentId)
+    router.push(`/?documentId=${documentId}`)
+  }
+  
+  const handleNewDocument = () => {
+    // This could be more sophisticated, e.g. creating a doc and then routing
+    router.push('/')
+  }
+
+  const loading = authLoading || docsLoading;
 
   if (loading || !user) {
     return (
@@ -34,8 +50,11 @@ export default function SettingsPage() {
           avatar: user.photoURL || '',
           plan: 'free', // Assuming a default plan
         }}
-        documents={[]}
-        isAISidebarOpen={false}
+        documents={documents}
+        activeDocumentId={activeDocumentId}
+        onDocumentSelect={handleDocumentSelect}
+        onNewDocument={handleNewDocument}
+        displayMode="settings"
         writingGoals={{
           audience: 'consumers',
           formality: 'casual',

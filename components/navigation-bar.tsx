@@ -14,12 +14,14 @@ import { EnhancedDocumentList } from './enhanced-document-list'
 import { VersionHistoryButton } from './version-history-button'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface NavigationBarProps {
   user: User
   documents: Document[]
+  displayMode?: 'editor' | 'settings'
   activeDocumentId?: string
-  isAISidebarOpen: boolean
+  isAISidebarOpen?: boolean
   aiSuggestionCount?: number
   writingGoals: WritingGoals
   isDistractionFree: boolean
@@ -36,8 +38,9 @@ interface NavigationBarProps {
 export function NavigationBar({
   user,
   documents,
+  displayMode = 'editor',
   activeDocumentId,
-  isAISidebarOpen,
+  isAISidebarOpen = false,
   aiSuggestionCount = 0,
   writingGoals,
   isDistractionFree,
@@ -72,10 +75,10 @@ export function NavigationBar({
       {/* Left Section */}
       <div className="flex items-center gap-4">
         {/* Logo/Brand */}
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <PenTool className="h-5 w-5 text-primary" />
           <span className="text-lg font-semibold">WordWise AI</span>
-        </div>
+        </Link>
 
         <Separator orientation="vertical" className="hidden h-4 lg:block" />
 
@@ -93,12 +96,14 @@ export function NavigationBar({
         <Separator orientation="vertical" className="hidden h-4 lg:block" />
 
         {/* Writing Goals */}
-        <div className="hidden md:block">
-          <WritingGoalsButton
-            currentGoals={writingGoals}
-            onClick={onWritingGoalsClick || (() => {})}
-          />
-        </div>
+        {displayMode === 'editor' && (
+          <div className="hidden md:block">
+            <WritingGoalsButton
+              currentGoals={writingGoals}
+              onClick={onWritingGoalsClick || (() => {})}
+            />
+          </div>
+        )}
       </div>
 
       {/* Right Section */}
@@ -115,48 +120,53 @@ export function NavigationBar({
         </div>
 
         {/* Mobile Writing Goals */}
-        <div className="md:hidden">
-          <WritingGoalsButton
-            currentGoals={writingGoals}
-            onClick={onWritingGoalsClick || (() => {})}
-          />
-        </div>
+        {displayMode === 'editor' && (
+          <div className="md:hidden">
+            <WritingGoalsButton
+              currentGoals={writingGoals}
+              onClick={onWritingGoalsClick || (() => {})}
+            />
+          </div>
+        )}
 
-        <Separator orientation="vertical" className="h-4" />
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
 
         {/* AI Sidebar Toggle */}
-        <AISidebarToggle
-          isOpen={isAISidebarOpen}
-          onToggle={onAISidebarToggle || (() => {})}
-          suggestionCount={aiSuggestionCount}
-        />
+        {displayMode === 'editor' && (
+          <AISidebarToggle
+            isOpen={isAISidebarOpen}
+            onToggle={onAISidebarToggle || (() => {})}
+            suggestionCount={aiSuggestionCount}
+          />
+        )}
 
-        <Separator orientation="vertical" className="h-4" />
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
 
         {/* Theme Toggle */}
-        <ThemeToggle />
+        {displayMode === 'editor' && <ThemeToggle />}
 
-        <Separator orientation="vertical" className="h-4" />
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
 
         {/* Distraction Free Toggle */}
-        <DistractionFreeToggle
-          isDistractionFree={isDistractionFree}
-          onToggle={onDistractionFreeToggle || (() => {})}
-        />
+        {displayMode === 'editor' && (
+          <DistractionFreeToggle
+            isDistractionFree={isDistractionFree}
+            onToggle={onDistractionFreeToggle || (() => {})}
+          />
+        )}
 
-        <Separator orientation="vertical" className="h-4" />
-
-        <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
+        
+        {displayMode === 'editor' && (
+          <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
+        )}
 
         <Separator orientation="vertical" className="h-4" />
 
         {/* User Menu */}
         <UserMenu
           user={user}
-          onProfileClick={() => handleUserAction('profile')}
           onSettingsClick={() => handleUserAction('settings')}
-          onBillingClick={() => handleUserAction('billing')}
-          onHelpClick={() => handleUserAction('help')}
           onSignOut={handleSignOut}
         />
       </div>

@@ -209,7 +209,7 @@ export function DocumentEditor({
     if (initialDocument.title && initialDocument.title !== title) {
         setTitle(initialDocument.title)
     }
-  }, [initialDocument.title])
+  }, [initialDocument.title, title])
 
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
