@@ -5,7 +5,7 @@ import type { AutoSaveStatus } from '@/types/document'
 
 interface UseAutoSaveProps {
   content: string
-  onSave: (content: string) => Promise<void>
+  onSave: () => Promise<void>
   delay?: number
 }
 
@@ -26,10 +26,10 @@ export function useAutoSave({
     onSaveRef.current = onSave
   }, [onSave])
 
-  const triggerSave = useCallback(async (contentToSave: string) => {
+  const triggerSave = useCallback(async () => {
     try {
       setSaveStatus({ status: 'saving' })
-      await onSaveRef.current(contentToSave)
+      await onSaveRef.current()
       setSaveStatus({
         status: 'saved',
         lastSaved: Date.now(),
@@ -55,7 +55,7 @@ export function useAutoSave({
 
     // Set new timeout
     timeoutRef.current = setTimeout(() => {
-      triggerSave(content)
+      triggerSave()
     }, delay)
 
     // Cleanup function
