@@ -136,6 +136,7 @@ exports.healthCheck = onRequest(
     {
         secrets: ["OPENAI_API_KEY"],
         cors: allowedOrigins,
+        invoker: "public",
     },
     async (req, res) => {
         // Manually set CORS headers to be explicit.
@@ -145,11 +146,11 @@ exports.healthCheck = onRequest(
         }
 
         // Explicitly handle preflight OPTIONS requests.
-        if (req.method === 'OPTIONS') {
-            res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-            res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-            res.set('Access-Control-Max-Age', '3600');
-            res.status(204).send('');
+        if (req.method === "OPTIONS") {
+            res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+            res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            res.set("Access-Control-Max-Age", "3600");
+            res.status(204).send("");
             return;
         }
 
@@ -185,6 +186,7 @@ exports.checkGrammar = onRequest(
     {
         secrets: ["OPENAI_API_KEY"],
         cors: allowedOrigins,
+        invoker: "public",
     },
     async (req, res) => {
         // Manually set CORS headers to be explicit.
@@ -194,11 +196,11 @@ exports.checkGrammar = onRequest(
         }
 
         // Explicitly handle preflight OPTIONS requests.
-        if (req.method === 'OPTIONS') {
-            res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-            res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-            res.set('Access-Control-Max-Age', '3600');
-            res.status(204).send('');
+        if (req.method === "OPTIONS") {
+            res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+            res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            res.set("Access-Control-Max-Age", "3600");
+            res.status(204).send("");
             return;
         }
 
