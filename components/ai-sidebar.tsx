@@ -4,10 +4,9 @@ import { Button } from '@/components/ui/button'
 
 interface AISidebarProps {
   isOpen: boolean
-  onToggle: () => void
 }
 
-export function AISidebar({ isOpen, onToggle }: AISidebarProps) {
+export function AISidebar({ isOpen }: AISidebarProps) {
   if (!isOpen) return null
 
   return (

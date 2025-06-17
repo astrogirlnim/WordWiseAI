@@ -7,6 +7,7 @@ import type { GrammarError } from '@/types/grammar';
 function isComposing(state: EditorState): boolean {
   // The 'composing' property is on the state object, but not in the default types.
   // We cast to any to access it. This is a common pattern for this property.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (state as any).composing;
 }
 

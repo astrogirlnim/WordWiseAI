@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useDropzone } from "react-dropzone"
+import { useDropzone, type FileRejection } from "react-dropzone"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,7 +28,7 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
-  const onDrop = useCallback((acceptedFiles: File[], fileRejections: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], fileRejections: FileRejection[]) => {
     setUploadError(null)
     if (fileRejections.length > 0) {
       setUploadError(fileRejections[0].errors[0].message)
@@ -250,7 +250,7 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
             <UploadCloud className="h-5 w-5" />
             Glossary & Brand Voice
           </CardTitle>
-          <CardDescription>Upload a CSV or JSON file with your brand's terminology.</CardDescription>
+          <CardDescription>Upload a CSV or JSON file with your brand&apos;s terminology.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div
@@ -262,7 +262,7 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
             {isDragActive ? (
               <p>Drop the file here ...</p>
             ) : (
-              <p>Drag 'n' drop a file here, or click to select a file</p>
+              <p>Drag &apos;n&apos; drop a file here, or click to select a file</p>
             )}
             <p className="text-sm text-muted-foreground mt-2">CSV or JSON, up to 5MB</p>
           </div>
@@ -309,9 +309,17 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your account and remove your data from our servers.
+                    This can&apos;t be undone and will permanently delete your
+                    account and all associated data.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="py-4">
+                  <Label htmlFor="delete-confirm">
+                    If you&apos;re sure, please type &quot;DELETE&quot; below to
+                    confirm.
+                  </Label>
+                  <Input id="delete-confirm" className="mt-2" />
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">

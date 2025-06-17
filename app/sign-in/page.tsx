@@ -51,8 +51,9 @@ export default function SignInPage() {
     try {
       await signIn(values.email, values.password)
       router.push('/')
-    } catch (error: any) {
-      setError(error.message || 'Failed to sign in')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to sign in'
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -123,15 +124,19 @@ export default function SignInPage() {
               try {
                 await signInWithGoogle()
                 router.push('/')
-              } catch (error: any) {
-                setError(error.message || 'Failed to sign in with Google')
+              } catch (error) {
+                const message =
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to sign in with Google'
+                setError(message)
               }
             }}
           >
             Sign In with Google
           </Button>
           <div className="mt-4 text-center text-sm">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/sign-up" className="text-blue-600 hover:underline">
               Sign up
             </Link>

@@ -6,11 +6,7 @@ import { Check, ChevronRight, Circle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const ContextMenu = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Root>
->(({ ...props }, ref) => <ContextMenuPrimitive.Root {...props} ref={ref} />)
-ContextMenu.displayName = ContextMenuPrimitive.Root.displayName
+const ContextMenu = ContextMenuPrimitive.Root
 
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger
 

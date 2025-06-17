@@ -11,8 +11,7 @@ import { useDocuments } from '@/hooks/use-documents'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
 import { VersionHistorySidebar } from './version-history-sidebar'
-import type { Document, AutoSaveStatus } from '@/types/document'
-import { Timestamp } from 'firebase/firestore'
+import type { AutoSaveStatus } from '@/types/document'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
@@ -30,7 +29,6 @@ export function DocumentContainer() {
     loading,
     createDocument,
     updateDocument,
-    deleteDocument,
     restoreDocumentVersion,
   } = useDocuments()
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
@@ -268,14 +266,13 @@ export function DocumentContainer() {
 
         {/* AI Sidebar */}
         {isAISidebarOpen && !isDistractionFree && (
-          <AISidebar isOpen={isAISidebarOpen} onToggle={handleAISidebarToggle} />
+          <AISidebar isOpen={isAISidebarOpen} />
         )}
       </main>
 
       <VersionHistorySidebar
         isOpen={isVersionHistoryOpen}
         onClose={() => setIsVersionHistoryOpen(false)}
-        documentId={activeDocumentId}
         onRestore={handleRestoreVersion}
         onView={handleViewVersion}
         versions={versions}

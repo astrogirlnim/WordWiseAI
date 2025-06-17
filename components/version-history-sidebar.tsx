@@ -15,7 +15,6 @@ import { formatDistanceToNow } from 'date-fns'
 import type { Version } from '@/types/version'
 
 interface VersionHistorySidebarProps {
-  documentId: string | null
   isOpen: boolean
   onClose: () => void
   onRestore: (versionId: string) => void
@@ -25,15 +24,25 @@ interface VersionHistorySidebarProps {
   error?: string | null
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getRelativeTime = (timestamp: any) => {
   if (!timestamp) return ''
   // Firestore Timestamps can be seconds and nanoseconds, or a toDate() method.
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000)
-  return formatDistanceToNow(date, { addSuffix: true })
+  if (timestamp.toDate) {
+    return formatDistanceToNow(timestamp.toDate(), { addSuffix: true })
+  }
+  if (timestamp.seconds) {
+    return formatDistanceToNow(new Date(timestamp.seconds * 1000), {
+      addSuffix: true,
+    })
+  }
+  if (typeof timestamp === 'number') {
+    return formatDistanceToNow(new Date(timestamp), { addSuffix: true })
+  }
+  return formatDistanceToNow(new Date(), { addSuffix: true })
 }
 
 export function VersionHistorySidebar({
-  documentId,
   isOpen,
   onClose,
   onRestore,

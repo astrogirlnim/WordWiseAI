@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -42,7 +42,7 @@ export function DocumentEditor({
   const [plainText, setPlainText] = useState('')
 
   const { user } = useAuth()
-  const { errors, isChecking, removeError, ignoreError, checkGrammarImmediately } = useGrammarChecker(documentId, plainText)
+  const { errors, isChecking, removeError, checkGrammarImmediately } = useGrammarChecker(documentId, plainText)
 
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
@@ -70,6 +70,119 @@ export function DocumentEditor({
       setPlainText(editor.getText())
     },
   })
+
+  const handleApplySuggestion = useCallback(
+    (error: GrammarError, suggestion: string) => {
+      if (!editor || !user) return
+      let replacementRange = { from: error.start, to: error.end }
+
+      const textInDoc = editor.state.doc.textBetween(
+        replacementRange.from,
+        replacementRange.to,
+      )
+
+      if (textInDoc !== error.error) {
+        console.warn(
+          `[DocumentEditor] Mismatch detected. Expected: "${error.error}", Found: "${textInDoc}". Searching for correct position.`,
+        )
+
+        const potentialRanges: { from: number; to: number }[] = []
+        editor.state.doc.nodesBetween(
+          0,
+          editor.state.doc.content.size,
+          (node, pos) => {
+            if (!node.isText || !node.text) {
+              return
+            }
+
+            let index
+            const text = node.text
+            let offset = 0
+
+            while ((index = text.indexOf(error.error, offset)) !== -1) {
+              const from = pos + index
+              const to = from + error.error.length
+              potentialRanges.push({ from, to })
+              offset = index + error.error.length
+            }
+          },
+        )
+
+        if (potentialRanges.length > 0) {
+          const bestMatch = potentialRanges.reduce((prev, curr) => {
+            const prevDist = Math.abs(prev.from - error.start)
+            const currDist = Math.abs(curr.from - error.start)
+            return currDist < prevDist ? curr : prev
+          })
+          replacementRange = bestMatch
+          console.log(
+            `[DocumentEditor] Found closest match. New range: [${replacementRange.from}, ${replacementRange.to}]`,
+          )
+        } else {
+          console.error(
+            `[DocumentEditor] Could not find text "${error.error}" in document to apply suggestion. Aborting.`,
+          )
+          return
+        }
+      }
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange(replacementRange)
+        .insertContentAt(replacementRange.from, suggestion)
+        .run()
+
+      // Immediately re-check grammar after applying a suggestion
+      if (editor) {
+        checkGrammarImmediately(editor.getText())
+      }
+
+      AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
+        documentId,
+        errorId: error.id,
+        errorText: error.error,
+        suggestion,
+        msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
+      })
+
+      removeError(error.id)
+      setContextMenu(null)
+    },
+    [editor, user, documentId, removeError, checkGrammarImmediately],
+  )
+
+  const handleIgnoreError = useCallback(
+    (error: GrammarError) => {
+      if (!user) return
+      AuditService.logEvent(AuditEvent.SUGGESTION_IGNORE, user.uid, {
+        documentId,
+        errorId: error.id,
+        errorText: error.error,
+        msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
+      })
+      removeError(error.id)
+      setContextMenu(null)
+    },
+    [user, documentId, removeError],
+  )
+
+  const handleAddToDictionary = useCallback(
+    (error: GrammarError) => {
+      if (!user) return
+      // TODO: Implement user dictionary service
+      console.log('Adding to dictionary:', error.error)
+      AuditService.logEvent(AuditEvent.SUGGESTION_ADD_TO_DICTIONARY, user.uid, {
+        documentId,
+        errorId: error.id,
+        word: error.error,
+        msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
+      })
+      removeError(error.id)
+      setContextMenu(null)
+    },
+    [user, documentId, removeError],
+  )
 
   useEffect(() => {
     if (editor && initialDocument.content && initialDocument.content !== content) {
@@ -130,7 +243,7 @@ export function DocumentEditor({
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editor, errors, contextMenu]);
+  }, [editor, errors, contextMenu, handleApplySuggestion]);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,94 +256,6 @@ export function DocumentEditor({
 
   const wordCount = getWordCount(editor?.getText() || '')
   const characterCount = getCharacterCount(editor?.getText() || '')
-
-  const handleApplySuggestion = (error: GrammarError, suggestion: string) => {
-    if (!editor || !user) return;
-
-    let { start: initialStart } = error;
-    let replacementRange = { from: error.start, to: error.end };
-    
-    const textInDoc = editor.state.doc.textBetween(replacementRange.from, replacementRange.to);
-
-    if (textInDoc !== error.error) {
-        console.warn(`[DocumentEditor] Mismatch detected. Expected: "${error.error}", Found: "${textInDoc}". Searching for correct position.`);
-
-        const potentialRanges: {from: number, to: number}[] = [];
-        editor.state.doc.nodesBetween(0, editor.state.doc.content.size, (node, pos) => {
-            if (!node.isText || !node.text) {
-                return;
-            }
-            
-            let index;
-            let text = node.text;
-            let offset = 0;
-            
-            while((index = text.indexOf(error.error, offset)) !== -1) {
-                const from = pos + index;
-                const to = from + error.error.length;
-                potentialRanges.push({ from, to });
-                offset = index + error.error.length;
-            }
-        });
-
-        if (potentialRanges.length > 0) {
-            const bestMatch = potentialRanges.reduce((prev, curr) => {
-                const prevDist = Math.abs(prev.from - initialStart);
-                const currDist = Math.abs(curr.from - initialStart);
-                return (currDist < prevDist) ? curr : prev;
-            });
-            replacementRange = bestMatch;
-            console.log(`[DocumentEditor] Found closest match. New range: [${replacementRange.from}, ${replacementRange.to}]`);
-        } else {
-            console.error(`[DocumentEditor] Could not find text "${error.error}" in document to apply suggestion. Aborting.`);
-            return;
-        }
-    }
-
-    editor.chain().focus().deleteRange(replacementRange).insertContentAt(replacementRange.from, suggestion).run();
-    
-    // Immediately re-check grammar after applying a suggestion
-    if (editor) {
-      checkGrammarImmediately(editor.getText());
-    }
-
-    AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
-        documentId,
-        errorId: error.id,
-        errorText: error.error,
-        suggestion,
-        msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
-    });
-
-    removeError(error.id);
-    setContextMenu(null);
-  };
-
-  const handleIgnoreError = (error: GrammarError) => {
-    if (!user) return;
-    AuditService.logEvent(AuditEvent.SUGGESTION_IGNORE, user.uid, {
-        documentId,
-        errorId: error.id,
-        errorText: error.error,
-        msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
-    });
-    removeError(error.id);
-    setContextMenu(null);
-  }
-
-  const handleAddToDictionary = (error: GrammarError) => {
-    if (!user) return;
-    // TODO: Implement user dictionary service
-    console.log(`Adding "${error.error}" to dictionary.`);
-    AuditService.logEvent(AuditEvent.SUGGESTION_ADD_TO_DICTIONARY, user.uid, {
-        documentId,
-        errorId: error.id,
-        word: error.error,
-        msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
-    });
-    removeError(error.id);
-    setContextMenu(null);
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -272,7 +297,7 @@ export function DocumentEditor({
         </ContextMenuPrimitive.Trigger>
         {contextMenu && (
             <ContextMenuContent>
-                <ContextMenuLabel>Suggestions for "{contextMenu.error.error}"</ContextMenuLabel>
+                <ContextMenuLabel>Suggestions for &quot;{contextMenu.error.error}&quot;</ContextMenuLabel>
                 <ContextMenuSeparator />
                 {contextMenu.error.suggestions.length > 0 ? (
                     contextMenu.error.suggestions.map((suggestion, index) => (
