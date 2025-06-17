@@ -49,7 +49,7 @@ export function useDocuments() {
       if (!user?.uid) return
 
       try {
-        await DocumentService.updateDocument(user.uid, documentId, updates)
+        await DocumentService.updateDocument(documentId, updates)
         // Update local state
         setDocuments((prev) =>
           prev.map((doc) =>
@@ -69,7 +69,7 @@ export function useDocuments() {
       if (!user?.uid) return
 
       try {
-        await DocumentService.deleteDocument(user.uid, documentId)
+        await DocumentService.deleteDocument(documentId)
         setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
       } catch (err) {
         setError('Failed to delete document')
