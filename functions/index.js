@@ -20,13 +20,31 @@ const {onObjectFinalized} = require("firebase-functions/v2/storage");
 const {parse} = require("csv-parse/sync");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const functions = require("firebase-functions");
+const cors = require("cors");
+const path = require('path');
+
+// Environment-aware configuration
+const isEmulator = process.env.FUNCTIONS_EMULATOR === 'true';
+
+if (isEmulator) {
+  // Load local environment variables from the root .env.local file
+  require('dotenv').config({ path: path.resolve(__dirname, '../.env.local') });
+  console.log("Running in emulator mode, loaded .env.local");
+}
+
+const corsOptions = {
+  origin: isEmulator ? "http://localhost:3000" : "https://your-production-app-url.com", // TODO: Replace with your actual production URL
+  optionsSuccessStatus: 200
+};
+const corsMiddleware = cors(corsOptions);
 
 admin.initializeApp();
 
 const openai = new OpenAI({
-  apiKey: functions.config().openai.key,
+  // Use .env variable in emulator, and functions config in production
+  apiKey: isEmulator ? process.env.OPENAI_API_KEY : functions.config().openai.key,
 });
-console.log("OpenAI API key loaded from functions.config().openai.key");
+console.log("OpenAI client configured.");
 
 const
   rateLimit = {
@@ -34,6 +52,8 @@ const
     timeframe: 60 * 1000, // 1 minute
   };
 const userCalls = new Map();
+
+const grammarCheckCache = new Map();
 
 exports.generateSuggestions = onCall(async (request) => {
   logger.log("generateSuggestions called", {uid: request.auth?.uid});
@@ -176,4 +196,123 @@ exports.healthCheck = onRequest(async (req, res) => {
       message: "OpenAI API is unreachable.",
     });
   }
+});
+
+exports.checkGrammar = onRequest(async (req, res) => {
+  // Use the cors middleware to handle preflight requests and set CORS headers
+  corsMiddleware(req, res, async () => {
+    // This second 'cors' call is for the actual request handling after preflight.
+    if (req.method === 'OPTIONS') {
+        res.status(204).send('');
+        return;
+    }
+
+    logger.log("checkGrammar onRequest called", {headers: req.headers, body: req.body});
+
+    const { documentId, text } = req.body.data;
+
+    // 1. Verify Firebase Auth token from Authorization header
+    const idToken = req.headers.authorization?.split('Bearer ')[1];
+    let userId;
+    if (idToken) {
+      try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        userId = decodedToken.uid;
+        logger.log("Authenticated user", {userId});
+      } catch (error) {
+        logger.error("Error verifying auth token:", error);
+        res.status(401).send({error: {message: "Unauthorized"}});
+        return;
+      }
+    }
+
+    if (!userId) {
+      logger.error("User not authenticated for checkGrammar");
+      res.status(401).send({error: {message: "Unauthorized. You must be logged in to check grammar."}});
+      return;
+    }
+
+    if (!documentId || typeof text !== 'string') {
+      logger.error("Invalid arguments for checkGrammar", { documentId, textExists: !!text });
+      res.status(400).send({error: {message: "The function requires 'documentId' and 'text'."}});
+      return;
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // 2. Verify document access rights (simplified for now)
+      const docRef = admin.firestore().collection("documents").doc(documentId);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists) {
+        logger.error("Document not found", { documentId });
+        res.status(404).send({error: {message: "Document not found."}});
+        return;
+      }
+
+      // 3. Caching logic
+      const cacheKey = `${userId}:${documentId}:${text}`;
+      const cached = grammarCheckCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < 10000)) {
+          logger.log("Returning cached grammar check response", { cacheKey });
+          const latency = Date.now() - startTime;
+          res.status(200).send({data: { errors: cached.data.errors, latency }});
+          return;
+      }
+
+      // 4. Forward text to GPT-4o
+      logger.log("Calling OpenAI API for grammar check", { userId, documentId, textLength: text.length });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+              role: "system",
+              content: `You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon. Analyze the user's text. Your response MUST be a JSON object with a single key "errors". The value of "errors" MUST be an array of error objects. Each error object must contain these keys: 'start' (0-indexed character start), 'end' (0-indexed character end), 'error' (the incorrect text), 'correction' (the suggested fix), 'explanation' (why it's an error), and 'type' ('grammar' or 'spelling'). If no errors are found, the "errors" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below.`
+          },
+          {
+              role: "user",
+              content: text
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const aiResponse = completion.choices[0].message.content;
+      logger.log("Raw OpenAI Response:", { aiResponse });
+      
+      // 5. Parse and handle response
+      let errors = [];
+      if (aiResponse) {
+          try {
+              const parsedResponse = JSON.parse(aiResponse);
+              if (parsedResponse && Array.isArray(parsedResponse.errors)) {
+                  errors = parsedResponse.errors;
+                  logger.log(`Found ${errors.length} grammar errors.`, { documentId });
+              } else {
+                  logger.warn("Parsed response does not contain an 'errors' array.", { documentId, aiResponse });
+              }
+          } catch (e) {
+              logger.error("Failed to parse JSON response from OpenAI", { error: e, aiResponse });
+          }
+      }
+
+      const latency = Date.now() - startTime;
+      const result = { errors, latency };
+
+      grammarCheckCache.set(cacheKey, { timestamp: Date.now(), data: result });
+
+      // 6. Return response
+      logger.log("Returning grammar check response", { latency, errorCount: errors.length });
+      res.status(200).send({data: result});
+
+    } catch (error) {
+      logger.error("Error in checkGrammar function", { error: error.message, documentId });
+      res.status(500).send({error: {message: "An unexpected error occurred while checking grammar."}});
+    }
+  });
+});
+
+exports.analyzeTone = onCall(async (request) => {
+  // ... existing code ...
 });

@@ -20,6 +20,8 @@ export function DocumentStatusBar({
     switch (saveStatus.status) {
       case 'saving':
         return <Loader2 className="h-3 w-3 animate-spin" />
+      case 'checking':
+        return <Loader2 className="h-3 w-3 animate-spin" />
       case 'saved':
         return <Check className="h-3 w-3 text-green-600" />
       case 'error':
@@ -31,6 +33,8 @@ export function DocumentStatusBar({
     switch (saveStatus.status) {
       case 'saving':
         return 'Saving...'
+      case 'checking':
+        return 'Checking...'
       case 'saved':
         if (!saveStatus.lastSaved) return 'Saved'
         const date =

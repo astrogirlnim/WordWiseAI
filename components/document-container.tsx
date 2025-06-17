@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
-import { DocumentEditor } from './document-editor'
+// import { DocumentEditor } from './document-editor' - Will be dynamically imported
 import { AISidebar } from './ai-sidebar'
 import { NavigationBar } from './navigation-bar'
 import { WritingGoalsModal } from './writing-goals-modal'
@@ -16,6 +17,11 @@ import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
+
+const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
+  ssr: false,
+  loading: () => <p>Loading editor...</p>
+})
 
 export function DocumentContainer() {
   const { user } = useAuth()
@@ -240,9 +246,6 @@ export function DocumentContainer() {
               initialDocument={activeDocument}
               onSave={handleSave}
               saveStatus={saveStatus}
-              suggestions={[]}
-              onApplySuggestion={() => {}}
-              onDismissSuggestion={() => {}}
             />
           ) : (
             <div className="flex h-full items-center justify-center">

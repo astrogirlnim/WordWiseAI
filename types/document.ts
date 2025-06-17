@@ -24,7 +24,7 @@ export interface Document {
 }
 
 export interface AutoSaveStatus {
-  status: 'saving' | 'saved' | 'error'
+  status: 'saving' | 'saved' | 'error' | 'checking'
   lastSaved?: FirestoreTimestamp
 }
 
