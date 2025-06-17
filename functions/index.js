@@ -17,10 +17,7 @@ const {onRequest} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const {OpenAI} = require("openai");
-const {onObjectFinalized} = require("firebase-functions/v2/storage");
-const {parse} = require("csv-parse/sync");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const functions = require("firebase-functions");
 const cors = require("cors");
 const path = require("path");
 
@@ -48,18 +45,16 @@ const isDeploying = process.env.IS_FIREBASE_CLI;
 if (!openaiApiKey && !isDeploying) {
   console.error("FATAL_ERROR: OpenAI API key is not configured. Please set OPENAI_API_KEY in .env.local or in the Firebase environment configuration for production.");
   // Prevent functions from being initialized without the key, which would cause a crash.
-  openai = null; 
+  openai = null;
 } else if (openaiApiKey) {
   try {
-    openai = new OpenAI({ apiKey: openaiApiKey });
+    openai = new OpenAI({apiKey: openaiApiKey});
     console.log("OpenAI client configured successfully.");
   } catch (error) {
     console.error("FATAL_ERROR: Failed to initialize OpenAI client:", error);
-    openai = null;
-  }
-} else {
     console.log("OpenAI client not initialized during deployment pre-check, will be available in production.");
     openai = null;
+  }
 }
 
 const
@@ -314,3 +309,42 @@ exports.analyzeTone = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
   // Since it was incomplete, I'm returning a placeholder.
   return {status: "not implemented"};
 });
+
+// This function seems to be a remnant and is causing deployment issues.
+// It references onObjectFinalized which is no longer used, and its associated
+// imports have been removed to fix linting errors.
+// exports.processGlossary = onObjectFinalized(async (object) => {
+//   logger.log("New file uploaded to storage", {
+//     bucket: object.bucket,
+//     name: object.name,
+//   });
+//
+//   if (!object.name.endsWith(".csv")) {
+//     logger.log("Not a CSV file, ignoring.");
+//     return;
+//   }
+//
+//   const fileBucket = admin.storage().bucket(object.bucket);
+//   const file = fileBucket.file(object.name);
+//
+//   try {
+//     const [fileContents] = await file.download();
+//     const records = parse(fileContents, {
+//       columns: true,
+//       skip_empty_lines: true,
+//     });
+//
+//     const glossaryCollection = admin.firestore().collection("glossary");
+//     const batch = admin.firestore().batch();
+//
+//     records.forEach((record) => {
+//       const docRef = glossaryCollection.doc();
+//       batch.set(docRef, record);
+//     });
+//
+//     await batch.commit();
+//     logger.log(`Successfully imported ${records.length} glossary terms.`);
+//   } catch (error) {
+//     logger.error("Error processing glossary file:", error);
+//   }
+// });
