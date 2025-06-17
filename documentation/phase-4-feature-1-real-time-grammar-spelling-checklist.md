@@ -66,11 +66,11 @@ This checklist breaks the feature into six dependency-ordered subfeatures.
 ### Subfeature 5 – Quick-Fix UX  
 *Criteria: allow users to act on suggestions inline.*
 
-  - [ ] Open context menu on **right-click / ⌘+.** over highlighted text. **(Critical)**  
-  - [ ] Show top **3** replacement suggestions + *Ignore* / *Add to dictionary*. **(Critical)**  
-  - [ ] Applying fix executes single **Yjs** transaction and clears issue. **(High)**  
-  - [ ] Record action in `auditLogs` with `{issueId, action, msSinceShown}`. **(Medium)**  
-  - [ ] Keyboard shortcut **⌥+Enter** accepts first suggestion. **(Low)**  
+  - [x] Open context menu on **right-click / ⌘+.** over highlighted text. **(Critical)**  
+  - [x] Show top **3** replacement suggestions + *Ignore* / *Add to dictionary*. **(Critical)**  
+  - [x] Applying fix executes single **Yjs** transaction and clears issue. **(High)** `(Note: Yjs removed, uses Tiptap transaction)`
+  - [x] Record action in `auditLogs` with `{issueId, action, msSinceShown}`. **(Medium)**  
+  - [x] Keyboard shortcut **⌥+Enter** accepts first suggestion. **(Low)**  
 
 ### Subfeature 6 – Observability & SLA Enforcement  
 *Criteria: guarantee p95 latency ≤ 2 s and visibility into failures.*

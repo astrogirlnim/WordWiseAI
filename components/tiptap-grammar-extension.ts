@@ -34,12 +34,12 @@ export const GrammarExtension = Extension.create({
                   console.warn('[GrammarExtension] Invalid error range, skipping:', error);
                   return [];
                 }
+                const suggestions = error.suggestions || [];
                 return Decoration.inline(error.start, error.end, {
                   class: `grammar-error ${error.type}`,
-                  'data-error': error.error,
-                  'data-correction': error.correction,
-                  'data-explanation': error.explanation,
-                  'aria-label': `Potential ${error.type} error: “${error.error}”. Suggestion: “${error.correction}”.`,
+                  'data-error-id': error.id,
+                  'data-error-json': JSON.stringify(error),
+                  'aria-label': `Potential ${error.type} error: “${error.error}”. Suggestion: “${suggestions[0] || ''}”.`,
                 });
               }));
               return { decorations };

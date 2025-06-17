@@ -12,6 +12,16 @@ export function useGrammarChecker(documentId: string, plainText: string) {
   const [isChecking, setIsChecking] = useState(false);
   const lastRequestTime = useRef<number>(0);
 
+  const removeError = useCallback((errorId: string) => {
+    setErrors(prevErrors => prevErrors.filter(error => error.id !== errorId));
+  }, []);
+
+  const ignoreError = useCallback((errorId: string) => {
+    // For now, ignoring is the same as removing.
+    // This could be extended to add to a persistent ignore list.
+    removeError(errorId);
+  }, [removeError]);
+
   const checkGrammar = useCallback(async (currentText: string) => {
     if (currentText.length < MIN_TEXT_LENGTH) {
       setErrors([]);
@@ -30,8 +40,9 @@ export function useGrammarChecker(documentId: string, plainText: string) {
     try {
       console.log(`[useGrammarChecker] Sending text to backend. Length: ${currentText.length}`);
       const grammarErrors = await AIService.checkGrammar(documentId, currentText);
-      setErrors(grammarErrors);
-      console.log(`[useGrammarChecker] Received ${grammarErrors.length} errors.`);
+      const errorsWithTimestamp = grammarErrors.map(e => ({ ...e, shownAt: Date.now() }));
+      setErrors(errorsWithTimestamp);
+      console.log(`[useGrammarChecker] Received ${errorsWithTimestamp.length} errors.`);
     } catch (error) {
       console.error('[useGrammarChecker] Failed to check grammar:', error);
       // Optionally, set an error state to show in the UI
@@ -55,5 +66,5 @@ export function useGrammarChecker(documentId: string, plainText: string) {
     };
   }, [plainText, debouncedCheck]);
 
-  return { errors, isChecking };
+  return { errors, isChecking, removeError, ignoreError, checkGrammarImmediately: checkGrammar };
 } 

@@ -20,6 +20,11 @@ service cloud.firestore {
       }
     }
 
+    // Allow authenticated users to write to the audit log
+    match /auditLogs/{logId} {
+      allow create: if request.auth != null;
+    }
+
     // Add other collections here with similar rules.
   }
 }

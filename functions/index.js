@@ -268,7 +268,7 @@ exports.checkGrammar = onRequest(async (req, res) => {
         messages: [
           {
               role: "system",
-              content: `You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon. Analyze the user's text. Your response MUST be a JSON object with a single key "errors". The value of "errors" MUST be an array of error objects. Each error object must contain these keys: 'start' (0-indexed character start), 'end' (0-indexed character end), 'error' (the incorrect text), 'correction' (the suggested fix), 'explanation' (why it's an error), and 'type'. The 'type' must be one of 'grammar', 'spelling', 'style', 'clarity', or 'punctuation'. If no errors are found, the "errors" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below.`
+              content: `You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon. Analyze the user's text. Your response MUST be a JSON object with a single key "errors". The value of "errors" MUST be an array of error objects. Each error object must contain these keys: 'id' (a unique string for the error), 'start' (0-indexed character start), 'end' (0-indexed character end), 'error' (the incorrect text), 'suggestions' (an array of up to 3 suggested corrections), 'explanation' (why it's an error), and 'type'. The 'type' must be one of 'grammar', 'spelling', 'style', 'clarity', or 'punctuation'. It is critical that the 'start' and 'end' values are precise. The substring of the user's text from the 'start' index to the 'end' index MUST be exactly equal to the 'error' string. If no errors are found, the "errors" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below.`
           },
           {
               role: "user",
@@ -287,7 +287,11 @@ exports.checkGrammar = onRequest(async (req, res) => {
           try {
               const parsedResponse = JSON.parse(aiResponse);
               if (parsedResponse && Array.isArray(parsedResponse.errors)) {
-                  errors = parsedResponse.errors;
+                  errors = parsedResponse.errors.map((e) => ({
+                    ...e,
+                    id: e.id || `${e.start}-${e.error}`, // Fallback ID
+                    suggestions: e.suggestions || (e.correction ? [e.correction] : []) // Handle old format
+                  }));
                   logger.log(`Found ${errors.length} grammar errors.`, { documentId });
               } else {
                   logger.warn("Parsed response does not contain an 'errors' array.", { documentId, aiResponse });
