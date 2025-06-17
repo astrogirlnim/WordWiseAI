@@ -2,7 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
-    "lint": "eslint .",
+    "lint": "eslint --no-eslintrc --config .eslintrc.json .",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
@@ -21,8 +21,10 @@
     "openai": "^5.5.0"
   },
   "devDependencies": {
-    "eslint": "^8.15.0",
+    "eslint": "^8.57.1",
     "eslint-config-google": "^0.14.0",
+    "eslint-config-next": "^15.3.3",
+    "eslint-plugin-react": "^7.37.5",
     "firebase-functions-test": "^3.1.0"
   },
   "private": true
