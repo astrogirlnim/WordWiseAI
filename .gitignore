@@ -47,6 +47,9 @@ firebase-debug.*.log
 firebase-export-*.json
 firebase_config.js
 
+# Demo files
+MVP-Demo-Files/
+
 # ENVIRONMENT VARIABLES
 .env
 .env.local

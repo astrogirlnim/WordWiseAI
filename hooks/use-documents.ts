@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/lib/auth-context'
 import { DocumentService } from '@/services/document-service'
 import { VersionService } from '@/services/version-service'
@@ -48,11 +49,38 @@ export function useDocuments() {
         console.log('[useDocuments] Creating new document:', title)
         const documentId = await DocumentService.createDocument(user.uid, title)
         console.log('[useDocuments] Document created with ID:', documentId)
-        
+
+        // Optimistically create a local representation of the document
+        const now = Timestamp.now()
+        const newDoc: Document = {
+          id: documentId,
+          title,
+          content: '',
+          ownerId: user.uid,
+          orgId: '',
+          status: 'draft',
+          analysisSummary: {
+            overallScore: 0,
+            brandAlignmentScore: 0,
+            lastAnalyzedAt: now, // This will be replaced on next load
+            suggestionCount: 0,
+          },
+          lastSaved: now,
+          wordCount: 0,
+          characterCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        }
+
+        // Add to local state
+        setDocuments((prev) => [newDoc, ...prev])
+
         // Initialize content tracking for new document
         lastSavedContentRef.current[documentId] = ''
-        
-        await loadDocuments() // Refresh the list
+
+        // No longer reloading all documents here to prevent race conditions
+        // await loadDocuments()
+
         return documentId
       } catch (err) {
         setError('Failed to create document')
@@ -60,7 +88,7 @@ export function useDocuments() {
         return null
       }
     },
-    [user?.uid, loadDocuments],
+    [user?.uid],
   )
 
   const updateDocument = useCallback(

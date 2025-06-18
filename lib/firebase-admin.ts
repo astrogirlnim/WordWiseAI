@@ -22,4 +22,11 @@ const adminApp =
 export const adminDatabase = getDatabase(adminApp)
 export const adminFirestore = getFirestore(adminApp)
 
+// Connect to emulators in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('Connecting to Firebase Admin emulators...')
+  adminDatabase.useEmulator('localhost', 9000)
+  console.log('Connected to Firebase Admin emulators')
+}
+
 export default adminApp
