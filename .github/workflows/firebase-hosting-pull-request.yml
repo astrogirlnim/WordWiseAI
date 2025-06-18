@@ -7,6 +7,10 @@ permissions:
   checks: write
   contents: read
   pull-requests: write
+  statuses: write
+  deployments: write
+  actions: read
+  issues: write
 jobs:
   build_and_preview:
     if: '${{ github.event.pull_request.head.repo.full_name == github.repository }}'
@@ -43,5 +47,6 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_WORDWISE_AI_MVP }}'
           projectId: wordwise-ai-mvp
+          entryPoint: './'
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
