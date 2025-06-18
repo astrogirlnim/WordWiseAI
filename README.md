@@ -78,12 +78,14 @@ Copy `env.example` to `.env.local` and fill in your values.
 
 For safe local development, use Firebase emulators (recommended):
 
-1. **Start Firebase emulators:**
+**⚠️ IMPORTANT: You need TWO separate terminals running simultaneously**
+
+1. **Terminal 1 - Start Firebase emulators with persistence:**
    ```bash
-   firebase emulators:start
+   pnpm emulators:start
    ```
 
-2. **In a new terminal, start the development server:**
+2. **Terminal 2 - Start the Next.js development server:**
    ```bash
    pnpm dev
    ```
@@ -97,6 +99,8 @@ For safe local development, use Firebase emulators (recommended):
      - Realtime Database: http://localhost:9000
      - Cloud Functions: http://localhost:5001
      - Storage: http://localhost:9199
+
+📋 **For detailed setup instructions, see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md)**
 
 ### 🔒 Emulator Benefits
 
