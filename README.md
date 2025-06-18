@@ -179,6 +179,51 @@ pnpm lint         # Run ESLint
 pnpm format       # Format code with Prettier
 ```
 
+## 🔧 Code Quality & Linting
+
+This project uses **ESLint v9+** with the new flat configuration format for code linting and quality control.
+
+### ESLint Configuration
+
+- **Config File**: `eslint.config.js` (ESLint v9+ flat config format)
+- **Legacy Config**: `.eslintrc.json` (kept for compatibility but not used)
+- **Rules**: Next.js, React, TypeScript, and Prettier integration
+
+### Running ESLint
+
+```bash
+# Lint all files
+pnpm lint
+
+# Fix auto-fixable issues
+pnpm lint --fix
+
+# Lint specific files
+npx eslint path/to/file.ts
+```
+
+### ESLint Configuration Details
+
+The project uses ESLint's new flat configuration format (`eslint.config.js`):
+- **Next.js** core web vitals rules
+- **React** recommended rules
+- **TypeScript** recommended rules  
+- **Prettier** integration for formatting
+- **Custom rules** for project-specific requirements
+
+Build artifacts and generated files are automatically ignored to keep CI/CD fast and focused on source code quality.
+
+### ⚠️ ESLint Upgrade Notes
+
+This project uses **ESLint v9+** with the new flat configuration format. When upgrading ESLint in the future:
+
+1. **Check compatibility** with the flat config format (`eslint.config.js`)
+2. **Review breaking changes** in ESLint release notes
+3. **Test locally** before pushing changes: `pnpm lint`
+4. **Update configuration** if new rules or deprecated features are introduced
+
+The pre-commit hook will automatically run ESLint checks to prevent commits with linting errors.
+
 ## 🧪 Firebase Emulator Commands
 
 **⚠️ IMPORTANT**: By default, Firebase emulators are **ephemeral** - all data (users, documents, etc.) is lost when emulators are stopped. Use persistence commands below to save your development data.
