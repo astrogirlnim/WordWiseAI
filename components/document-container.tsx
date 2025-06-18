@@ -52,6 +52,7 @@ export function DocumentContainer() {
   const [saveStatus, setSaveStatus] = useState<AutoSaveStatus>({
     status: 'saved'
   })
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
 
   // Set active document when documents load
   useEffect(() => {
@@ -83,14 +84,81 @@ export function DocumentContainer() {
 
   const handleRestoreVersion = useCallback(
     async (versionId: string) => {
-      if (!activeDocumentId || !restoreDocumentVersion) return
+      if (!activeDocumentId || !restoreDocumentVersion) {
+        console.error('[handleRestoreVersion] Missing required dependencies:', {
+          activeDocumentId: !!activeDocumentId,
+          restoreDocumentVersion: !!restoreDocumentVersion
+        })
+        return
+      }
 
-      await restoreDocumentVersion(activeDocumentId, versionId)
-      await reloadVersions()
-      setIsVersionHistoryOpen(false)
-      // toast(...)
+      console.log('[handleRestoreVersion] Starting version restore process')
+      console.log('[handleRestoreVersion] Document ID:', activeDocumentId)
+      console.log('[handleRestoreVersion] Version ID:', versionId)
+
+      try {
+        // Set restoring state
+        setRestoringVersionId(versionId)
+        setSaveStatus({ status: 'saving' })
+        console.log('[handleRestoreVersion] Set restoring state for version:', versionId)
+
+        // Get current document for context in success message
+        const currentDocument = documents.find(d => d.id === activeDocumentId)
+        const documentTitle = currentDocument?.title || 'Document'
+
+        console.log('[handleRestoreVersion] Current document title:', documentTitle)
+        console.log('[handleRestoreVersion] Calling restoreDocumentVersion...')
+
+        // Perform the restore operation
+        await restoreDocumentVersion(activeDocumentId, versionId)
+        
+        console.log('[handleRestoreVersion] Version restore completed successfully')
+
+        // Reload version history to reflect any changes
+        console.log('[handleRestoreVersion] Reloading version history...')
+        await reloadVersions()
+        console.log('[handleRestoreVersion] Version history reloaded')
+
+        // Update UI state
+        setSaveStatus({ status: 'saved' })
+        setRestoringVersionId(null)
+        console.log('[handleRestoreVersion] Cleared restoring state')
+
+        // Close version history sidebar
+        setIsVersionHistoryOpen(false)
+        console.log('[handleRestoreVersion] Closed version history sidebar')
+
+        // Show success toast
+        toast({
+          title: 'Version Restored',
+          description: `Successfully restored "${documentTitle}" to a previous version.`,
+        })
+        console.log('[handleRestoreVersion] Success toast displayed')
+
+      } catch (error) {
+        console.error('[handleRestoreVersion] Error during version restore:', error)
+        console.error('[handleRestoreVersion] - Document ID:', activeDocumentId)
+        console.error('[handleRestoreVersion] - Version ID:', versionId)
+        console.error('[handleRestoreVersion] - Error details:', error instanceof Error ? error.message : String(error))
+
+        // Clear restoring state and update UI to show error
+        setRestoringVersionId(null)
+        setSaveStatus({ status: 'error' })
+        console.log('[handleRestoreVersion] Cleared restoring state due to error')
+
+        // Show error toast
+        toast({
+          title: 'Restore Failed',
+          description: 'Failed to restore the document version. Please try again.',
+          variant: 'destructive',
+        })
+        console.log('[handleRestoreVersion] Error toast displayed')
+
+        // Keep version history open so user can try again
+        console.log('[handleRestoreVersion] Keeping version history sidebar open for retry')
+      }
     },
-    [activeDocumentId, restoreDocumentVersion, reloadVersions],
+    [activeDocumentId, restoreDocumentVersion, reloadVersions, documents, toast],
   )
 
   const handleViewVersion = useCallback(
@@ -356,6 +424,7 @@ export function DocumentContainer() {
         versions={versions}
         loading={versionsLoading}
         error={versionsError}
+        restoringVersionId={restoringVersionId}
       />
 
       {diffContent && (

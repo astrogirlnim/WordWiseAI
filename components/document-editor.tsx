@@ -214,6 +214,90 @@ export function DocumentEditor({
     }
   }, [documentId, initialDocument.title]) // Include initialDocument.title to satisfy linter but effect behavior unchanged since documentId changes trigger this
 
+  // **PHASE 8.2: CRITICAL FIX** - Synchronize editor content with external changes (version restore)
+  useEffect(() => {
+    console.log('[DocumentEditor] Phase 8.2: Checking for content synchronization')
+    console.log('[DocumentEditor] Current editor content length:', editor?.getHTML()?.length || 0)
+    console.log('[DocumentEditor] New initialDocument content length:', initialDocument.content?.length || 0)
+    
+    if (!editor || editor.isDestroyed) {
+      console.log('[DocumentEditor] Editor not ready for content sync')
+      return
+    }
+
+    // Get current editor content for comparison
+    const currentContent = editor.getHTML()
+    const newContent = initialDocument.content || ''
+    
+    // Skip update if content is the same (prevent unnecessary operations)
+    if (currentContent === newContent) {
+      console.log('[DocumentEditor] Content unchanged, skipping sync')
+      return
+    }
+
+    // Check if user is actively typing (prevent interrupting user input)
+    const isUserTyping = editor.isFocused && Date.now() - (editor.state.selection.from || 0) < 1000
+    if (isUserTyping) {
+      console.log('[DocumentEditor] User is actively typing, delaying content sync')
+      // Retry after a short delay to avoid interrupting user
+      const timeoutId = setTimeout(() => {
+        if (editor && !editor.isDestroyed && editor.getHTML() !== newContent) {
+          console.log('[DocumentEditor] Retrying content sync after typing delay')
+          editor.commands.setContent(newContent, false) // false = don't emit update events
+          
+          // Update plainText state for grammar checking
+          const newPlainText = editor.getText()
+          setPlainText(newPlainText)
+          if (newPlainText) {
+            checkGrammarImmediately(newPlainText)
+          }
+        }
+      }, 500)
+      return () => clearTimeout(timeoutId)
+    }
+
+    // Apply content synchronization
+    console.log('[DocumentEditor] Applying content synchronization')
+    console.log('[DocumentEditor] Before sync - Editor content:', currentContent.substring(0, 100) + (currentContent.length > 100 ? '...' : ''))
+    console.log('[DocumentEditor] Before sync - New content:', newContent.substring(0, 100) + (newContent.length > 100 ? '...' : ''))
+    
+    try {
+      // Preserve cursor position if possible
+      const currentSelection = editor.state.selection
+      
+      // Update editor content (false = don't trigger update events to prevent auto-save conflicts)
+      editor.commands.setContent(newContent, false)
+      
+      // Try to restore cursor position (best effort)
+      if (currentSelection && currentSelection.from <= editor.state.doc.content.size) {
+        editor.commands.setTextSelection(Math.min(currentSelection.from, editor.state.doc.content.size))
+      }
+      
+      // Update plainText state for grammar checking
+      const newPlainText = editor.getText()
+      setPlainText(newPlainText)
+      
+      // Trigger grammar check on restored content
+      if (newPlainText) {
+        console.log('[DocumentEditor] Triggering grammar check on restored content')
+        checkGrammarImmediately(newPlainText)
+      }
+      
+      console.log('[DocumentEditor] Content synchronization completed successfully')
+      console.log('[DocumentEditor] After sync - Editor content length:', editor.getHTML().length)
+      
+    } catch (error) {
+      console.error('[DocumentEditor] Error during content synchronization:', error)
+      // Fallback: try setting content without preserving selection
+      try {
+        editor.commands.setContent(newContent, false)
+        console.log('[DocumentEditor] Fallback content sync successful')
+      } catch (fallbackError) {
+        console.error('[DocumentEditor] Fallback content sync also failed:', fallbackError)
+      }
+    }
+  }, [editor, initialDocument.content, checkGrammarImmediately]) // Watch for content changes
+
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
       const { tr } = editor.state;
