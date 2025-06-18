@@ -6,9 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "prestart": "node scripts/validate-env.js",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "emulators:start": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "emulators:reset": "rm -rf emulator-data && firebase emulators:start",
+    "emulators:export": "firebase emulators:export ./emulator-data",
+    "emulators:import": "firebase emulators:start --import=./emulator-data",
+    "emulators:kill": "pkill -f firebase",
+    "emulators:status": "ps aux | grep firebase | grep -v grep || echo 'No Firebase processes running'"
   },
   "dependencies": {
     "@google-cloud/opentelemetry-cloud-trace-exporter": "^2.4.1",
@@ -74,8 +81,6 @@
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
     "next-themes": "^0.4.4",
-    "pg": "latest",
-    "pg-native": "latest",
     "react": "^19",
     "react-day-picker": "8.10.1",
     "react-dom": "^19",

@@ -10,19 +10,19 @@ service cloud.firestore {
 
     // Example for a 'documents' collection where documents have an 'ownerId'.
     match /documents/{documentId} {
-      allow read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+      allow get, read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       allow list: if request.auth != null;
 
       // Allow the document owner to read/write versions sub-collection
       match /versions/{versionId} {
         allow read, list: if request.auth != null;
-        allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
       }
 
       // Allow the document owner to manage style suggestions
       match /styleSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
       }
     }
 

@@ -29,7 +29,6 @@ export default function Page() {
   }
 
   if (!user) {
-    router.push('/sign-in')
     return null
   }
 

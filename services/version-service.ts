@@ -18,19 +18,27 @@ export class VersionService {
   static async getVersions(documentId: string): Promise<Version[]> {
     try {
       console.log('[VersionService.getVersions] Getting versions for document:', documentId)
+      console.log('[VersionService.getVersions] Collection path:', `documents/${documentId}/versions`)
       const versionsRef = collection(
         firestore,
         `documents/${documentId}/versions`,
       )
       const q = query(versionsRef, orderBy('createdAt', 'desc'))
+      console.log('[VersionService.getVersions] Executing query...')
       const querySnapshot = await getDocs(q)
+      console.log('[VersionService.getVersions] Query completed, raw docs count:', querySnapshot.docs.length)
       const versions = querySnapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Version),
+        (doc) => {
+          console.log('[VersionService.getVersions] Processing doc:', doc.id, 'data:', doc.data())
+          return { id: doc.id, ...doc.data() } as Version
+        },
       )
       console.log('[VersionService.getVersions] Found', versions.length, 'versions for document:', documentId)
+      console.log('[VersionService.getVersions] Versions:', versions.map(v => ({ id: v.id, authorName: v.authorName, contentLength: v.content?.length })))
       return versions
     } catch (error) {
       console.error('[VersionService.getVersions] Error getting versions:', error)
+      console.error('[VersionService.getVersions] Error details:', error)
       return []
     }
   }

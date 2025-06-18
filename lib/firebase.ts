@@ -1,8 +1,9 @@
 import { initializeApp, getApps } from "firebase/app"
-import { getDatabase } from "firebase/database"
-import { getFirestore } from "firebase/firestore"
-import { getAuth } from "firebase/auth"
-import { getStorage } from "firebase/storage"
+import { getDatabase, connectDatabaseEmulator } from "firebase/database"
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
+import { getAuth, connectAuthEmulator } from "firebase/auth"
+import { getStorage, connectStorageEmulator } from "firebase/storage"
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions"
 import { env } from "./env"
 
 const firebaseConfig = {
@@ -23,5 +24,17 @@ export const database = getDatabase(app)
 export const firestore = getFirestore(app)
 export const auth = getAuth(app)
 export const storage = getStorage(app)
+export const functions = getFunctions(app)
+
+// Connect to emulators in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('Connecting to Firebase emulators...')
+  connectAuthEmulator(auth, 'http://localhost:9099')
+  connectFirestoreEmulator(firestore, 'localhost', 8080)
+  connectDatabaseEmulator(database, 'localhost', 9000)
+  connectStorageEmulator(storage, 'localhost', 9199)
+  connectFunctionsEmulator(functions, 'localhost', 5001)
+  console.log('Connected to Firebase emulators')
+}
 
 export default app
