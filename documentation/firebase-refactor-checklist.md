@@ -51,7 +51,7 @@
   - [x] Remove `DATABASE_URL` from `env.example`
   - [x] Remove `pg` and `pg-native` dependencies from `package.json`
   - [x] Search for any remaining PostgreSQL imports/usage
-- [ ] Add a pre-start script to validate env vars.
+- [x] Add a pre-start script to validate env vars. ✅ **COMPLETED** - Enhanced validation with emulator detection
 
 ### 2.4 Project Cleanup ✅ **NO APP_BACKUP FOUND**
 - [x] ~~Confirm `app_backup/` is unused~~ **NOT FOUND** - No cleanup needed
@@ -100,12 +100,12 @@
 [x] Test rules with Firebase Console or emulator
 ```
 
-### **Phase 3: Environment Validation** 🔧 **MEDIUM PRIORITY**
+### **Phase 3: Environment Validation** ✅ **COMPLETED**
 ```bash
 # Add runtime validation
-[ ] Create scripts/validate-env.js to check required Firebase vars
-[ ] Add to package.json scripts: "prestart": "node scripts/validate-env.js"
-[ ] Test: npm run prestart
+[x] Create scripts/validate-env.js to check required Firebase vars
+[x] Add to package.json scripts: "prestart": "node scripts/validate-env.js"
+[x] Test: npm run prestart
 ```
 
 ### **Phase 4: Local Testing & Verification** 🧪 **MEDIUM PRIORITY**
@@ -142,12 +142,12 @@
 ### ⚠️ **Critical Issues Found:**
 1. ~~**PostgreSQL Legacy**: References still exist in env files and package.json despite migration to Firebase~~ ✅ **RESOLVED**
 2. ~~**Database Rules**: May be too permissive (allows all authenticated users access to documents)~~ ✅ **RESOLVED**
-3. **Missing Validation**: No runtime environment variable validation
+3. ~~**Missing Validation**: No runtime environment variable validation~~ ✅ **RESOLVED**
 
 ### 🎯 **Priority Actions:**
 1. ~~**IMMEDIATE**: Remove PostgreSQL dependencies and environment variables~~ ✅ **COMPLETED**
 2. ~~**HIGH**: Audit and test security rules deployment~~ ✅ **COMPLETED**
-3. **MEDIUM**: Add environment validation and comprehensive testing
+3. ~~**MEDIUM**: Add environment validation and comprehensive testing~~ ✅ **COMPLETED** (Environment validation done; comprehensive testing in Phase 4)
 
 ---
 
@@ -156,10 +156,10 @@
 - **Single Firebase init file** (`lib/firebase.ts`) ✅ **VERIFIED**
 - **Only relevant rules deployed** - ✅ **COMPLETED**
 - **PostgreSQL legacy completely removed** - ✅ **COMPLETED**
-- **All env vars validated at runtime** - ❌ **NOT DONE: No validation script**
+- **All env vars validated at runtime** - ✅ **COMPLETED** - Enhanced validation with emulator safety reporting
 - **CI/CD pipeline green** with new setup ✅ **VERIFIED: GitHub Actions working**
 - **Realtime Database properly secured and tested** - ⏳ **PENDING: Rules audit**
 
-> **Status**: Firebase refactor is ~70% complete. Critical remaining work: PostgreSQL cleanup and security rules deployment.
+> **Status**: Firebase refactor is ~85% complete. Phase 3 Environment Validation completed with enhanced emulator safety reporting. Remaining work: Phase 4 comprehensive testing and Phase 5 documentation.
 
 > Keep this checklist updated as tasks are completed. When all items are checked, the Firebase refactor is considered done. 
