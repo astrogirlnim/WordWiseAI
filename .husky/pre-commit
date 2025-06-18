@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run ESLint before commit
+echo "🔍 Running ESLint checks..."
+pnpm lint
+
+# Exit with the same code as ESLint
+exit_code=$?
+if [ $exit_code -eq 0 ]; then
+  echo "✅ ESLint checks passed!"
+else
+  echo "❌ ESLint checks failed. Please fix the issues before committing."
+  echo "💡 Run 'pnpm lint --fix' to auto-fix some issues."
+fi
+exit $exit_code 

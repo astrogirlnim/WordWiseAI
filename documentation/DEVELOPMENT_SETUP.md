@@ -125,6 +125,56 @@ pnpm dev
 pnpm prestart
 ```
 
+## 🔧 Code Quality & ESLint
+
+This project uses **ESLint v9+** with the new flat configuration format for maintaining code quality during development.
+
+### ESLint Setup
+
+- **Configuration**: `eslint.config.js` (flat config format)
+- **Version**: ESLint v9+ with modern flat configuration
+- **Integration**: Configured for Next.js, React, TypeScript, and Prettier
+
+### Development Commands
+
+```bash
+# Run ESLint checks
+pnpm lint
+
+# Fix auto-fixable linting issues
+pnpm lint --fix
+
+# Lint specific files or directories
+npx eslint src/components/**/*.tsx
+```
+
+### ESLint Integration Notes
+
+- **CI/CD Ready**: Configuration optimized for GitHub Actions
+- **Build Artifacts Excluded**: `.next/`, `node_modules/`, and other generated files are ignored
+- **Warning vs Error**: Configured to prevent CI failures from minor issues while maintaining code quality
+- **Next.js Optimized**: Includes Next.js specific rules and optimizations
+
+### Common ESLint Workflow
+
+1. **During Development**: ESLint runs automatically in most editors with extensions
+2. **Before Commits**: Run `pnpm lint` to check for issues
+3. **Fix Issues**: Use `pnpm lint --fix` for auto-fixable problems
+4. **Manual Fixes**: Address remaining warnings manually
+
+### Troubleshooting ESLint
+
+```bash
+# If ESLint seems broken, verify configuration
+npx eslint --print-config path/to/file.ts
+
+# Check which files are being linted
+npx eslint . --debug
+
+# Clear cache if needed
+npx eslint . --cache-location .eslintcache --fix
+```
+
 ## 🔍 Troubleshooting
 
 ### "Port already in use" Error

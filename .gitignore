@@ -190,7 +190,6 @@ public
 firebase-debug.log
 firebase-debug.*.log
 .firebaserc
-firebase.json
 firebase-export-*.json
 firebase-import-*.json
 .runtimeconfig.json
