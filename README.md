@@ -177,19 +177,40 @@ pnpm format       # Format code with Prettier
 
 ## 🧪 Firebase Emulator Commands
 
+**⚠️ IMPORTANT**: By default, Firebase emulators are **ephemeral** - all data (users, documents, etc.) is lost when emulators are stopped. Use persistence commands below to save your development data.
+
+### Basic Commands
 ```bash
-# Start all emulators
+# Start all emulators (ephemeral - data lost on restart)
 firebase emulators:start
 
 # Start specific emulators
 firebase emulators:start --only firestore,auth
-
-# Start with import data
-firebase emulators:start --import=./emulator-data
-
-# Export emulator data
-firebase emulators:export ./emulator-data
 ```
+
+### Persistent Data Commands (Recommended for Development)
+```bash
+# Start with data persistence (saves data between sessions)
+pnpm emulators:start
+# or manually:
+firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data
+
+# Reset all emulator data (fresh start)
+pnpm emulators:reset
+
+# Export current emulator data manually
+pnpm emulators:export
+
+# Import existing emulator data
+pnpm emulators:import
+```
+
+### Data Persistence Workflow
+1. **First time**: `pnpm emulators:start` (creates emulator-data directory)
+2. **Create accounts**: Sign up users, create documents, etc.
+3. **Stop emulators**: `Ctrl+C` (data auto-exported to emulator-data/)
+4. **Restart**: `pnpm emulators:start` (data auto-imported)
+5. **Your users and data persist!** 🎉
 
 ## 🔒 Security & Rules
 

@@ -198,3 +198,6 @@ firebase-import-*.json
 *storybook.log
 storybook-static
 .env.local
+
+# Firebase emulator data (local development only)
+emulator-data/
