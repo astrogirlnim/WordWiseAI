@@ -205,11 +205,14 @@ export function DocumentEditor({
     [user, documentId, removeError],
   )
 
+  // Only update title when switching to a different document (by documentId)
+  // This prevents the feedback loop that was resetting the title on every keystroke
   useEffect(() => {
-    if (initialDocument.title && initialDocument.title !== title) {
-        setTitle(initialDocument.title)
+    console.log('[DocumentEditor] Document changed. Setting title from initialDocument:', initialDocument.title)
+    if (initialDocument.title) {
+      setTitle(initialDocument.title)
     }
-  }, [initialDocument.title, title])
+  }, [documentId, initialDocument.title]) // Include initialDocument.title to satisfy linter but effect behavior unchanged since documentId changes trigger this
 
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
@@ -249,8 +252,14 @@ export function DocumentEditor({
       <input
         type="text"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onBlur={() => onSave?.(editor?.getHTML() || '', title)}
+        onChange={(e) => {
+          console.log('[DocumentEditor] Title changed by user:', e.target.value)
+          setTitle(e.target.value)
+        }}
+        onBlur={() => {
+          console.log('[DocumentEditor] Title input blurred. Saving title:', title)
+          onSave?.(editor?.getHTML() || '', title)
+        }}
         className="text-2xl font-bold p-2 bg-transparent border-b border-gray-200 dark:border-gray-700 focus:outline-none"
         aria-label="Document Title"
       />

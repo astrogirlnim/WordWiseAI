@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
 // import { DocumentEditor } from './document-editor' - Will be dynamically imported
@@ -191,6 +191,16 @@ export function DocumentContainer() {
   const activeDocument =
     documents.find((doc) => doc.id === activeDocumentId) || null
 
+  // Memoize initialDocument to prevent unnecessary re-renders that cause title reset
+  const initialDocument = useMemo(() => {
+    if (!activeDocument) return null
+    console.log('[DocumentContainer] Memoizing initialDocument for', activeDocument.title)
+    return {
+      ...activeDocument,
+      content: activeDocument.content || ''
+    }
+  }, [activeDocument]) // Depend on activeDocument to satisfy linter
+
   const mockUser = {
     id: user?.uid || '',
     name: user?.displayName || 'User',
@@ -201,27 +211,29 @@ export function DocumentContainer() {
   const handleSave = useAutoSave(
     async (content: string, title: string) => {
       if (!activeDocumentId) return
-              console.log('[DocumentContainer] Starting save process for', activeDocumentId)
-        setSaveStatus({ status: 'saving' })
-        try {
-          await updateDocument(activeDocumentId, {
-            content,
-            title,
-            wordCount: content.trim().split(/\s+/).filter(Boolean).length,
-            characterCount: content.length,
-          })
-          setSaveStatus({ status: 'saved' })
-          console.log('[DocumentContainer] Save completed successfully')
-        } catch (error) {
-          console.error('[DocumentContainer] Failed to save document', error)
-          setSaveStatus({ status: 'error' })
-        }
+      console.log('[DocumentContainer] Starting save process for', activeDocumentId, 'with title:', title)
+      setSaveStatus({ status: 'saving' })
+      try {
+        await updateDocument(activeDocumentId, {
+          content,
+          title,
+          wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+          characterCount: content.length,
+        })
+        setSaveStatus({ status: 'saved' })
+        console.log('[DocumentContainer] Save completed successfully for title:', title)
+      } catch (error) {
+        console.error('[DocumentContainer] Failed to save document', error)
+        setSaveStatus({ status: 'error' })
+      }
     },
     2000,
     {
       compareArgs: (prev, current) => {
         // Compare content and title to avoid unnecessary saves
-        return prev[0] === current[0] && prev[1] === current[1]
+        const isSame = prev[0] === current[0] && prev[1] === current[1]
+        console.log('[DocumentContainer] Comparing save args. Same?', isSame, 'Title changed?', prev[1] !== current[1])
+        return isSame
       }
     }
   )
@@ -302,14 +314,11 @@ export function DocumentContainer() {
               />
             </div>
           )}
-          {activeDocument && user?.uid ? (
+          {activeDocument && initialDocument && user?.uid ? (
             <DocumentEditor
               key={activeDocumentId}
               documentId={activeDocument.id}
-              initialDocument={{
-                ...activeDocument,
-                content: activeDocument.content || ''
-              }}
+              initialDocument={initialDocument}
               onSave={handleSave}
               saveStatus={saveStatus}
             />
