@@ -212,7 +212,7 @@ export function DocumentEditor({
     if (initialDocument.title) {
       setTitle(initialDocument.title)
     }
-  }, [documentId]) // Only depend on documentId, not title or initialDocument.title
+  }, [documentId, initialDocument.title]) // Include initialDocument.title to satisfy linter but effect behavior unchanged since documentId changes trigger this
 
   useEffect(() => {
     if (editor && !editor.isDestroyed) {

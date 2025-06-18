@@ -199,7 +199,7 @@ export function DocumentContainer() {
       ...activeDocument,
       content: activeDocument.content || ''
     }
-  }, [activeDocument?.id, activeDocument?.title, activeDocument?.content]) // Only change when document actually changes
+  }, [activeDocument]) // Depend on activeDocument to satisfy linter
 
   const mockUser = {
     id: user?.uid || '',
