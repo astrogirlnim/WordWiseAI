@@ -5,12 +5,16 @@
     "documents": {
       "$docId": {
         "ot": {
-          ".read": "auth != null",
-          ".write": "auth != null"
+          ".read": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid",
+          ".write": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid"
         },
         "presence": {
-          ".read": "auth != null",
-          ".write": "auth != null"
+          ".read": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid",
+          ".write": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid"
+        },
+        "metadata": {
+          ".read": "auth != null && data.child('ownerId').val() == auth.uid",
+          ".write": "auth != null && (!data.exists() || data.child('ownerId').val() == auth.uid) && newData.child('ownerId').val() == auth.uid"
         }
       }
     },
