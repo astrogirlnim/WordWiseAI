@@ -115,6 +115,8 @@ export function useDocuments() {
           const lastContentTrimmed = lastSavedContent.trim()
           
           console.log('[updateDocument] Content comparison - Last saved length:', lastContentTrimmed.length, 'New length:', newContent.length)
+          console.log('[updateDocument] Last saved content:', JSON.stringify(lastContentTrimmed.substring(0, 50)))
+          console.log('[updateDocument] New content:', JSON.stringify(newContent.substring(0, 50)))
           
           // Only create version if content actually changed (ignoring whitespace-only changes)
           if (newContent !== lastContentTrimmed && newContent.length > 0) {
@@ -134,6 +136,7 @@ export function useDocuments() {
             }
           } else {
             console.log('[updateDocument] Content unchanged or empty, skipping version creation for', documentId)
+            console.log('[updateDocument] Comparison details - Equal?', newContent === lastContentTrimmed, 'New length > 0?', newContent.length > 0)
           }
         }
 

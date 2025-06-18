@@ -10,20 +10,24 @@ export function useDocumentVersions(documentId: string | null) {
   const [error, setError] = useState<string | null>(null)
 
   const loadVersions = useCallback(async () => {
+    console.log('[useDocumentVersions] loadVersions called with documentId:', documentId)
     if (!documentId) {
+      console.log('[useDocumentVersions] No documentId, clearing versions')
       setVersions([])
       setLoading(false)
       return
     }
 
     try {
+      console.log('[useDocumentVersions] Starting to load versions for document:', documentId)
       setLoading(true)
       const docVersions = await VersionService.getVersions(documentId)
+      console.log('[useDocumentVersions] Received versions:', docVersions.length)
       setVersions(docVersions)
       setError(null)
     } catch (err) {
+      console.error('[useDocumentVersions] Error loading versions for doc', documentId, ':', err)
       setError('Failed to load versions')
-      console.error(`Error loading versions for doc ${documentId}:`, err)
     } finally {
       setLoading(false)
     }

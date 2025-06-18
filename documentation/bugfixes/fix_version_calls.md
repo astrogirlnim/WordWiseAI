@@ -60,9 +60,9 @@ match /documents/{documentId} {
 
 ## Phase 5 – Commit
 
-- [ ] `git add firestore.rules documentation/bugfixes/fix_version_calls.md`
-- [ ] `git commit -m "bugfix: allow document owners to get parent doc for version create"`
-- [ ] Do **NOT** push (per policy).
+- [x] `git add firestore.rules documentation/bugfixes/fix_version_calls.md`
+- [x] `git commit -m "bugfix: allow document owners to get parent doc for version create"`
+- [x] Do **NOT** push (per policy).
 
 ---
 
