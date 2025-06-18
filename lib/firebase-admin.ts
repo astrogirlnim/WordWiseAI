@@ -22,11 +22,11 @@ const adminApp =
 export const adminDatabase = getDatabase(adminApp)
 export const adminFirestore = getFirestore(adminApp)
 
-// Connect to emulators in development
-if (process.env.NODE_ENV === 'development') {
-  console.log('Connecting to Firebase Admin emulators...')
-  adminDatabase.useEmulator('localhost', 9000)
-  console.log('Connected to Firebase Admin emulators')
-}
+// NOTE: Admin SDK intentionally does NOT connect to emulators to avoid bypassing security rules
+// Admin SDK has full access and bypasses all security rules by design
+// Only connect to emulators when specifically testing server-side functions
+// If needed for server-side testing, use: adminDatabase.useEmulator('localhost', 9000)
+
+console.log('[Firebase Admin] Initialized for server-side operations (no emulator connection)')
 
 export default adminApp

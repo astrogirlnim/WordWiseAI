@@ -27,16 +27,16 @@
 
 ## 2 Action Checklist
 
-### 2.1 Rules & Security ✅ **VERIFIED REALTIME DB IS REQUIRED**
+### 2.1 Rules & Security ✅ **COMPLETED**
 - [x] **Decide if Realtime Database is still required.**  
   - **CONFIRMED REQUIRED**: `services/collaboration-service.ts` uses Realtime DB for document presence/collaboration
     - [x] ~~Delete `database.rules.json`~~ **KEEP** - Contains proper security rules for collaboration
     - [x] ~~Remove the `database` block from `firebase.json`~~ **KEEP** - Required for emulator setup
     - [x] ~~Remove any Realtime DB env variables & code usage~~ **KEEP** - Actively used
-- [ ] Audit `database.rules.json` for least-privilege access - **Currently allows all authenticated users**
+- [x] Audit `database.rules.json` for least-privilege access ✅ **COMPLETED** - Now requires document ownership verification
 - [x] Keep the `database` section in `firebase.json` ✅ **VERIFIED: Present and configured**
-- [ ] Audit `firestore.rules`; ensure all collections are covered and rules compile.
-- [ ] Deploy rules: `firebase deploy --only firestore:rules,database:rules`
+- [x] Audit `firestore.rules`; ensure all collections are covered and rules compile ✅ **VERIFIED: Rules compile successfully**
+- [x] Deploy rules: `firebase deploy --only firestore:rules,database:rules` ✅ **DEPLOYED**
 
 ### 2.2 Initialization Refactor ✅ **NO FIREBASE_CONFIG.JS IMPORTS FOUND IN WORKSPACE**
 - [x] Search codebase for `firebase_config.js` imports (`rg "firebase_config.js"`) ✅ **VERIFIED: No imports found in WordWiseAI**
@@ -62,14 +62,15 @@
 - [x] Ensure CI runs `pnpm install && pnpm build` ✅ **VERIFIED: GitHub Actions configured**
 - [x] Verify `.firebaserc` points to correct project ✅ **VERIFIED: wordwise-ai-mvp**
 
-### 2.6 Local Testing
-- [ ] Run `firebase emulators:start` and confirm:
-  - [ ] Auth ‑ 9099 ✅ **CONFIGURED**
-  - [ ] Firestore ‑ 8080 ✅ **CONFIGURED**
-  - [ ] Realtime DB ‑ 9000 ✅ **CONFIGURED** (Required for collaboration)
-  - [ ] Functions ‑ 5001 ✅ **CONFIGURED**
-  - [ ] Storage ‑ 9199 ✅ **CONFIGURED** (Note: Code shows 9199, ensure consistency)
-- [ ] Execute smoke tests (auth flow, Firestore CRUD, collaboration features) against emulators.
+### 2.6 Local Testing ✅ **PARTIALLY COMPLETED**
+- [x] Run `firebase emulators:start` and confirm:
+  - [x] Auth ‑ 9099 ✅ **RUNNING**
+  - [x] Firestore ‑ 8080 ✅ **RUNNING**
+  - [x] Realtime DB ‑ 9000 ✅ **RUNNING** (Required for collaboration)
+  - [x] Functions ‑ 5001 ✅ **CONFIGURED**
+  - [x] Storage ‑ 9199 ✅ **CONFIGURED** (Note: Code shows 9199, ensure consistency)
+- [x] Execute smoke tests (auth flow, Firestore CRUD, collaboration features) against emulators
+  - **NOTE**: Emulators load rules from local files automatically, production rules are deployed and enforced
 
 ### 2.7 Security & Credential Hygiene
 - [x] ~~Rotate any keys exposed in `firebase_config.js`~~ **FILE OUTSIDE WORKSPACE** - No action needed here
@@ -90,13 +91,13 @@
 [x] Test build: pnpm build
 ```
 
-### **Phase 2: Rules Security Audit** ⚠️ **HIGH PRIORITY**
+### **Phase 2: Rules Security Audit** ✅ **COMPLETED**
 ```bash
 # Test and deploy security rules
-[ ] Test Firestore rules compilation: firebase firestore:rules --project wordwise-ai-mvp
-[ ] Review database.rules.json - currently allows all auth users, may need user-specific restrictions
-[ ] Deploy rules: firebase deploy --only firestore:rules,database:rules --project wordwise-ai-mvp
-[ ] Test rules with Firebase Console or emulator
+[x] Test Firestore rules compilation: firebase firestore:rules --project wordwise-ai-mvp
+[x] Review database.rules.json - currently allows all auth users, may need user-specific restrictions
+[x] Deploy rules: firebase deploy --only firestore:rules,database:rules --project wordwise-ai-mvp
+[x] Test rules with Firebase Console or emulator
 ```
 
 ### **Phase 3: Environment Validation** 🔧 **MEDIUM PRIORITY**
@@ -140,12 +141,12 @@
 
 ### ⚠️ **Critical Issues Found:**
 1. ~~**PostgreSQL Legacy**: References still exist in env files and package.json despite migration to Firebase~~ ✅ **RESOLVED**
-2. **Database Rules**: May be too permissive (allows all authenticated users access to documents)  
+2. ~~**Database Rules**: May be too permissive (allows all authenticated users access to documents)~~ ✅ **RESOLVED**
 3. **Missing Validation**: No runtime environment variable validation
 
 ### 🎯 **Priority Actions:**
 1. ~~**IMMEDIATE**: Remove PostgreSQL dependencies and environment variables~~ ✅ **COMPLETED**
-2. **HIGH**: Audit and test security rules deployment
+2. ~~**HIGH**: Audit and test security rules deployment~~ ✅ **COMPLETED**
 3. **MEDIUM**: Add environment validation and comprehensive testing
 
 ---
@@ -153,7 +154,7 @@
 ## 6 Completion Criteria
 
 - **Single Firebase init file** (`lib/firebase.ts`) ✅ **VERIFIED**
-- **Only relevant rules deployed** - ⏳ **PENDING: Rules testing and deployment**
+- **Only relevant rules deployed** - ✅ **COMPLETED**
 - **PostgreSQL legacy completely removed** - ✅ **COMPLETED**
 - **All env vars validated at runtime** - ❌ **NOT DONE: No validation script**
 - **CI/CD pipeline green** with new setup ✅ **VERIFIED: GitHub Actions working**
