@@ -13,7 +13,9 @@
     "emulators:start": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
     "emulators:reset": "rm -rf emulator-data && firebase emulators:start",
     "emulators:export": "firebase emulators:export ./emulator-data",
-    "emulators:import": "firebase emulators:start --import=./emulator-data"
+    "emulators:import": "firebase emulators:start --import=./emulator-data",
+    "emulators:kill": "pkill -f firebase",
+    "emulators:status": "ps aux | grep firebase | grep -v grep || echo 'No Firebase processes running'"
   },
   "dependencies": {
     "@google-cloud/opentelemetry-cloud-trace-exporter": "^2.4.1",

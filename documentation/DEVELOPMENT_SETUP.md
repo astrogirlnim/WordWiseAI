@@ -76,6 +76,21 @@ Connected to Firebase emulators
 ### Stopping Development
 1. **Terminal 2**: `Ctrl+C` (stops Next.js)
 2. **Terminal 1**: `Ctrl+C` (stops emulators, auto-exports data)
+3. **Verify cleanup**: `pnpm emulators:status` (should show no processes)
+
+### If Processes Don't Stop Properly
+Sometimes emulator processes can become "zombie" processes that don't shut down properly:
+
+```bash
+# Check for remaining processes
+pnpm emulators:status
+
+# If processes are still running, force cleanup
+pnpm emulators:kill
+
+# Then verify cleanup worked
+pnpm emulators:status
+```
 
 ### Next Session
 1. **Terminal 1**: `pnpm emulators:start` (auto-imports previous data)
@@ -97,6 +112,12 @@ pnpm emulators:export
 # Import existing data
 pnpm emulators:import
 
+# Check if Firebase processes are running
+pnpm emulators:status
+
+# Kill any remaining Firebase processes (cleanup)
+pnpm emulators:kill
+
 # Development server
 pnpm dev
 
@@ -107,21 +128,54 @@ pnpm prestart
 ## 🔍 Troubleshooting
 
 ### "Port already in use" Error
+This happens when Firebase processes from a previous session didn't shut down properly:
+
 ```bash
-# Kill any existing Firebase processes
-pkill -f firebase
+# Check what processes are running
+pnpm emulators:status
+
+# Kill any remaining Firebase processes
+pnpm emulators:kill
+
+# Verify cleanup worked
+pnpm emulators:status
+
+# Now start fresh
 pnpm emulators:start
 ```
 
 ### "Cannot connect to emulators" Error
 1. Make sure Terminal 1 shows "All emulators ready"
 2. Check `http://localhost:4000` loads the Firebase UI
-3. Restart both terminals
+3. Verify emulators are running: `pnpm emulators:status`
+4. If needed, restart both terminals
 
 ### "User not found" Error
 - Your emulators restarted without persistence
 - Use `pnpm emulators:start` instead of `firebase emulators:start`
 - Create a new user account or ensure data was exported
+
+### Zombie Process Issues
+Sometimes emulator processes can become "orphaned" and continue running in the background:
+
+**Common causes:**
+- Force-closing terminal while emulators are running
+- Computer sleep/wake cycles during development
+- Multiple rapid `Ctrl+C` presses
+- Network interruptions during shutdown
+
+**Solution:**
+```bash
+# Always check process status first
+pnpm emulators:status
+
+# Clean up any remaining processes
+pnpm emulators:kill
+
+# Verify everything is clean
+pnpm emulators:status
+# Should show: "No Firebase processes running"
+```
 
 ### Environment Variable Issues
 ```bash
@@ -156,6 +210,34 @@ pnpm prestart
 3. **Check console logs** - Both terminals show helpful debugging info
 4. **Data persistence** - Always use `pnpm emulators:start` for persistent data
 5. **Fresh start** - Use `pnpm emulators:reset` when you need clean data
+6. **Verify process cleanup** - Run `pnpm emulators:status` after stopping development
+7. **Clean shutdown** - Single `Ctrl+C` and wait for "Emulators shutting down..." message
+8. **Force cleanup when needed** - Use `pnpm emulators:kill` for stubborn processes
+
+## 🔧 Process Management
+
+### Daily Workflow with Process Verification
+```bash
+# 1. Check no existing processes (clean start)
+pnpm emulators:status
+
+# 2. Start emulators
+pnpm emulators:start
+
+# 3. When done, stop with Ctrl+C and verify
+pnpm emulators:status
+
+# 4. If processes remain, clean up
+pnpm emulators:kill
+```
+
+### Troubleshooting Process Issues
+```bash
+# The golden trinity for Firebase emulator management:
+pnpm emulators:status    # See what's running
+pnpm emulators:kill      # Clean up processes  
+pnpm emulators:start     # Start fresh
+```
 
 ---
 
