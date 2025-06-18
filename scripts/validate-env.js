@@ -28,7 +28,22 @@ const requiredFirebaseVars = [
   'OPENAI_API_KEY'
 ];
 
+// Detect environment mode
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isDevelopment = nodeEnv === 'development';
+
 console.log('🔍 Validating environment variables...\n');
+
+// Display environment mode
+console.log(`🌍 Environment: ${nodeEnv.toUpperCase()}`);
+if (isDevelopment) {
+  console.log('🚧 Development Mode: Firebase emulators will be used');
+  console.log('   ✅ Safe for local development - no production data access');
+} else {
+  console.log('🚀 Production Mode: Connecting to live Firebase services');
+  console.log('   ⚠️  Will connect to production Firebase project');
+}
+console.log('');
 
 let missingVars = [];
 let presentVars = [];
@@ -66,6 +81,34 @@ if (missingVars.length > 0) {
   process.exit(1);
 } else {
   console.log('\n🎉 All environment variables are present!');
-  console.log('✅ Environment validation passed - ready to start application');
+  
+  // Enhanced development mode guidance
+  if (isDevelopment) {
+    console.log('\n🔧 Development Mode Setup:');
+    console.log('✅ Environment validation passed');
+    console.log('📋 Next steps for safe local development:');
+    console.log('   1. Start Firebase emulators: firebase emulators:start');
+    console.log('   2. Emulators will run on these ports:');
+    console.log('      • Auth: http://localhost:9099');
+    console.log('      • Firestore: http://localhost:8080');
+    console.log('      • Realtime DB: http://localhost:9000');
+    console.log('      • Storage: http://localhost:9199');
+    console.log('      • Functions: http://localhost:5001');
+    console.log('      • UI: http://localhost:4000');
+    console.log('   3. Your app will automatically connect to emulators');
+    console.log('   4. All data is local and isolated from production');
+    console.log('\n🛡️  Safety: Emulators provide complete isolation from production Firebase');
+  } else {
+    console.log('\n🚀 Production Mode Setup:');
+    console.log('✅ Environment validation passed');
+    console.log('⚠️  WARNING: Application will connect to LIVE Firebase services');
+    console.log('📋 Production checklist:');
+    console.log('   • Ensure Firebase security rules are properly configured');
+    console.log('   • Verify all environment variables point to correct project');
+    console.log('   • Double-check Firebase project ID and configuration');
+    console.log('   • Monitor Firebase usage and billing');
+  }
+  
+  console.log('\n✅ Ready to start application');
   process.exit(0);
 } 
