@@ -404,10 +404,19 @@ export function DocumentEditor({
                 const actualText = editor.state.doc.textBetween(start, end);
                 console.log(`[DocumentEditor] BUGFIX: Expected text: "${error.error}", Actual text: "${actualText}"`);
                 
-                if (actualText === error.error) {
-                    console.log(`[DocumentEditor] BUGFIX: ✓ Text alignment perfect for error ${error.id}`);
+                // Flexible text matching: exact, trimmed, or containment
+                const exactMatch = actualText === error.error;
+                const trimmedMatch = actualText.trim() === error.error.trim();
+                const containsMatch = actualText.includes(error.error) || error.error.includes(actualText);
+                
+                if (exactMatch) {
+                    console.log(`[DocumentEditor] BUGFIX: ✓ Exact text alignment perfect for error ${error.id}`);
+                } else if (trimmedMatch) {
+                    console.log(`[DocumentEditor] BUGFIX: ✓ Trimmed text alignment confirmed for error ${error.id}`);
+                } else if (containsMatch && Math.abs(actualText.length - error.error.length) <= 2) {
+                    console.log(`[DocumentEditor] BUGFIX: ✓ Partial text alignment confirmed for error ${error.id}`);
                 } else {
-                    console.warn(`[DocumentEditor] BUGFIX: ⚠️ Text mismatch for error ${error.id} - positions may be off`);
+                    console.warn(`[DocumentEditor] BUGFIX: ⚠️ Text mismatch for error ${error.id} - but including anyway for debugging`);
                 }
 
                 const pageRelativeError = { 
