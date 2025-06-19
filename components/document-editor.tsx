@@ -31,6 +31,10 @@ import {
 import type { GrammarError } from '@/types/grammar'
 import { useAuth } from '@/lib/auth-context'
 import { AuditService, AuditEvent } from '@/services/audit-service'
+import { useMarkdownPreview } from '@/hooks/use-markdown-preview'
+import { MarkdownPreviewPanel } from './markdown-preview-panel'
+import { MarkdownPreviewToggle } from './markdown-preview-toggle'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 
 // Phase 6: Document Pagination
 const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
@@ -519,6 +523,38 @@ export function DocumentEditor({
     }, 10) // 10ms delay to let the paste finish
   }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately, fullContentHtml, documentId])
 
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
+
+  // **MARKDOWN PREVIEW FUNCTIONALITY**
+  // Get plain text content from editor for markdown preview
+  const [editorPlainText, setEditorPlainText] = useState('')
+  
+  // Update plain text when editor content changes
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      const plainText = editor.getText()
+      console.log('[DocumentEditor] Updating editor plain text, length:', plainText.length)
+      setEditorPlainText(plainText)
+    }
+  }, [editor, fullContentHtml]) // Update when HTML content changes
+
+  console.log('[DocumentEditor] Initializing markdown preview with plain text length:', editorPlainText.length)
+  const {
+    isPreviewOpen,
+    setIsPreviewOpen,
+    previewContent,
+    isMarkdownDetected,
+    togglePreview,
+  } = useMarkdownPreview(editorPlainText) // Use plain text instead of HTML
+
+  console.log('[DocumentEditor] Markdown preview state:', {
+    isPreviewOpen,
+    isMarkdownDetected,
+    previewContentLength: previewContent.length
+  })
+
+  // **PHASE 6 PAGINATION LOGIC**
+
   if (!editor) {
     return null
   }
@@ -539,6 +575,16 @@ export function DocumentEditor({
               onBlur={() => onSave?.(fullContentHtml, title)}
               className="flex-1 bg-transparent text-2xl font-bold text-foreground placeholder:text-muted-foreground focus:outline-none transition-all duration-200 focus:text-retro-primary"
               placeholder="Untitled Document"
+            />
+          </div>
+          
+          {/* Markdown Preview Toggle */}
+          <div className="flex items-center gap-2">
+            <MarkdownPreviewToggle
+              isPreviewOpen={isPreviewOpen}
+              isMarkdownDetected={isMarkdownDetected}
+              onToggle={togglePreview}
+              className="mr-2"
             />
           </div>
           
@@ -599,11 +645,70 @@ export function DocumentEditor({
         </div>
       </div>
 
-      {/* Award-winning editor area with sophisticated styling */}
+      {/* Award-winning editor area with sophisticated styling and markdown preview support */}
+      <div className="flex-1 overflow-hidden">
+        {isPreviewOpen ? (
+          /* Split layout with resizable panels */
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            {/* Editor Panel */}
+            <ResizablePanel defaultSize={60} minSize={30}>
+              <ContextMenuPrimitive.Root>
+                <ContextMenuPrimitive.Trigger>
+                  <div
+                    className="award-winning-editor h-full focus-within:shadow-lg transition-all duration-300"
+                    onClick={() => editor.chain().focus().run()}
+                    onContextMenuCapture={handleContextMenuCapture}
+                    onPaste={handlePaste}
+                  >
+                    <div className="prose prose-lg dark:prose-invert max-w-none h-full overflow-y-auto px-6 py-8 focus:outline-none">
+                      <EditorContent editor={editor} />
+                    </div>
+                  </div>
+                </ContextMenuPrimitive.Trigger>
+                {contextMenu && (
+                  <ContextMenuContent className="awwwards-card min-w-[200px]">
+                    <ContextMenuLabel className="text-retro-primary font-medium">
+                      Spelling: &quot;{contextMenu.error.error}&quot;
+                    </ContextMenuLabel>
+                    {contextMenu.error.suggestions.map((suggestion, index) => (
+                      <ContextMenuItem
+                        key={index}
+                        onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}
+                        className="font-medium"
+                      >
+                        Accept: &quot;{suggestion}&quot;
+                      </ContextMenuItem>
+                    ))}
+                    {contextMenu.error.suggestions.length > 0 && <ContextMenuSeparator />}
+                    <ContextMenuItem onSelect={() => handleIgnoreError(contextMenu.error)}>
+                      Ignore
+                    </ContextMenuItem>
+                    <ContextMenuItem onSelect={() => handleAddToDictionary(contextMenu.error)}>
+                      Add to Dictionary
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                )}
+              </ContextMenuPrimitive.Root>
+            </ResizablePanel>
+            
+            {/* Resizable Handle */}
+            <ResizableHandle withHandle />
+            
+            {/* Markdown Preview Panel */}
+            <ResizablePanel defaultSize={40} minSize={25}>
+              <MarkdownPreviewPanel
+                content={previewContent}
+                isVisible={isPreviewOpen}
+                className="h-full"
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          /* Single editor layout */
       <ContextMenuPrimitive.Root>
         <ContextMenuPrimitive.Trigger>
           <div
-            className="award-winning-editor flex-grow m-6 focus-within:shadow-lg transition-all duration-300"
+                className="award-winning-editor h-full m-6 focus-within:shadow-lg transition-all duration-300"
             onClick={() => editor.chain().focus().run()}
             onContextMenuCapture={handleContextMenuCapture}
             onPaste={handlePaste}
@@ -637,6 +742,8 @@ export function DocumentEditor({
           </ContextMenuContent>
         )}
       </ContextMenuPrimitive.Root>
+        )}
+      </div>
 
       {/* Enhanced status bar */}
       <DocumentStatusBar
