@@ -11,8 +11,7 @@ import {
   Sparkles, 
   Target, 
   Lightbulb, 
-  Megaphone, 
-  MessageSquare,
+  Megaphone,
   List,
   Loader2,
   RefreshCw
@@ -54,7 +53,7 @@ export function AISidebar({
     applySuggestion,
     dismissSuggestion,
     refreshSuggestions
-  } = useAISuggestions(documentId)
+  } = useAISuggestions({ documentId: documentId || null })
 
   if (!isOpen) return null
 

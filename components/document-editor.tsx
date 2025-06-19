@@ -35,6 +35,8 @@ import { useMarkdownPreview } from '@/hooks/use-markdown-preview'
 import { MarkdownPreviewPanel } from './markdown-preview-panel'
 import { MarkdownPreviewToggle } from './markdown-preview-toggle'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
+import { useAISuggestions } from '@/hooks/use-ai-suggestions'
+import type { AISuggestion } from '@/types/ai-features'
 
 // Phase 6: Document Pagination
 const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
@@ -45,6 +47,7 @@ interface DocumentEditorProps {
   onSave?: (content: string, title: string) => void
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
+  onAISuggestionsChange?: (suggestions: AISuggestion[]) => void
 }
 
 export function DocumentEditor({
@@ -53,6 +56,7 @@ export function DocumentEditor({
   onSave,
   onContentChange,
   saveStatus,
+  onAISuggestionsChange,
 }: DocumentEditorProps) {
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
@@ -90,12 +94,40 @@ export function DocumentEditor({
   }), [pageOffset, pageContent]);
 
   const { user } = useAuth()
+  
   // Phase 6: Pass visibleRange to the grammar checker hook
   const { errors, removeError, checkGrammarImmediately, checkFullDocument } = useGrammarChecker(
     documentId, 
     fullPlainText,
     visibleRange
   )
+
+  // AI Suggestions integration
+  const {
+    suggestions,
+    loading: suggestionsLoading,
+    error: suggestionsError,
+    applySuggestion,
+    dismissSuggestion,
+    suggestionCount
+  } = useAISuggestions({
+    documentId,
+    autoSubscribe: true
+  })
+
+  console.log(`[DocumentEditor] AI Suggestions state:`, {
+    suggestionCount,
+    loading: suggestionsLoading,
+    error: !!suggestionsError
+  })
+
+  // Notify parent component about AI suggestions changes
+  useEffect(() => {
+    console.log(`[DocumentEditor] AI suggestions changed, notifying parent:`, suggestions.length)
+    if (onAISuggestionsChange) {
+      onAISuggestionsChange(suggestions)
+    }
+  }, [suggestions, onAISuggestionsChange])
 
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
@@ -199,6 +231,67 @@ export function DocumentEditor({
         }
     }
   }, [pageContent, editor, currentPage])
+
+  /**
+   * Apply an AI suggestion to the document
+   */
+  const handleApplyAISuggestion = useCallback(async (suggestion: AISuggestion) => {
+    if (!editor || !user) {
+      console.warn('[DocumentEditor] Cannot apply AI suggestion - missing editor or user')
+      return
+    }
+
+    console.log('[DocumentEditor] Applying AI suggestion:', suggestion.id)
+    console.log('[DocumentEditor] Suggestion details:', {
+      title: suggestion.title,
+      originalText: suggestion.originalText,
+      suggestedText: suggestion.suggestedText,
+      position: suggestion.position
+    })
+
+    try {
+      // First, apply the suggestion via the service (updates Firestore)
+      applySuggestion(suggestion.id, 'style')
+
+      // Then apply the text change to the editor
+      // Note: Position mapping for AI suggestions might need different logic than grammar errors
+      // For now, we'll search for the original text in the current page
+      const currentPageText = editor.getText()
+      const originalText = suggestion.originalText
+      const suggestedText = suggestion.suggestedText
+
+      console.log('[DocumentEditor] Searching for original text in current page:', originalText)
+
+      // Find the original text in the current page
+      const originalIndex = currentPageText.indexOf(originalText)
+      if (originalIndex !== -1) {
+        console.log('[DocumentEditor] Found original text at index:', originalIndex)
+        
+        // Calculate the range to replace
+        const from = originalIndex
+        const to = originalIndex + originalText.length
+
+        // Apply the replacement
+        editor
+          .chain()
+          .focus()
+          .deleteRange({ from, to })
+          .insertContentAt(from, suggestedText)
+          .run()
+
+        console.log('[DocumentEditor] Successfully replaced text in editor')
+
+        // Trigger grammar check after applying suggestion
+        checkGrammarImmediately(fullPlainText)
+      } else {
+        console.warn('[DocumentEditor] Could not find original text in current page. Suggestion may be on a different page.')
+        // TODO: Implement cross-page suggestion application
+      }
+
+    } catch (error) {
+      console.error('[DocumentEditor] Error applying AI suggestion:', error)
+    }
+  }, [editor, user, applySuggestion, checkGrammarImmediately, fullPlainText])
 
   const handleApplySuggestion = useCallback(
     (error: GrammarError, suggestion: string) => {
@@ -375,7 +468,7 @@ export function DocumentEditor({
       }
     }, 0) // Use setTimeout to ensure state update completes before editor update
 
-  }, [initialDocument.content, documentId, editor]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
+  }, [initialDocument.content, documentId, editor, fullContentHtml])
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
@@ -462,7 +555,7 @@ export function DocumentEditor({
   }, [fullPlainText])
 
   // Handle paste event to trigger grammar check and save
-  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePaste = useCallback((_event: React.ClipboardEvent<HTMLDivElement>) => {
     console.log('[DocumentEditor] handlePaste: Paste event detected')
     console.log('[DocumentEditor] handlePaste: Current document state - fullContentHtml length:', fullContentHtml.length)
     console.log('[DocumentEditor] handlePaste: Current page offset:', pageOffset, 'Page content length:', pageContent.length)
@@ -522,6 +615,30 @@ export function DocumentEditor({
       })
     }, 10) // 10ms delay to let the paste finish
   }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately, fullContentHtml, documentId])
+
+  // Return AI suggestion handlers along with other handlers
+  const aiSuggestionHandlers = useMemo(() => ({
+    suggestions,
+    suggestionsLoading,
+    suggestionsError,
+    suggestionCount,
+    handleApplyAISuggestion,
+    handleDismissAISuggestion: dismissSuggestion
+  }), [suggestions, suggestionsLoading, suggestionsError, suggestionCount, handleApplyAISuggestion, dismissSuggestion])
+
+  console.log('[DocumentEditor] Exporting AI suggestion handlers:', {
+    suggestionCount: aiSuggestionHandlers.suggestionCount,
+    loading: aiSuggestionHandlers.suggestionsLoading,
+    error: !!aiSuggestionHandlers.suggestionsError
+  })
+
+  // Add AI suggestion handlers to window for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // @ts-expect-error - for debugging only
+      window.documentEditorAISuggestions = aiSuggestionHandlers
+    }
+  }, [aiSuggestionHandlers])
 
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
 
@@ -756,4 +873,14 @@ export function DocumentEditor({
       />
     </div>
   )
+}
+
+// Export AI suggestion handlers for external use
+export type DocumentEditorAISuggestionHandlers = {
+  suggestions: AISuggestion[]
+  suggestionsLoading: boolean
+  suggestionsError: string | null
+  suggestionCount: number
+  handleApplyAISuggestion: (suggestion: AISuggestion) => Promise<void>
+  handleDismissAISuggestion: (suggestionId: string) => Promise<void>
 }
