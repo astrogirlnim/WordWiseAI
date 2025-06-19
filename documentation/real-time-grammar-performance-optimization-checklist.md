@@ -212,6 +212,31 @@
 - [ ] **(Optional) Virtualization**  
   - [ ] Use virtualization for extremely large documents (render only visible blocks)
 
+### **Phase 6.1: Bugfixes for Pagination-Scoped Grammar Checking**
+
+*Nataly, here is the actionable bugfix plan for optimizing grammar checks and eliminating rate/timeouts by scoping checks to the visible page only:*
+
+#### **Subfeature 1: Limit Grammar Checks to Visible Page**
+- [x] Refactor `useGrammarChecker` to only process the visible page's text (not the full document)
+- [x] On page change, cancel any in-flight grammar checks for the previous page
+- [x] Only chunk and process the current page's text (if needed)
+- [x] Remove background processing for non-visible pages
+- [x] Ensure error decorations only apply to the visible page
+
+#### **Subfeature 2: Rate Limit and Queue Management**
+- [ ] Guarantee only one chunk-processing session per document at a time
+- [ ] Add logs to confirm only one chunk queue runs at a time
+- [ ] Prevent overlapping chunk-processing sessions on rapid edits or page changes
+
+#### **Subfeature 3: Reliable Error-to-Editor Sync**
+- [ ] Add a `useEffect` in `DocumentEditor` to dispatch grammar errors to the editor on every `errors` state change
+- [ ] Ensure `GrammarExtension` always receives the latest errors
+- [ ] Add debug logs to trace the flow of errors from state to decorations
+
+#### **Subfeature 4: (Optional) Full Document Check**
+- [ ] Add a "Full Document Check" button for power users, with a warning about rate limits
+- [ ] Ensure this feature is throttled and does not interfere with per-page checks
+
 ---
 
 ## 🎯 **Implementation Priority Matrix**
@@ -279,4 +304,33 @@
 
 **Total Estimated Effort**: 6-8 weeks  
 **Priority**: Critical (impacts core product value proposition)  
-**Risk Level**: Medium (complex integration with existing editor) 
+**Risk Level**: Medium (complex integration with existing editor)
+
+---
+
+## 📝 **Current Implementation Status & Known Issues**
+
+*As of July 2024, Phase 1.2 and the initial approach to chunking have been implemented. However, significant issues remain that prevent the feature from being fully functional.*
+
+### **Implemented Logic:**
+- **Smart Chunking:** The `TextChunker` utility is in place with an increased chunk size of 5000 characters to reduce request volume.
+- **Prioritized Processing:** The `useGrammarChecker` hook now implements a priority system. It immediately processes only the first text chunk to provide fast initial feedback.
+- **Background Queueing:** Subsequent chunks are processed one-by-one in the background with a 10-second delay between each request to avoid backend spam.
+- **Streaming Error Updates:** The `errors` state is updated after each chunk (both priority and background) completes, which is intended to allow for progressive rendering of decorations.
+- **Backend Chunk Support:** The `checkGrammar` Cloud Function has been updated to accept chunk metadata and uses a chunk-aware caching strategy.
+
+### **Outstanding Bugs & Weird Behavior:**
+
+1.  **Critical: Rate Limit Failures:**
+    - **Issue:** Despite throttling and background queueing, the `checkGrammar` function is still being called too frequently, resulting in `FirebaseError: Rate limit exceeded` and `429 (Too Many Requests)` errors from the backend.
+    - **Behavior:** This happens with both large and small documents, suggesting a potential logic flaw in the request queue or the initial check. The background queue might not be properly waiting for the delay, or multiple user actions are triggering parallel queues.
+    - **Impact:** This is the root cause of the `"Failed to process chunk"` errors, as any call that gets rate-limited will fail.
+
+2.  **Critical: No Decorations Rendering:**
+    - **Issue:** Grammar error decorations are not appearing in the editor, even when the `useGrammarChecker` hook reports that it has received errors.
+    - **Behavior:** Console logs indicate that the `GrammarExtension` in TipTap is being applied, but it often receives `newErrors: undefined`. This suggests that the transaction dispatching the errors from the `DocumentEditor`'s `useEffect` hook is either not firing correctly or is out of sync with the state updates from `useGrammarChecker`.
+    - **Impact:** The core feature is not visible to the user.
+
+### **Next Steps for Debugging:**
+- **Rate Limiting:** Add more robust logging to the `setTimeout` queue in `useGrammarChecker` to verify that the delays are being respected. Ensure that any new edit cancels the *entire* existing background queue before starting a new one.
+- **Decorations:** Investigate the data flow from `useGrammarChecker` -> `DocumentEditor` -> `Tiptap-GrammarExtension`. Check for race conditions and ensure the editor's view is updated after the `errors` state is set. 

@@ -72,7 +72,7 @@ export function DocumentEditor({
 
   const { user } = useAuth()
   // Phase 6: Pass visibleRange to the grammar checker hook
-  const { errors, isChecking, removeError, checkGrammarImmediately } = useGrammarChecker(
+  const { errors, removeError, checkGrammarImmediately } = useGrammarChecker(
     documentId, 
     fullPlainText,
     visibleRange
@@ -246,7 +246,7 @@ export function DocumentEditor({
       removeError(error.id)
       setContextMenu(null)
     },
-    [editor, user, documentId, removeError, pageOffset, pageContent, checkGrammarImmediately, fullPlainText],
+    [editor, user, documentId, removeError, pageOffset, checkGrammarImmediately, fullPlainText],
   )
 
   const handleIgnoreError = useCallback(
@@ -305,7 +305,7 @@ export function DocumentEditor({
     setFullContentHtml(newContent)
     setCurrentPage(1) // Reset to first page on document change
 
-  }, [initialDocument.content, documentId])
+  }, [initialDocument.content, documentId, fullContentHtml])
 
 
   useEffect(() => {
@@ -373,14 +373,14 @@ export function DocumentEditor({
         {contextMenu && (
           <ContextMenuContent>
             <ContextMenuLabel>
-              Spelling: "{contextMenu.error.error}"
+              Spelling: &quot;{contextMenu.error.error}&quot;
             </ContextMenuLabel>
             {contextMenu.error.suggestions.map((suggestion, index) => (
               <ContextMenuItem
                 key={index}
                 onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}
               >
-                Accept: "{suggestion}"
+                Accept: &quot;{suggestion}&quot;
               </ContextMenuItem>
             ))}
             {contextMenu.error.suggestions.length > 0 && <ContextMenuSeparator />}
