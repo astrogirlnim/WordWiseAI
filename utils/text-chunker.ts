@@ -316,33 +316,31 @@ export class TextChunker {
    * @returns Grammar error with positions mapped to original document
    */
   public mapErrorToOriginalPosition(chunkError: { start: number; end: number }, chunk: TextChunk): { start: number; end: number } {
-    // Handle multi-byte characters correctly
-    const chunkStart = chunk.originalStart;
-    
-    // Calculate byte-safe positions
-    const originalStart = this.calculateBytePosition(chunkError.start, chunk.text, chunkStart);
-    const originalEnd = this.calculateBytePosition(chunkError.end, chunk.text, chunkStart);
+    // BUGFIX: Simplified position mapping to avoid drift
+    // Simply add the chunk's start position to the relative error positions
+    const originalStart = chunk.originalStart + chunkError.start;
+    const originalEnd = chunk.originalStart + chunkError.end;
 
-    console.log(`[TextChunker] Mapped error position from chunk ${chunkError.start}-${chunkError.end} to document ${originalStart}-${originalEnd}`);
+    // Validate positions are within chunk bounds
+    const maxPosition = chunk.originalStart + chunk.text.length;
+    const validatedStart = Math.max(chunk.originalStart, Math.min(originalStart, maxPosition));
+    const validatedEnd = Math.max(validatedStart, Math.min(originalEnd, maxPosition));
+
+    console.log(`[TextChunker] BUGFIX: Mapped error position from chunk ${chunkError.start}-${chunkError.end} to document ${validatedStart}-${validatedEnd} (chunk starts at ${chunk.originalStart})`);
 
     return {
-      start: originalStart,
-      end: originalEnd
+      start: validatedStart,
+      end: validatedEnd
     };
   }
 
   /**
-   * Calculates byte-safe positions for multi-byte character support
+   * DEPRECATED: Calculates byte-safe positions for multi-byte character support
+   * This was causing position drift, so we're using simpler arithmetic now
    */
   private calculateBytePosition(relativePosition: number, chunkText: string, chunkStartInDocument: number): number {
-    // Ensure we don't exceed chunk boundaries
-    const safePosition = Math.min(relativePosition, chunkText.length);
-    
-    // For multi-byte safety, we need to work with the actual characters
-    const textBeforePosition = chunkText.substring(0, safePosition);
-    const actualCharacterCount = Array.from(textBeforePosition).length;
-    
-    return chunkStartInDocument + actualCharacterCount;
+    // BUGFIX: Simplified - just use direct position arithmetic
+    return chunkStartInDocument + Math.min(relativePosition, chunkText.length);
   }
 
   /**

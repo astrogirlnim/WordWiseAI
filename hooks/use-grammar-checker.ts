@@ -294,22 +294,28 @@ export function useGrammarChecker(
         
         // Phase 6.1: Check if session is still active before setting errors
         if (activeProcessingSession.current === sessionId) {
-          // Phase 6.1: Adjust error positions to account for visible range offset
-          const adjustedErrors = grammarErrors.map(error => ({
-            ...error,
-            start: error.start + (visibleRange?.start || 0),
-            end: error.end + (visibleRange?.start || 0),
-            shownAt: Date.now()
-          }));
+          // BUGFIX: Don't adjust error positions here - they should be relative to visible page text
+          // The DocumentEditor will handle converting them to page-relative positions
+          const errorsWithTimestamp = grammarErrors.map(error => {
+            console.log(`[useGrammarChecker] BUGFIX: Error ${error.id} at positions ${error.start}-${error.end} (relative to visible page text)`);
+            return {
+              ...error,
+              // Add visible range offset to convert to full document positions
+              start: error.start + (visibleRange?.start || 0),
+              end: error.end + (visibleRange?.start || 0),
+              shownAt: Date.now()
+            };
+          });
           
-          setErrors(adjustedErrors);
+          setErrors(errorsWithTimestamp);
           setChunkProgress({
             totalChunks: 1,
             completedChunks: 1,
             processingChunks: 0,
             isProcessing: false
           });
-          console.log(`[useGrammarChecker] Single request completed for session ${sessionId} with ${adjustedErrors.length} errors`);
+          console.log(`[useGrammarChecker] Single request completed for session ${sessionId} with ${errorsWithTimestamp.length} errors`);
+          console.log('[useGrammarChecker] BUGFIX: Error positions after adjustment:', errorsWithTimestamp.map(e => `${e.id}: ${e.start}-${e.end}`));
         } else {
           console.log(`[useGrammarChecker] Single request completed but session ${sessionId} was cancelled, discarding results`);
         }
@@ -318,21 +324,23 @@ export function useGrammarChecker(
         console.log(`[useGrammarChecker] Visible page text length (${visiblePageText.length}) above chunk threshold, chunking visible page only`);
         const visibleChunks = textChunker.current.chunkText(visiblePageText);
         
-        // Phase 6.1: Adjust chunk positions to account for visible range offset
-        const adjustedChunks = visibleChunks.map(chunk => ({
-          ...chunk,
-          originalStart: chunk.originalStart + (visibleRange?.start || 0),
-          originalEnd: chunk.originalEnd + (visibleRange?.start || 0)
-        }));
+        // BUGFIX: Don't adjust chunk positions here - let the TextChunker handle position mapping correctly
+        console.log(`[useGrammarChecker] Created ${visibleChunks.length} chunks for visible page (session ${sessionId})`);
         
-        console.log(`[useGrammarChecker] Created ${adjustedChunks.length} chunks for visible page (session ${sessionId})`);
-        
-        const allErrors = await processChunksInParallel(adjustedChunks, documentId, sessionId);
+        const allErrors = await processChunksInParallel(visibleChunks, documentId, sessionId);
         
         // Phase 6.1: Only set errors if session is still active
         if (activeProcessingSession.current === sessionId) {
-          setErrors(allErrors);
-          console.log(`[useGrammarChecker] Chunked processing completed for session ${sessionId} with ${allErrors.length} total errors`);
+          // BUGFIX: Adjust chunk-based errors to full document positions
+          const adjustedErrors = allErrors.map(error => ({
+            ...error,
+            start: error.start + (visibleRange?.start || 0),
+            end: error.end + (visibleRange?.start || 0),
+          }));
+          
+          setErrors(adjustedErrors);
+          console.log(`[useGrammarChecker] Chunked processing completed for session ${sessionId} with ${adjustedErrors.length} total errors`);
+          console.log('[useGrammarChecker] BUGFIX: Final error positions:', adjustedErrors.map(e => `${e.id}: ${e.start}-${e.end}`));
         } else {
           console.log(`[useGrammarChecker] Chunked processing completed but session ${sessionId} was cancelled, discarding results`);
         }

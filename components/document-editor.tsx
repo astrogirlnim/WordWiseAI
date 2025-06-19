@@ -363,41 +363,56 @@ export function DocumentEditor({
     
     const relativeErrors = errors
         .map((error, index) => {
+            // BUGFIX: Improved position conversion with validation
             const start = error.start - pageOffset;
             const end = error.end - pageOffset;
 
-            console.log(`[DocumentEditor] Phase 6.1: Processing error ${index + 1}/${errors.length} - ID: ${error.id}, Original pos: ${error.start}-${error.end}, Relative pos: ${start}-${end}`);
+            console.log(`[DocumentEditor] BUGFIX: Processing error ${index + 1}/${errors.length} - ID: ${error.id}`);
+            console.log(`[DocumentEditor] BUGFIX: Original positions: ${error.start}-${error.end}, Page offset: ${pageOffset}`);
+            console.log(`[DocumentEditor] BUGFIX: Calculated relative positions: ${start}-${end}, Editor doc size: ${editor.state.doc.content.size}`);
 
-            // Only include errors that are on the current page and within the page's content bounds
-            if (start >= 0 && end <= editor.state.doc.content.size && start < end) {
-                // We need to pass the original error in the data-error-json for context menu actions
+            // Enhanced validation: check if error is on current page and positions are valid
+            const isOnCurrentPage = start >= 0 && end <= editor.state.doc.content.size && start < end;
+            const isValidRange = end > start && start >= 0;
+            
+            if (isOnCurrentPage && isValidRange) {
+                // Get the actual text at these positions to verify alignment
+                const actualText = editor.state.doc.textBetween(start, end);
+                console.log(`[DocumentEditor] BUGFIX: Expected text: "${error.error}", Actual text: "${actualText}"`);
+                
+                if (actualText === error.error) {
+                    console.log(`[DocumentEditor] BUGFIX: ✓ Text alignment perfect for error ${error.id}`);
+                } else {
+                    console.warn(`[DocumentEditor] BUGFIX: ⚠️ Text mismatch for error ${error.id} - positions may be off`);
+                }
+
                 const pageRelativeError = { 
                     ...error, 
                     start, 
                     end,
                 };
-                console.log(`[DocumentEditor] Phase 6.1: Including error ${error.id} on current page`);
-                return pageRelativeError
+                console.log(`[DocumentEditor] BUGFIX: ✓ Including error ${error.id} on current page at ${start}-${end}`);
+                return pageRelativeError;
             } else {
-                console.log(`[DocumentEditor] Phase 6.1: Excluding error ${error.id} - not on current page or invalid range`);
+                console.log(`[DocumentEditor] BUGFIX: ✗ Excluding error ${error.id} - not on current page or invalid range (${start}, ${end})`);
                 return null;
             }
         })
         .filter((e): e is GrammarError => e !== null);
 
-    console.log(`[DocumentEditor] Phase 6.1: Filtered ${relativeErrors.length} page-relative errors from ${errors.length} total errors`);
+    console.log(`[DocumentEditor] BUGFIX: Filtered ${relativeErrors.length} page-relative errors from ${errors.length} total errors`);
 
     // **PHASE 6.1: Always dispatch errors to ensure GrammarExtension receives updates**
     const { tr } = editor.state;
     tr.setMeta('grammarErrors', relativeErrors);
     
-    console.log(`[DocumentEditor] Phase 6.1: Dispatching ${relativeErrors.length} errors to GrammarExtension`);
+    console.log(`[DocumentEditor] BUGFIX: Dispatching ${relativeErrors.length} errors to GrammarExtension`);
     
     try {
       editor.view.dispatch(tr);
-      console.log('[DocumentEditor] Phase 6.1: Successfully dispatched errors to editor');
+      console.log('[DocumentEditor] BUGFIX: ✓ Successfully dispatched errors to editor');
     } catch (error) {
-      console.error('[DocumentEditor] Phase 6.1: Failed to dispatch errors to editor:', error);
+      console.error('[DocumentEditor] BUGFIX: ✗ Failed to dispatch errors to editor:', error);
     }
   }, [errors, editor, pageOffset])
 
