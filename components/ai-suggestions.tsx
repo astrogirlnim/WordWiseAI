@@ -96,14 +96,23 @@ export function AISuggestions({
             </div>
             
             <div className="space-y-3">
-              {funnelSuggestions.map((suggestion) => (
-                <FunnelSuggestionCard
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  onApply={() => onApply(suggestion.id, 'funnel')}
-                  onDismiss={() => onDismiss(suggestion.id, 'funnel')}
-                />
-              ))}
+              {funnelSuggestions.map((suggestion) => {
+                if (suggestion.status === 'applied') {
+                  console.log('[AISuggestions] Skipping applied funnel suggestion', suggestion);
+                  return null;
+                }
+                return (
+                  <FunnelSuggestionCard
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    onApply={() => {
+                      console.log('[AISuggestions] Apply clicked', { id: suggestion.id, type: 'funnel', suggestion });
+                      onApply(suggestion.id, 'funnel');
+                    }}
+                    onDismiss={() => onDismiss(suggestion.id, 'funnel')}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -125,14 +134,23 @@ export function AISuggestions({
             </div>
             
             <div className="space-y-3">
-              {styleSuggestions.map((suggestion) => (
-                <StyleSuggestionCard
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  onApply={() => onApply(suggestion.id, 'style')}
-                  onDismiss={() => onDismiss(suggestion.id, 'style')}
-                />
-              ))}
+              {styleSuggestions.map((suggestion) => {
+                if (suggestion.status === 'applied') {
+                  console.log('[AISuggestions] Skipping applied style suggestion', suggestion);
+                  return null;
+                }
+                return (
+                  <StyleSuggestionCard
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    onApply={() => {
+                      console.log('[AISuggestions] Apply clicked', { id: suggestion.id, type: 'style', suggestion });
+                      onApply(suggestion.id, 'style');
+                    }}
+                    onDismiss={() => onDismiss(suggestion.id, 'style')}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
