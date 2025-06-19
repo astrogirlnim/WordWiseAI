@@ -439,3 +439,139 @@ body {
 .border-retro-coral {
   border-color: hsl(var(--retro-coral));
 }
+
+/* **MARKDOWN PREVIEW STYLING** */
+.awwwards-preview-content {
+  font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
+}
+
+.awwwards-preview-content .prose {
+  color: hsl(var(--foreground));
+  max-width: none;
+}
+
+.awwwards-preview-content .prose h1,
+.awwwards-preview-content .prose h2,
+.awwwards-preview-content .prose h3,
+.awwwards-preview-content .prose h4,
+.awwwards-preview-content .prose h5,
+.awwwards-preview-content .prose h6 {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.awwwards-preview-content .prose p {
+  color: hsl(var(--foreground));
+  line-height: 1.6;
+}
+
+.awwwards-preview-content .prose blockquote {
+  background: linear-gradient(135deg, hsl(var(--retro-primary) / 0.05), hsl(var(--retro-sunset) / 0.05));
+  border-left: 4px solid hsl(var(--retro-primary) / 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.awwwards-preview-content .prose code {
+  background: hsl(var(--muted));
+  color: hsl(var(--retro-primary));
+  border-radius: 0.375rem;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+
+.awwwards-preview-content .prose pre {
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  backdrop-filter: blur(8px);
+}
+
+.awwwards-preview-content .prose pre code {
+  background: transparent;
+  color: hsl(var(--foreground));
+  border-radius: 0;
+}
+
+.awwwards-preview-content .prose a {
+  color: hsl(var(--retro-primary));
+  text-decoration-color: hsl(var(--retro-primary) / 0.3);
+  transition: all 0.2s ease;
+}
+
+.awwwards-preview-content .prose a:hover {
+  color: hsl(var(--retro-primary) / 0.8);
+  text-decoration-color: hsl(var(--retro-primary) / 0.6);
+}
+
+.awwwards-preview-content .prose table {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.awwwards-preview-content .prose th,
+.awwwards-preview-content .prose td {
+  border: 1px solid hsl(var(--border) / 0.5);
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.awwwards-preview-content .prose th {
+  background: hsl(var(--muted) / 0.5);
+  font-weight: 600;
+}
+
+.awwwards-preview-content .prose tr:hover {
+  background: hsl(var(--muted) / 0.25);
+}
+
+.awwwards-preview-content .prose ul,
+.awwwards-preview-content .prose ol {
+  padding-left: 1rem;
+}
+
+.awwwards-preview-content .prose li {
+  margin: 0.25rem 0;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  margin: 2rem 0;
+}
+
+/* Task list styling */
+.awwwards-preview-content .prose input[type="checkbox"] {
+  accent-color: hsl(var(--retro-primary));
+  margin-right: 0.5rem;
+}
+
+/* Smooth scrolling for preview panel */
+.awwwards-preview-content {
+  scroll-behavior: smooth;
+}
+
+/* Responsive markdown preview */
+@media (max-width: 768px) {
+  .awwwards-preview-content .prose {
+    font-size: 0.875rem;
+  }
+  
+  .awwwards-preview-content .prose h1 {
+    font-size: 1.5rem;
+  }
+  
+  .awwwards-preview-content .prose h2 {
+    font-size: 1.25rem;
+  }
+  
+  .awwwards-preview-content .prose h3 {
+    font-size: 1.125rem;
+  }
+}
