@@ -3,7 +3,7 @@
 import { UserMenu } from './user-menu'
 import { AISidebarToggle } from './ai-sidebar-toggle'
 import { WritingGoalsButton } from './writing-goals-button'
-import { Separator } from '@/components/ui/separator'
+
 import type { User } from '@/types/navigation'
 import type { Document } from '@/types/document'
 import type { WritingGoals } from '@/types/writing-goals'
