@@ -96,14 +96,16 @@ export class SuggestionService {
       position: suggestion.position
     })
 
+    // Determine the correct collection based on suggestion type
+    const funnelTypes = ['headline', 'subheadline', 'cta', 'outline']
+    const collectionName = funnelTypes.includes(suggestion.type) ? 'funnelSuggestions' : 'styleSuggestions'
+
     try {
-      const suggestionRef = doc(firestore, `documents/${suggestion.documentId}/styleSuggestions`, suggestion.id)
-      
+      const suggestionRef = doc(firestore, `documents/${suggestion.documentId}/${collectionName}`, suggestion.id)
       await updateDoc(suggestionRef, {
         status: 'applied',
         appliedAt: serverTimestamp()
       })
-      
       console.log('[SuggestionService] Successfully applied suggestion:', suggestion.id)
     } catch (error) {
       console.error('[SuggestionService] Error applying suggestion:', error)
@@ -115,19 +117,22 @@ export class SuggestionService {
    * Dismiss a suggestion
    * @param documentId - The document ID
    * @param suggestionId - The suggestion ID to dismiss
+   * @param suggestionType - The suggestion type (optional, for correct collection)
    * @returns Promise that resolves when the suggestion is marked as dismissed
    */
-  static async dismissSuggestion(documentId: string, suggestionId: string): Promise<void> {
+  static async dismissSuggestion(documentId: string, suggestionId: string, suggestionType?: string): Promise<void> {
     console.log('[SuggestionService] Dismissing suggestion:', suggestionId, 'for document:', documentId)
 
+    // Determine the correct collection based on suggestion type
+    const funnelTypes = ['headline', 'subheadline', 'cta', 'outline']
+    const collectionName = funnelTypes.includes(suggestionType || '') ? 'funnelSuggestions' : 'styleSuggestions'
+
     try {
-      const suggestionRef = doc(firestore, `documents/${documentId}/styleSuggestions`, suggestionId)
-      
+      const suggestionRef = doc(firestore, `documents/${documentId}/${collectionName}`, suggestionId)
       await updateDoc(suggestionRef, {
         status: 'dismissed',
         appliedAt: serverTimestamp() // Track when it was dismissed
       })
-      
       console.log('[SuggestionService] Successfully dismissed suggestion:', suggestionId)
     } catch (error) {
       console.error('[SuggestionService] Error dismissing suggestion:', error)

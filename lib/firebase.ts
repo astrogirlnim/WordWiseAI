@@ -28,13 +28,11 @@ export const functions = getFunctions(app)
 
 // Connect to emulators in development
 if (process.env.NODE_ENV === 'development') {
-  console.log('Connecting to Firebase emulators...')
   connectAuthEmulator(auth, 'http://localhost:9099')
   connectFirestoreEmulator(firestore, 'localhost', 8080)
   connectDatabaseEmulator(database, 'localhost', 9000)
   connectStorageEmulator(storage, 'localhost', 9199)
   connectFunctionsEmulator(functions, 'localhost', 5001)
-  console.log('Connected to Firebase emulators')
 }
 
 export default app
