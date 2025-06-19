@@ -439,3 +439,501 @@ body {
 .border-retro-coral {
   border-color: hsl(var(--retro-coral));
 }
+
+/* ==========================================================================
+   AWARD-WINNING MARKDOWN PREVIEW STYLING
+   Comprehensive styles for markdown content with professional typography
+   ========================================================================== */
+
+.awwwards-preview-content {
+  @apply text-foreground;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+/* Override prose plugin with custom markdown styles */
+.awwwards-preview-content .prose {
+  @apply max-w-none text-foreground;
+  
+  /* Base typography */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  font-size: 14px;
+  
+  /* Remove default prose margins/padding */
+  margin: 0;
+  padding: 0;
+}
+
+/* ==========================================================================
+   HEADERS - H1 through H6 with proper hierarchy
+   ========================================================================== */
+.awwwards-preview-content h1,
+.awwwards-preview-content h2,
+.awwwards-preview-content h3,
+.awwwards-preview-content h4,
+.awwwards-preview-content h5,
+.awwwards-preview-content h6 {
+  @apply font-semibold text-foreground;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  line-height: 1.25;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* First header has no top margin */
+.awwwards-preview-content h1:first-child,
+.awwwards-preview-content h2:first-child,
+.awwwards-preview-content h3:first-child,
+.awwwards-preview-content h4:first-child,
+.awwwards-preview-content h5:first-child,
+.awwwards-preview-content h6:first-child {
+  margin-top: 0;
+}
+
+.awwwards-preview-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  border-bottom: 1px solid hsl(var(--border));
+  padding-bottom: 8px;
+}
+
+.awwwards-preview-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  border-bottom: 1px solid hsl(var(--border));
+  padding-bottom: 6px;
+}
+
+.awwwards-preview-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.awwwards-preview-content h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.awwwards-preview-content h5 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.awwwards-preview-content h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ==========================================================================
+   PARAGRAPHS AND TEXT FORMATTING
+   ========================================================================== */
+.awwwards-preview-content p {
+  margin-top: 0;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.awwwards-preview-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Bold text */
+.awwwards-preview-content strong,
+.awwwards-preview-content b {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+/* Italic text */
+.awwwards-preview-content em,
+.awwwards-preview-content i {
+  font-style: italic;
+}
+
+/* Strikethrough */
+.awwwards-preview-content del,
+.awwwards-preview-content s {
+  text-decoration: line-through;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ==========================================================================
+   LISTS - Unordered, Ordered, and Task Lists
+   ========================================================================== */
+.awwwards-preview-content ul,
+.awwwards-preview-content ol {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 24px;
+  line-height: 1.6;
+}
+
+.awwwards-preview-content ul {
+  list-style-type: disc;
+}
+
+.awwwards-preview-content ol {
+  list-style-type: decimal;
+}
+
+/* Nested lists */
+.awwwards-preview-content ul ul,
+.awwwards-preview-content ol ol,
+.awwwards-preview-content ul ol,
+.awwwards-preview-content ol ul {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.awwwards-preview-content ul ul {
+  list-style-type: circle;
+}
+
+.awwwards-preview-content ul ul ul {
+  list-style-type: square;
+}
+
+/* List items */
+.awwwards-preview-content li {
+  margin: 4px 0;
+  line-height: 1.6;
+}
+
+.awwwards-preview-content li > p {
+  margin-bottom: 8px;
+}
+
+.awwwards-preview-content li > p:last-child {
+  margin-bottom: 0;
+}
+
+/* Task lists (checkboxes) */
+.awwwards-preview-content li input[type="checkbox"] {
+  margin-right: 8px;
+  margin-left: -20px;
+  accent-color: hsl(var(--primary));
+}
+
+/* ==========================================================================
+   LINKS AND IMAGES
+   ========================================================================== */
+.awwwards-preview-content a {
+  @apply text-primary underline decoration-1 underline-offset-2;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.awwwards-preview-content a:hover {
+  @apply text-primary/80;
+  text-decoration-thickness: 2px;
+}
+
+.awwwards-preview-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  margin: 16px 0;
+}
+
+/* ==========================================================================
+   CODE BLOCKS AND INLINE CODE
+   ========================================================================== */
+.awwwards-preview-content code {
+  @apply bg-muted text-foreground;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 0.85em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid hsl(var(--border));
+  font-weight: 500;
+}
+
+/* Code blocks */
+.awwwards-preview-content pre {
+  @apply bg-muted;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+  padding: 16px;
+  line-height: 1.45;
+}
+
+.awwwards-preview-content pre code {
+  @apply bg-transparent;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  font-size: 0.875rem;
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+/* Syntax highlighting support */
+.awwwards-preview-content pre code.language-javascript,
+.awwwards-preview-content pre code.language-js {
+  color: #e06c75; /* Comment color */
+}
+
+.awwwards-preview-content pre code.language-typescript,
+.awwwards-preview-content pre code.language-ts {
+  color: #61afef; /* TypeScript blue */
+}
+
+.awwwards-preview-content pre code.language-css {
+  color: #98c379; /* CSS green */
+}
+
+.awwwards-preview-content pre code.language-html {
+  color: #e06c75; /* HTML red */
+}
+
+.awwwards-preview-content pre code.language-python {
+  color: #d19a66; /* Python yellow */
+}
+
+.awwwards-preview-content pre code.language-sql {
+  color: #c678dd; /* SQL purple */
+}
+
+/* ==========================================================================
+   BLOCKQUOTES
+   ========================================================================== */
+.awwwards-preview-content blockquote {
+  @apply border-l-4 border-primary/20 bg-muted/30 text-muted-foreground;
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+  position: relative;
+  backdrop-filter: blur(2px);
+}
+
+.awwwards-preview-content blockquote p {
+  margin: 0;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content blockquote p:not(:last-child) {
+  margin-bottom: 8px;
+}
+
+/* Nested blockquotes */
+.awwwards-preview-content blockquote blockquote {
+  margin: 8px 0;
+  border-left-color: hsl(var(--primary)/30%);
+}
+
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
+.awwwards-preview-content table {
+  @apply border-collapse border border-border bg-card;
+  width: 100%;
+  margin: 16px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}
+
+.awwwards-preview-content thead {
+  @apply bg-muted/50;
+}
+
+.awwwards-preview-content th {
+  @apply border-b border-border bg-muted/30 px-4 py-3 text-left font-semibold;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content td {
+  @apply border-b border-border px-4 py-3;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.awwwards-preview-content tbody tr:hover {
+  @apply bg-muted/20;
+  transition: background-color 0.15s ease;
+}
+
+.awwwards-preview-content tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Table alignment classes */
+.awwwards-preview-content th[align="center"],
+.awwwards-preview-content td[align="center"] {
+  text-align: center;
+}
+
+.awwwards-preview-content th[align="right"],
+.awwwards-preview-content td[align="right"] {
+  text-align: right;
+}
+
+/* ==========================================================================
+   HORIZONTAL RULES
+   ========================================================================== */
+.awwwards-preview-content hr {
+  @apply border-0 border-t border-border;
+  margin: 24px 0;
+  background: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border)),
+    transparent
+  );
+  height: 1px;
+}
+
+/* ==========================================================================
+   SPECIAL ELEMENTS
+   ========================================================================== */
+
+/* Footnotes */
+.awwwards-preview-content .footnotes {
+  @apply border-t border-border mt-8 pt-6;
+  font-size: 0.875rem;
+}
+
+.awwwards-preview-content .footnotes ol {
+  @apply text-muted-foreground;
+}
+
+/* Definition lists */
+.awwwards-preview-content dl {
+  margin: 16px 0;
+}
+
+.awwwards-preview-content dt {
+  @apply font-semibold text-foreground;
+  margin-top: 16px;
+}
+
+.awwwards-preview-content dd {
+  @apply text-muted-foreground ml-4;
+  margin-bottom: 8px;
+}
+
+/* Abbreviations */
+.awwwards-preview-content abbr {
+  @apply border-b border-dotted border-muted-foreground;
+  cursor: help;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN
+   ========================================================================== */
+@media (max-width: 768px) {
+  .awwwards-preview-content {
+    font-size: 14px;
+  }
+  
+  .awwwards-preview-content h1 {
+    font-size: 1.75rem;
+  }
+  
+  .awwwards-preview-content h2 {
+    font-size: 1.375rem;
+  }
+  
+  .awwwards-preview-content h3 {
+    font-size: 1.125rem;
+  }
+  
+  .awwwards-preview-content table {
+    font-size: 0.8rem;
+  }
+  
+  .awwwards-preview-content th,
+  .awwwards-preview-content td {
+    padding: 8px 12px;
+  }
+  
+  .awwwards-preview-content pre {
+    padding: 12px;
+    font-size: 0.8rem;
+  }
+  
+  .awwwards-preview-content ul,
+  .awwwards-preview-content ol {
+    padding-left: 20px;
+  }
+}
+
+/* ==========================================================================
+   DARK MODE ADJUSTMENTS
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+  .awwwards-preview-content code {
+    background: hsl(var(--muted));
+    border-color: hsl(var(--border));
+  }
+  
+  .awwwards-preview-content pre {
+    background: hsl(var(--muted));
+    border-color: hsl(var(--border));
+  }
+  
+  .awwwards-preview-content blockquote {
+    background: hsl(var(--muted)/30%);
+    border-left-color: hsl(var(--primary)/30%);
+  }
+  
+  .awwwards-preview-content table {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+  
+  .awwwards-preview-content th {
+    background: hsl(var(--muted)/50%);
+  }
+  
+  .awwwards-preview-content tbody tr:hover {
+    background: hsl(var(--muted)/30%);
+  }
+}
+
+/* ==========================================================================
+   ANIMATION AND TRANSITIONS
+   ========================================================================== */
+.awwwards-preview-content * {
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Smooth scrolling within preview */
+.awwwards-preview-content {
+  scroll-behavior: smooth;
+}
+
+/* ==========================================================================
+   PRINT STYLES
+   ========================================================================== */
+@media print {
+  .awwwards-preview-content {
+    color: black !important;
+    background: white !important;
+  }
+  
+  .awwwards-preview-content a {
+    color: black !important;
+    text-decoration: underline !important;
+  }
+  
+  .awwwards-preview-content pre,
+  .awwwards-preview-content code {
+    background: #f5f5f5 !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  .awwwards-preview-content blockquote {
+    background: #f9f9f9 !important;
+    border-left: 4px solid #ddd !important;
+  }
+}
