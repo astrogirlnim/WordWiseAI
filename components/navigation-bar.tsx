@@ -15,6 +15,9 @@ import { VersionHistoryButton } from './version-history-button'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { CollaborationPresence } from './collaboration-presence'
+import { Button } from '@/components/ui/button'
+import { Target } from 'lucide-react'
 
 interface NavigationBarProps {
   user: User
@@ -160,6 +163,30 @@ export function NavigationBar({
         {displayMode === 'editor' && (
           <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
         )}
+
+        <Separator orientation="vertical" className="h-4" />
+
+        {/* Collaboration Presence */}
+        <CollaborationPresence 
+          documentId={activeDocumentId}
+          className="hidden md:flex"
+        />
+        
+        {/* Divider */}
+        {activeDocumentId && (
+          <div className="hidden md:block h-4 w-px bg-border" />
+        )}
+
+        {/* Writing Goals Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onWritingGoalsClick}
+          className="hidden md:flex items-center gap-1"
+        >
+          <Target className="h-4 w-4" />
+          Goals
+        </Button>
 
         <Separator orientation="vertical" className="h-4" />
 
