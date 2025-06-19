@@ -452,19 +452,63 @@ body {
   line-height: 1.6;
 }
 
-/* Standard Markdown Header Spacing */
-.awwwards-preview-content .prose h1,
-.awwwards-preview-content .prose h2,
-.awwwards-preview-content .prose h3,
-.awwwards-preview-content .prose h4,
-.awwwards-preview-content .prose h5,
-.awwwards-preview-content .prose h6 {
-  color: hsl(var(--foreground));
+/* Header Sizes - Progressive scaling */
+.awwwards-preview-content .prose h1 {
+  font-size: 2em;
   font-weight: 600;
-  letter-spacing: -0.025em;
   line-height: 1.25;
   margin-top: 24px;
   margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose h4 {
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose h5 {
+  font-size: 0.875em;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose h6 {
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  color: hsl(var(--muted-foreground));
 }
 
 .awwwards-preview-content .prose h1:first-child,
@@ -476,7 +520,7 @@ body {
   margin-top: 0;
 }
 
-/* Standard Paragraph Spacing */
+/* Paragraphs */
 .awwwards-preview-content .prose p {
   color: hsl(var(--foreground));
   line-height: 1.6;
@@ -488,28 +532,31 @@ body {
   margin-bottom: 0;
 }
 
-/* Standard Blockquote Spacing */
-.awwwards-preview-content .prose blockquote {
-  background: linear-gradient(135deg, hsl(var(--retro-primary) / 0.05), hsl(var(--retro-sunset) / 0.05));
-  border-left: 4px solid hsl(var(--retro-primary) / 0.3);
-  padding: 0 16px;
-  margin: 16px 0;
-  border-radius: 0 6px 6px 0;
+/* Text Formatting */
+.awwwards-preview-content .prose strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
 }
 
-.awwwards-preview-content .prose blockquote p {
-  color: hsl(var(--muted-foreground));
+.awwwards-preview-content .prose em {
   font-style: italic;
+  color: hsl(var(--foreground));
 }
 
-/* Standard Code Styling */
+.awwwards-preview-content .prose del {
+  text-decoration: line-through;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Code Styling */
 .awwwards-preview-content .prose code {
   background: hsl(var(--muted));
   color: hsl(var(--retro-primary));
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 85%;
   font-weight: 500;
   padding: 2px 6px;
+  font-family: 'Fira Code', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
 }
 
 .awwwards-preview-content .prose pre {
@@ -527,12 +574,19 @@ body {
   color: hsl(var(--foreground));
   border-radius: 0;
   padding: 0;
-  font-size: 100%;
+  font-size: 14px;
+  font-family: 'Fira Code', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
 }
 
-/* Standard List Spacing */
-.awwwards-preview-content .prose ul,
+/* Lists */
+.awwwards-preview-content .prose ul {
+  list-style-type: disc;
+  padding-left: 32px;
+  margin: 16px 0;
+}
+
 .awwwards-preview-content .prose ol {
+  list-style-type: decimal;
   padding-left: 32px;
   margin: 16px 0;
 }
@@ -553,7 +607,27 @@ body {
   margin: 8px 0;
 }
 
-/* Standard Table Spacing */
+.awwwards-preview-content .prose ul ul {
+  list-style-type: circle;
+}
+
+.awwwards-preview-content .prose ul ul ul {
+  list-style-type: square;
+}
+
+/* Task Lists */
+.awwwards-preview-content .prose input[type="checkbox"] {
+  accent-color: hsl(var(--retro-primary));
+  margin-right: 8px;
+  margin-left: -24px;
+  transform: scale(1.1);
+}
+
+.awwwards-preview-content .prose .task-list-item {
+  list-style: none;
+}
+
+/* Tables */
 .awwwards-preview-content .prose table {
   border-collapse: collapse;
   width: 100%;
@@ -575,13 +649,52 @@ body {
 .awwwards-preview-content .prose th {
   background: hsl(var(--muted) / 0.5);
   font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose td {
+  color: hsl(var(--foreground));
 }
 
 .awwwards-preview-content .prose tr:hover {
   background: hsl(var(--muted) / 0.25);
 }
 
-/* Standard Horizontal Rule */
+/* Table alignment */
+.awwwards-preview-content .prose th[align="center"],
+.awwwards-preview-content .prose td[align="center"] {
+  text-align: center;
+}
+
+.awwwards-preview-content .prose th[align="right"],
+.awwwards-preview-content .prose td[align="right"] {
+  text-align: right;
+}
+
+/* Blockquotes */
+.awwwards-preview-content .prose blockquote {
+  background: linear-gradient(135deg, hsl(var(--retro-primary) / 0.05), hsl(var(--retro-sunset) / 0.05));
+  border-left: 4px solid hsl(var(--retro-primary) / 0.3);
+  padding: 16px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.awwwards-preview-content .prose blockquote p {
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+  margin: 0;
+}
+
+.awwwards-preview-content .prose blockquote > p:first-child {
+  margin-top: 0;
+}
+
+.awwwards-preview-content .prose blockquote > p:last-child {
+  margin-bottom: 0;
+}
+
+/* Horizontal Rules */
 .awwwards-preview-content .prose hr {
   border: none;
   height: 1px;
@@ -599,42 +712,17 @@ body {
 
 .awwwards-preview-content .prose a:hover {
   text-decoration-color: hsl(var(--retro-primary));
+  color: hsl(var(--retro-primary) / 0.8);
 }
 
-/* Task Lists */
-.awwwards-preview-content .prose input[type="checkbox"] {
-  accent-color: hsl(var(--retro-primary));
-  margin-right: 8px;
-  margin-left: -24px;
-}
-
-.awwwards-preview-content .prose .task-list-item {
-  list-style: none;
-}
-
-/* Text Formatting */
-.awwwards-preview-content .prose strong {
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
-
-.awwwards-preview-content .prose em {
-  font-style: italic;
-  color: hsl(var(--foreground));
-}
-
-.awwwards-preview-content .prose del {
-  text-decoration: line-through;
-  color: hsl(var(--muted-foreground));
-}
-
-/* Image spacing */
+/* Images */
 .awwwards-preview-content .prose img {
   margin: 16px 0;
   border-radius: 6px;
   border: 1px solid hsl(var(--border) / 0.5);
   max-width: 100%;
   height: auto;
+  display: block;
 }
 
 /* Remove default prose spacing overrides */
@@ -642,10 +730,71 @@ body {
   margin-top: 0;
 }
 
+/* Syntax highlighting for code blocks */
+.awwwards-preview-content .prose pre[class*="language-"] {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose code[class*="language-"] {
+  color: hsl(var(--foreground));
+}
+
+/* Basic syntax highlighting colors */
+.awwwards-preview-content .prose .token.comment {
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+.awwwards-preview-content .prose .token.string {
+  color: hsl(var(--retro-primary));
+}
+
+.awwwards-preview-content .prose .token.keyword {
+  color: hsl(var(--retro-sunset));
+  font-weight: 600;
+}
+
+.awwwards-preview-content .prose .token.function {
+  color: hsl(var(--retro-cyan));
+}
+
+.awwwards-preview-content .prose .token.number {
+  color: hsl(var(--retro-pink));
+}
+
+.awwwards-preview-content .prose .token.operator {
+  color: hsl(var(--foreground));
+}
+
+/* Alternative syntax highlighting without tokens */
+.awwwards-preview-content .prose code[class*="language-javascript"] .hljs-keyword,
+.awwwards-preview-content .prose code[class*="language-js"] .hljs-keyword {
+  color: hsl(var(--retro-sunset));
+  font-weight: 600;
+}
+
+.awwwards-preview-content .prose code[class*="language-javascript"] .hljs-string,
+.awwwards-preview-content .prose code[class*="language-js"] .hljs-string {
+  color: hsl(var(--retro-primary));
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .awwwards-preview-content .prose {
     font-size: 14px;
+  }
+  
+  .awwwards-preview-content .prose h1 {
+    font-size: 1.75em;
+  }
+  
+  .awwwards-preview-content .prose h2 {
+    font-size: 1.5em;
+  }
+  
+  .awwwards-preview-content .prose h3 {
+    font-size: 1.25em;
   }
   
   .awwwards-preview-content .prose ul,
