@@ -1,25 +1,16 @@
 import type React from 'react'
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth-context'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import './globals.css'
 
-const geistSans = Geist({
-  subsets: ['latin'],
-  variable: '--font-sans',
-})
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-})
-
 export const metadata: Metadata = {
-  title: 'WordWise AI - AI-Powered Writing Assistant',
+  title: 'WordWise AI - Professional AI Writing Assistant',
   description:
-    'Professional writing assistant for marketing and brand managers',
-  generator: 'v0.dev',
+    'Professional AI-powered writing assistant with retro tech aesthetics - Perfect for marketing professionals and content creators',
+  generator: 'WordWise AI',
+  keywords: ['AI writing', 'professional writing', 'content creation', 'writing assistant', 'retro tech'],
 }
 
 export default function RootLayout({
@@ -29,12 +20,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
-      >
+      <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >

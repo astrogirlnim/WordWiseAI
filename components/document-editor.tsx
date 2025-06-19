@@ -18,7 +18,7 @@ import {
   ContextMenuLabel,
 } from '@/components/ui/context-menu'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, Search } from 'lucide-react'
+import { AlertTriangle, Search, FileText } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -123,7 +123,7 @@ export function DocumentEditor({
         history: false,
       }),
       Placeholder.configure({
-        placeholder: 'Start writing...',
+        placeholder: 'Start writing your masterpiece...',
       }),
       GrammarExtension,
     ],
@@ -485,44 +485,50 @@ export function DocumentEditor({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-shrink-0 border-b p-4">
-        <div className="flex items-center justify-between">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => onSave?.(fullContentHtml, title)}
-            className="flex-1 bg-transparent text-3xl font-bold focus:outline-none"
-            placeholder="Untitled Document"
-          />
+    <div className="flex h-full flex-col bg-background">
+      {/* Award-winning header with sophisticated styling */}
+      <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-8 py-6">
+          <div className="flex items-center gap-4 flex-1">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-retro-primary/10 to-retro-sunset/10 border border-retro-primary/20">
+              <FileText className="h-5 w-5 text-retro-primary" />
+            </div>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => onSave?.(fullContentHtml, title)}
+              className="flex-1 bg-transparent text-2xl font-bold text-foreground placeholder:text-muted-foreground focus:outline-none transition-all duration-200 focus:text-retro-primary"
+              placeholder="Untitled Document"
+            />
+          </div>
           
-          {/* Phase 6.1: Full Document Check Button */}
-          <div className="ml-4">
+          {/* Enhanced full document check button */}
+          <div className="flex items-center gap-3">
             <Dialog open={isFullDocCheckDialogOpen} onOpenChange={setIsFullDocCheckDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="sm"
                   disabled={isFullDocumentChecking}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 font-medium"
                 >
                   <Search className="h-4 w-4" />
                   {isFullDocumentChecking ? 'Checking...' : 'Full Document Check'}
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-amber-500" />
                     Full Document Grammar Check
                   </DialogTitle>
-                  <DialogDescription className="space-y-2">
-                                         <p>
-                       You&apos;re about to perform a grammar check on the entire document ({Math.ceil(fullPlainText.length / 1000)}k characters).
-                     </p>
-                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-3">
-                      <div className="flex items-start gap-2">
+                  <DialogDescription className="space-y-3">
+                    <p>
+                      You&apos;re about to perform a grammar check on the entire document ({Math.ceil(fullPlainText.length / 1000)}k characters).
+                    </p>
+                    <div className="awwwards-card bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 p-4">
+                      <div className="flex items-start gap-3">
                         <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                         <div className="text-sm">
                           <p className="font-medium text-amber-800 dark:text-amber-200">Rate Limit Warning</p>
@@ -551,26 +557,31 @@ export function DocumentEditor({
           </div>
         </div>
       </div>
+
+      {/* Award-winning editor area with sophisticated styling */}
       <ContextMenuPrimitive.Root>
         <ContextMenuPrimitive.Trigger>
           <div
-            className="prose prose-sm dark:prose-invert max-w-none flex-grow overflow-y-auto p-8 focus:outline-none"
+            className="award-winning-editor flex-grow m-6 focus-within:shadow-lg transition-all duration-300"
             onClick={() => editor.chain().focus().run()}
             onContextMenuCapture={handleContextMenuCapture}
             onPaste={handlePaste}
           >
-            <EditorContent editor={editor} />
+            <div className="prose prose-lg dark:prose-invert max-w-none h-full overflow-y-auto px-12 py-10 focus:outline-none">
+              <EditorContent editor={editor} />
+            </div>
           </div>
         </ContextMenuPrimitive.Trigger>
         {contextMenu && (
-          <ContextMenuContent>
-            <ContextMenuLabel>
+          <ContextMenuContent className="awwwards-card min-w-[200px]">
+            <ContextMenuLabel className="text-retro-primary font-medium">
               Spelling: &quot;{contextMenu.error.error}&quot;
             </ContextMenuLabel>
             {contextMenu.error.suggestions.map((suggestion, index) => (
               <ContextMenuItem
                 key={index}
                 onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}
+                className="font-medium"
               >
                 Accept: &quot;{suggestion}&quot;
               </ContextMenuItem>
@@ -586,6 +597,7 @@ export function DocumentEditor({
         )}
       </ContextMenuPrimitive.Root>
 
+      {/* Enhanced status bar */}
       <DocumentStatusBar
         saveStatus={saveStatus}
         wordCount={wordCount}

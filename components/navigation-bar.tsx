@@ -4,7 +4,6 @@ import { UserMenu } from './user-menu'
 import { AISidebarToggle } from './ai-sidebar-toggle'
 import { WritingGoalsButton } from './writing-goals-button'
 import { Separator } from '@/components/ui/separator'
-import { PenTool } from 'lucide-react'
 import type { User } from '@/types/navigation'
 import type { Document } from '@/types/document'
 import type { WritingGoals } from '@/types/writing-goals'
@@ -58,7 +57,7 @@ export function NavigationBar({
 
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
-    console.log(`User action: ${action}`)
+    console.log(`[NavigationBar] User action: ${action}`)
 
     if (action === 'settings') {
       router.push('/settings')
@@ -66,110 +65,119 @@ export function NavigationBar({
   }
 
   const handleSignOut = async () => {
+    console.log('[NavigationBar] User signing out')
     await logout()
     router.push('/sign-in')
   }
 
   return (
-    <div className="relative z-50 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      {/* Left Section */}
-      <div className="flex items-center gap-4">
-        {/* Logo/Brand */}
-        <Link href="/" className="flex items-center gap-2">
-          <PenTool className="h-5 w-5 text-primary" />
-          <span className="text-lg font-semibold">WordWise AI</span>
-        </Link>
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/85">
+      <div className="mx-auto flex h-16 max-w-screen-2xl items-center justify-between px-6 lg:px-8">
+        {/* Brand Section - Award-winning logo treatment */}
+        <div className="flex items-center gap-8">
+          <Link 
+            href="/" 
+            className="group flex items-center gap-3 transition-all duration-300 hover:text-retro-primary"
+          >
+            <div className="relative flex h-9 w-9 items-center justify-center">
+              {/* Gradient background with subtle animation */}
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-retro-primary to-retro-sunset opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-110" />
+              {/* Icon placeholder - using CSS for geometric shape */}
+              <div className="relative z-10 h-4 w-4 rounded-full bg-white/90 shadow-sm" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-retro-primary to-retro-sunset bg-clip-text text-transparent">
+                WordWise
+              </span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                AI Assistant
+              </span>
+            </div>
+          </Link>
 
-        <Separator orientation="vertical" className="hidden h-4 lg:block" />
+          {/* Professional separator */}
+          <div className="hidden h-6 w-px bg-gradient-to-b from-transparent via-border to-transparent lg:block" />
 
-        {/* Document List */}
-        <div className="hidden lg:block">
-          <EnhancedDocumentList
-            documents={documents}
-            activeDocumentId={activeDocumentId}
-            onDocumentSelect={onDocumentSelect}
-            onNewDocument={onNewDocument}
-            onDeleteDocument={onDeleteDocument}
-          />
+          {/* Document Navigation - Hidden on mobile for cleaner layout */}
+          <div className="hidden lg:flex items-center gap-6">
+            <EnhancedDocumentList
+              documents={documents}
+              activeDocumentId={activeDocumentId}
+              onDocumentSelect={onDocumentSelect}
+              onNewDocument={onNewDocument}
+              onDeleteDocument={onDeleteDocument}
+            />
+
+            {displayMode === 'editor' && (
+              <>
+                <div className="h-4 w-px bg-border/50" />
+                <WritingGoalsButton
+                  currentGoals={writingGoals}
+                  onClick={onWritingGoalsClick || (() => {})}
+                />
+              </>
+            )}
+          </div>
         </div>
 
-        <Separator orientation="vertical" className="hidden h-4 lg:block" />
-
-        {/* Writing Goals */}
-        {displayMode === 'editor' && (
-          <div className="hidden md:block">
-            <WritingGoalsButton
-              currentGoals={writingGoals}
-              onClick={onWritingGoalsClick || (() => {})}
+        {/* Action Center - Sophisticated controls layout */}
+        <div className="flex items-center gap-2">
+          {/* Mobile Document List */}
+          <div className="lg:hidden">
+            <EnhancedDocumentList
+              documents={documents}
+              activeDocumentId={activeDocumentId}
+              onDocumentSelect={onDocumentSelect}
+              onNewDocument={onNewDocument}
+              onDeleteDocument={onDeleteDocument}
             />
           </div>
-        )}
-      </div>
 
-      {/* Right Section */}
-      <div className="flex items-center gap-2">
-        {/* Mobile Document List */}
-        <div className="lg:hidden">
-          <EnhancedDocumentList
-            documents={documents}
-            activeDocumentId={activeDocumentId}
-            onDocumentSelect={onDocumentSelect}
-            onNewDocument={onNewDocument}
-            onDeleteDocument={onDeleteDocument}
+          {/* Mobile Writing Goals */}
+          {displayMode === 'editor' && (
+            <div className="md:hidden">
+              <WritingGoalsButton
+                currentGoals={writingGoals}
+                onClick={onWritingGoalsClick || (() => {})}
+              />
+            </div>
+          )}
+
+          {/* Editor Tools - Professional spacing and grouping */}
+          {displayMode === 'editor' && (
+            <div className="flex items-center gap-2 ml-2">
+              <div className="h-6 w-px bg-border/30" />
+              
+              <AISidebarToggle
+                isOpen={isAISidebarOpen}
+                onToggle={onAISidebarToggle || (() => {})}
+                suggestionCount={aiSuggestionCount}
+              />
+
+              <ThemeToggle />
+
+              <DistractionFreeToggle
+                isDistractionFree={isDistractionFree}
+                onToggle={onDistractionFreeToggle || (() => {})}
+              />
+              
+              <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
+
+              <div className="h-6 w-px bg-border/30 ml-1" />
+            </div>
+          )}
+
+          {/* User Menu - Elegant final touch */}
+          <UserMenu
+            user={user}
+            onSettingsClick={() => handleUserAction('settings')}
+            onSignOut={handleSignOut}
           />
         </div>
-
-        {/* Mobile Writing Goals */}
-        {displayMode === 'editor' && (
-          <div className="md:hidden">
-            <WritingGoalsButton
-              currentGoals={writingGoals}
-              onClick={onWritingGoalsClick || (() => {})}
-            />
-          </div>
-        )}
-
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
-
-        {/* AI Sidebar Toggle */}
-        {displayMode === 'editor' && (
-          <AISidebarToggle
-            isOpen={isAISidebarOpen}
-            onToggle={onAISidebarToggle || (() => {})}
-            suggestionCount={aiSuggestionCount}
-          />
-        )}
-
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
-
-        {/* Theme Toggle */}
-        {displayMode === 'editor' && <ThemeToggle />}
-
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
-
-        {/* Distraction Free Toggle */}
-        {displayMode === 'editor' && (
-          <DistractionFreeToggle
-            isDistractionFree={isDistractionFree}
-            onToggle={onDistractionFreeToggle || (() => {})}
-          />
-        )}
-
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
-        
-        {displayMode === 'editor' && (
-          <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
-        )}
-
-        <Separator orientation="vertical" className="h-4" />
-
-        {/* User Menu */}
-        <UserMenu
-          user={user}
-          onSettingsClick={() => handleUserAction('settings')}
-          onSignOut={handleSignOut}
-        />
       </div>
-    </div>
+      
+      {/* Sophisticated bottom accent line */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-retro-primary/30 via-retro-sunset/20 to-transparent" />
+    </header>
   )
 }
