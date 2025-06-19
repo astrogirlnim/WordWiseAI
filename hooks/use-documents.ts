@@ -59,6 +59,14 @@ export function useDocuments() {
           ownerId: user.uid,
           orgId: '',
           status: 'draft',
+          sharedWith: [],
+          isPublic: false,
+          publicViewMode: 'view',
+          workflowState: {
+            currentStatus: 'draft',
+            submittedForReview: false,
+            reviewedBy: [],
+          },
           analysisSummary: {
             overallScore: 0,
             brandAlignmentScore: 0,
