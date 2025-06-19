@@ -10,7 +10,12 @@ import type { Document } from '@/types/document'
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth()
-  const { documents, loading: docsLoading } = useDocuments()
+  const { 
+    ownedDocuments, 
+    sharedDocuments, 
+    publicDocuments, 
+    loading: docsLoading 
+  } = useDocuments()
   const router = useRouter()
   const [activeDocumentId, setActiveDocumentId] = useState<string | undefined>(undefined)
 
@@ -50,7 +55,9 @@ export default function SettingsPage() {
           avatar: user.photoURL || '',
           plan: 'free', // Assuming a default plan
         }}
-        documents={documents}
+        myDocuments={ownedDocuments}
+        sharedDocuments={sharedDocuments}
+        publicDocuments={publicDocuments}
         activeDocumentId={activeDocumentId}
         onDocumentSelect={handleDocumentSelect}
         onNewDocument={handleNewDocument}

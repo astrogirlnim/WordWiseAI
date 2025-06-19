@@ -18,7 +18,7 @@ importers:
         specifier: ^16.5.0
         version: 16.5.0
       firebase-admin:
-        specifier: ^12.2.0
+        specifier: ^12.1.0
         version: 12.7.0
       firebase-functions:
         specifier: ^5.0.1
@@ -27,11 +27,11 @@ importers:
         specifier: ^2.7.0
         version: 2.7.0
       openai:
-        specifier: ^4.47.1
+        specifier: ^4.52.7
         version: 4.104.0
     devDependencies:
       eslint:
-        specifier: ^8.9.0
+        specifier: ^8.15.0
         version: 8.57.1
       eslint-config-google:
         specifier: ^0.14.0

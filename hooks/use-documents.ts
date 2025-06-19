@@ -383,13 +383,73 @@ export function useDocuments() {
     [user],
   )
 
+  const saveDocument = useCallback(
+    async (documentId: string, content: string, title: string): Promise<void> => {
+      if (!user?.uid) {
+        console.error('[useDocuments.saveDocument] No user available')
+        return
+      }
+
+      console.log(
+        `[useDocuments.saveDocument] Checking content and title changes for document: ${documentId}`
+      )
+
+      const existingDoc = documents.find((doc) => doc.id === documentId)
+      if (!existingDoc) {
+        console.error('[useDocuments.saveDocument] Document not found:', documentId)
+        return
+      }
+
+      const contentHasChanged = existingDoc.content !== content
+      const isTitleChange = existingDoc.title !== title
+
+      if (!contentHasChanged && !isTitleChange) {
+        console.log(
+          '[useDocuments.saveDocument] No content or title change, skipping save for document:',
+          documentId
+        )
+        return
+      }
+
+      console.log(
+        `[useDocuments.saveDocument] Content for doc ${documentId} has changed, proceeding with save.`
+      )
+      pendingSavesRef.current.add(documentId)
+
+      try {
+        await updateDocument(documentId, {
+          content,
+          title,
+          lastEditedBy: user.uid,
+          lastEditedAt: serverTimestamp(),
+        })
+
+        // Update last saved content after successful save
+        lastSavedContentRef.current[documentId] = content
+        console.log(
+          `[useDocuments.saveDocument] Successfully saved document ${documentId}`
+        )
+      } catch (error) {
+        console.error(
+          `[useDocuments.saveDocument] Error saving document ${documentId}:`,
+          error
+        )
+      } finally {
+        pendingSavesRef.current.delete(documentId)
+      }
+    }, [user, updateDocument, documents])
+
   return {
     documents,
+    ownedDocuments,
+    sharedDocuments,
+    publicDocuments,
     loading,
     error,
     createDocument,
     updateDocument,
     deleteDocument,
     restoreDocumentVersion,
+    saveDocument,
   }
 }
