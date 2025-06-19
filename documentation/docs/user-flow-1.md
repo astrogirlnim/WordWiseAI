@@ -72,13 +72,47 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - Uses: `types/comment.ts`, `components/document-editor.tsx`, `components/document-container.tsx`, Firestore for comment storage
 - Comments are anchored to text ranges and can be resolved
 - UI must allow adding, viewing, and resolving comments
+- See full plan: [`documentation/features/team-review-commenting-phase3.md`](../features/team-review-commenting-phase3.md)
 
-### Steps
-- [ ] Add Firestore collection for comments per document
-- [ ] Implement UI for adding comments to selected text
-- [ ] Display comments inline or in a sidebar
-- [ ] Allow resolving/unresolving comments
-- [ ] Sync comments in real time
+### Phases & Checklist
+- [ ] **Diagnosis & Verification**
+  - [ ] Review all comment-related types, stubs, and UI for consistency
+  - [ ] Verify no duplicate or conflicting comment logic exists
+  - [ ] Confirm Firestore structure for `/documents/{docId}/comments` is not in use or is safe to extend
+  - [ ] Audit logging and error handling for all comment flows
+- [ ] **Firestore Comment Collection**
+  - [ ] Define `/documents/{docId}/comments` subcollection schema
+  - [ ] Implement Firestore rules for comment CRUD (owner, editor, commenter roles)
+  - [ ] Add migration/cleanup script if legacy data exists
+- [ ] **Comment Service & Hook**
+  - [ ] Implement `services/comment-service.ts` for add, update, resolve, delete, and real-time sync
+  - [ ] Implement `hooks/use-comments.ts` for real-time state, add/resolve actions, and error handling
+  - [ ] Add extensive logging for all service/hook actions
+- [ ] **UI Integration**
+  - [ ] Implement `components/comments-sidebar.tsx` to display, add, and resolve comments
+  - [ ] Integrate comment thread anchors and context menus in `components/document-editor.tsx`
+  - [ ] Pass comment state/handlers via `components/document-container.tsx`
+  - [ ] Add inline comment indicators and selection logic
+  - [ ] Ensure real-time updates and optimistic UI
+- [ ] **Access Control & Security**
+  - [ ] Update `firestore.rules` for comment subcollection (role-based access)
+  - [ ] Add UI/UX for permission errors and unauthorized actions
+  - [ ] Test with all user roles (owner, editor, commenter, viewer)
+- [ ] **Diagnosis & Verification (Post-Implementation)**
+  - [ ] Test end-to-end: add, view, resolve, and delete comments
+  - [ ] Verify real-time sync and UI updates
+  - [ ] Audit logs for all comment actions
+  - [ ] Confirm no duplicate or orphaned comments/threads
+  - [ ] Review code for modularity, logging, and type safety
+
+#### Relevant Files & Status
+- `types/comment.ts`: ✅ Complete
+- `services/comment-service.ts`: ⬜️ Stub, needs full implementation
+- `hooks/use-comments.ts`: ⬜️ Stub, needs full implementation
+- `components/comments-sidebar.tsx`: ⬜️ Stub, needs full implementation
+- `components/document-editor.tsx`: ⬜️ Needs integration
+- `components/document-container.tsx`: ⬜️ Needs integration
+- `firestore.rules`: ⬜️ Needs update for comments
 
 ---
 
@@ -285,6 +319,36 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
     *   `firestore.rules` (updated)
     *   `app/globals.css` (updated)
     *   `documentation/docs/user-flow-1.md` (updated)
+
+**Phase 5.1: Bugfixes for Invitation and Collaboration Flow**
+
+*   **Invitation Acceptance & Redirect Bugfix**:
+    *   **Problem**: After signing in from an invitation link, users were not redirected to the document. The `acceptInvite` cloud function was also failing silently.
+    *   **Root Cause**: The `acceptInvite` function had multiple critical errors:
+        1.  It was using `admin.firestore.FieldValue.serverTimestamp()` and `admin.firestore.FieldValue.arrayUnion()` incorrectly, causing `TypeError` exceptions.
+        2.  A Firestore security rule violation occurred because `FieldValue.serverTimestamp()` was being used inside an array update (`arrayUnion`), which is not allowed.
+    *   **Solution**:
+        *   Corrected the function to import `FieldValue` from `firebase-admin/firestore` and use it directly (e.g., `FieldValue.serverTimestamp()`).
+        *   Replaced the server timestamp in the array update with a client-side timestamp (`Date.now()`) to prevent the Firestore error.
+        *   Enhanced the frontend `lib/auth-context.tsx` to reliably redirect the user to the correct document after the invitation is successfully accepted.
+    *   **Files Modified**: `functions/index.js`, `lib/auth-context.tsx`.
+
+*   **Real-time Collaboration Permission Bugfix**:
+    *   **Problem**: Newly invited users could not join the collaboration session and would get a `PERMISSION_DENIED` error from the Realtime Database.
+    *   **Root Cause**: The Realtime Database rules only granted access to the document owner, not to users who were shared on the document.
+    *   **Solution**:
+        *   Updated `database.rules.json` to allow access if a user's ID is present in a `sharedUserIds` map in the document's metadata.
+        *   Modified `services/collaboration-service.ts` so that when a user joins a session, it writes the list of shared user IDs to the Realtime Database metadata, allowing the new rules to grant access.
+    *   **Files Modified**: `database.rules.json`, `services/collaboration-service.ts`.
+
+*   **Sign-Out Error Bugfix**:
+    *   **Problem**: Users would receive a `PERMISSION_DENIED` error when signing out of a document they were collaborating on.
+    *   **Root Cause**: A race condition occurred where the user was signed out before they had properly left the collaboration session.
+    *   **Solution**:
+        *   Refactored the `logout` function in `lib/auth-context.tsx` to gracefully leave the collaboration session *before* completing the sign-out process.
+        *   Updated `components/navigation-bar.tsx` to pass the active document ID to the enhanced `logout` function.
+        *   Removed the conflicting session cleanup logic from `components/document-container.tsx`.
+    *   **Files Modified**: `lib/auth-context.tsx`, `components/navigation-bar.tsx`, `components/document-container.tsx`.
 
 ---
 
