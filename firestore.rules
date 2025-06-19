@@ -24,6 +24,11 @@ service cloud.firestore {
       match /styleSuggestions/{suggestionId} {
         allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
       }
+
+      // Allow the document owner to manage funnel suggestions
+      match /funnelSuggestions/{suggestionId} {
+        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+      }
     }
 
     // Allow authenticated users to write to the audit log

@@ -3,6 +3,7 @@ import app from '../lib/firebase';
 import type { GrammarError } from '@/types/grammar';
 import type { WritingGoals } from '@/types/writing-goals';
 import type { TextChunk } from '@/utils/text-chunker';
+import type { FunnelSuggestionsResponse } from '@/types/ai-features';
 
 const functions = getFunctions(app, 'us-central1');
 
@@ -115,6 +116,47 @@ export class AIService {
     } catch (error) {
       console.error(`Error calling checkGrammar function for chunk ${chunk.chunkId}: `, error);
       throw new Error(`Failed to check grammar for chunk ${chunk.chunkId}.`);
+    }
+  }
+
+  /**
+   * Generates funnel-specific copy suggestions based on writing goals and current content
+   * @param documentId - The document ID to generate suggestions for
+   * @param goals - Writing goals to tailor suggestions
+   * @param currentDraft - Current document content for context
+   * @returns Promise with funnel suggestions
+   */
+  static async generateFunnelSuggestions(
+    documentId: string, 
+    goals: WritingGoals, 
+    currentDraft: string = ''
+  ): Promise<FunnelSuggestionsResponse> {
+    console.log('[AIService] Generating funnel suggestions...', { 
+      documentId, 
+      goals, 
+      draftLength: currentDraft.length 
+    });
+    
+    const callable = httpsCallable<
+      { 
+        documentId: string; 
+        goals: WritingGoals; 
+        currentDraft: string;
+      }, 
+      FunnelSuggestionsResponse
+    >(functions, 'generateFunnelSuggestions');
+
+    try {
+      console.log('[AIService] Calling Firebase Function generateFunnelSuggestions');
+      const result = await callable({ documentId, goals, currentDraft });
+      const response = result.data;
+      
+      console.log(`[AIService] Generated ${response.suggestions.length} funnel suggestions successfully`);
+      return response;
+
+    } catch (error) {
+      console.error('[AIService] Error calling generateFunnelSuggestions function:', error);
+      throw new Error('Failed to generate funnel suggestions.');
     }
   }
 
