@@ -24,6 +24,7 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
   className = '',
 }: MarkdownPreviewPanelProps): JSX.Element | null {
   console.log('[MarkdownPreviewPanel] Rendering with content length:', content.length, 'Visible:', isVisible)
+  console.log('[MarkdownPreviewPanel] Content preview (first 200 chars):', JSON.stringify(content.substring(0, 200)))
   
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
