@@ -126,10 +126,10 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
   - Files: `components/document-container.tsx`, `components/ui/`, `services/document-service.ts`, `types/document.ts`, `firestore.rules`
 
 #### Phase 5: Manage & Remove Access
-- [ ] UI to change collaborator roles or remove them.
-- [ ] Backend logic to update `sharedWith` array.
-- [ ] Notifications for users when access changes.
-  - Files: `components/document-container.tsx`, `components/ui/`, `services/document-service.ts`, `types/document.ts`
+- [x] UI to change collaborator roles or remove them.
+- [x] Backend logic to update `sharedWith` array.
+- [x] Notifications for users when access changes.
+  - Files: `components/share-dialog.tsx`, `components/navigation-bar.tsx`, `services/document-service.ts`
 
 ---
 
@@ -147,7 +147,7 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - [ ] Build sharing/invitation UI.
 - [ ] Enforce access control in UI and backend.
 - [x] Add public/link sharing features.
-- [ ] Add collaborator management UI.
+- [x] Add collaborator management UI.
 
 ---
 
@@ -251,6 +251,28 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
     *   `components/document-container.tsx`
     *   `documentation/docs/user-flow-1.md`
 
+**Phase 5: Manage & Remove Access**
+
+*   **Functionality Review**:
+    *   A review of the codebase confirmed that the functionality for managing and removing collaborators was implemented as part of the initial "Sharing/Invitation UI". The UI and backend logic are in place and fully functional. Users can be invited by email if they already have an account. For users without an account, sharing must be done via a public link.
+
+*   **UI Components**:
+    *   `components/share-dialog.tsx`: Contains the UI for listing collaborators. For each collaborator (who is not the owner), it provides a `Select` dropdown to change their role and a remove (`X`) button. These controls are only visible to the document owner.
+
+*   **Backend Logic**:
+    *   `services/document-service.ts`: The `shareDocument` method verifies that a user exists before adding them to the `sharedWith` array. If the user does not exist, an error is thrown, and the UI displays a notification. This ensures only registered users can be added directly.
+
+*   **Verification**:
+    *   ✅ UI for changing roles and removing access is present and functional.
+    *   ✅ Backend logic correctly updates document permissions in Firestore.
+    *   ✅ Sharing is restricted to existing users, with clear error handling for non-registered emails.
+
+*   **Files Verified**:
+    *   `components/share-dialog.tsx`
+    *   `components/navigation-bar.tsx`
+    *   `services/document-service.ts`
+    *   `documentation/docs/user-flow-1.md`
+
 ---
 
 ## Phase 5: Review & Approval Workflow
@@ -296,6 +318,7 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - [ ] Sharing/invitation UI
 - [x] Access control logic
 - [x] Public/Link Sharing
+- [x] Collaborator management UI
 
 ### Phase 5: Review & Approval Workflow
 - [ ] Status controls and workflow UI
