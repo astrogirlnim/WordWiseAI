@@ -81,6 +81,19 @@ service cloud.firestore {
       allow create: if request.auth != null;
     }
 
+    // Rules for invitations
+    match /invitations/{invitationId} {
+      // Allow the document owner to read and delete pending invitations.
+      allow read, delete: if request.auth != null &&
+                             isOwner(get(/databases/$(database)/documents/documents/$(resource.data.documentId)).data);
+
+      // Allow the document owner to create invitations.
+      // The `invitedBy` field in the new invitation must match the user's ID.
+      allow create: if request.auth != null &&
+                       isOwner(get(/databases/$(database)/documents/documents/$(request.resource.data.documentId)).data) &&
+                       request.auth.uid == request.resource.data.invitedBy;
+    }
+
     // Add other collections here with similar rules.
   }
 }

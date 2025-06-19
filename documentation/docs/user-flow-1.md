@@ -143,9 +143,9 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 ---
 
 #### Checklist for Implementation
-- [ ] Update backend and hooks to support shared/public document discovery.
-- [ ] Build sharing/invitation UI.
-- [ ] Enforce access control in UI and backend.
+- [x] Update backend and hooks to support shared/public document discovery.
+- [x] Build sharing/invitation UI.
+- [x] Enforce access control in UI and backend.
 - [x] Add public/link sharing features.
 - [x] Add collaborator management UI.
 
@@ -251,31 +251,44 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
     *   `components/document-container.tsx`
     *   `documentation/docs/user-flow-1.md`
 
-**Phase 5: Manage & Remove Access**
+**Phase 5: Manage & Remove Access (Secure Invitation Model)**
 
-*   **Functionality Review**:
-    *   A review of the codebase confirmed that the functionality for managing and removing collaborators was implemented as part of the initial "Sharing/Invitation UI". The UI and backend logic are in place and fully functional. Users can be invited by email if they already have an account. For users without an account, sharing must be done via a public link.
+*   **Sharing Model Refactor**:
+    *   The sharing model has been refactored from direct email invitations to a secure, link-based invitation system. This provides better control and visibility for document owners.
 
-*   **UI Components**:
-    *   `components/share-dialog.tsx`: Contains the UI for listing collaborators. For each collaborator (who is not the owner), it provides a `Select` dropdown to change their role and a remove (`X`) button. These controls are only visible to the document owner.
+*   **Invitation Link Generation**:
+    *   `components/share-dialog.tsx`: The UI has been updated. Instead of directly sharing, entering an email and selecting a role now generates a unique invitation link. This link is displayed to the user to be copied and sent manually. The dialog workflow was also improved to prevent UI jank and clearly separate public access from private invitations.
+    *   `services/invitation-service.ts`: A new service was created to handle the logic for creating, fetching, and revoking invitations. It generates a unique token for each invitation and stores it in a new `invitations` collection in Firestore. It also prevents duplicate invitations from being created for the same user.
 
-*   **Backend Logic**:
-    *   `services/document-service.ts`: The `shareDocument` method verifies that a user exists before adding them to the `sharedWith` array. If the user does not exist, an error is thrown, and the UI displays a notification. This ensures only registered users can be added directly.
+*   **Invitation Acceptance Flow**:
+    *   `app/doc/[documentId]/page.tsx`: This page now checks for an `inviteToken` in the URL.
+        *   If the user is logged in, it calls a cloud function to accept the invite.
+        *   If the user is not logged in, it saves the token in `localStorage` and redirects them to sign-in.
+    *   `lib/auth-context.tsx`: After a user signs in or signs up, the auth context checks for a pending token in `localStorage` and automatically triggers the acceptance flow.
+    *   `functions/index.js`: A new `acceptInvite` cloud function was added to securely process the invitation, validate the user, and grant them access to the document.
 
-*   **Verification**:
-    *   ✅ UI for changing roles and removing access is present and functional.
-    *   ✅ Backend logic correctly updates document permissions in Firestore.
-    *   ✅ Sharing is restricted to existing users, with clear error handling for non-registered emails.
+*   **UI and User Experience**:
+    *   The "People with access" list now correctly shows the document owner, active collaborators, and pending invitations.
+    *   Document owners can revoke pending invitations directly from the share dialog.
+    *   `app/globals.css`: A persistent contrast issue with the UI `Switch` component in light mode was resolved with custom styles.
 
-*   **Files Verified**:
-    *   `components/share-dialog.tsx`
-    *   `components/navigation-bar.tsx`
-    *   `services/document-service.ts`
-    *   `documentation/docs/user-flow-1.md`
+*   **Backend & Security**:
+    *   `firestore.rules`: New security rules were added for the `/invitations` collection to ensure only document owners can manage them. Pathing issues within the rules were also corrected to resolve permission errors.
+
+*   **Files Added/Modified**:
+    *   `types/invitation.ts` (new)
+    *   `services/invitation-service.ts` (new)
+    *   `components/share-dialog.tsx` (refactored)
+    *   `functions/index.js` (updated)
+    *   `lib/auth-context.tsx` (updated)
+    *   `app/doc/[documentId]/page.tsx` (updated)
+    *   `firestore.rules` (updated)
+    *   `app/globals.css` (updated)
+    *   `documentation/docs/user-flow-1.md` (updated)
 
 ---
 
-## Phase 5: Review & Approval Workflow
+## Phase 6: Review & Approval Workflow
 
 ### Background/Architecture
 - Uses: `types/document.ts`, `components/document-status-bar.tsx`, `components/document-container.tsx`
@@ -315,11 +328,17 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - [ ] Commenting UI for feedback and discussion
 
 ### Phase 4: Document Sharing & Access Control
-- [ ] Sharing/invitation UI
+- [x] Sharing/invitation UI
 - [x] Access control logic
 - [x] Public/Link Sharing
 - [x] Collaborator management UI
 
-### Phase 5: Review & Approval Workflow
+### Phase 5: Secure Invitation Model
+- [x] Secure, link-based invitation system
+- [x] Invitation acceptance flow (frontend and backend)
+- [x] UI for revoking pending invitations
+
+### Phase 6: Review & Approval Workflow
 - [ ] Status controls and workflow UI
-- [ ] Reviewer notifications 
+- [ ] Reviewer notifications
+  
