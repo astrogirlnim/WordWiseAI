@@ -22,7 +22,8 @@ open_ai_api_keys.txt
 
 # Cursor files
 .cursorrules
-.cursor/
+.cursor/**/*.mdc
+.cursor/mcp.json
 
 # Admin sdk files
 wordwise-ai-mvp-firebase-adminsdk-fbsvc-23becbcacd.json
