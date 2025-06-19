@@ -35,6 +35,7 @@ import { useMarkdownPreview } from '@/hooks/use-markdown-preview'
 import { MarkdownPreviewPanel } from './markdown-preview-panel'
 import { MarkdownPreviewToggle } from './markdown-preview-toggle'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
+import { useViewportPagination } from '@/hooks/use-viewport-pagination'
 
 // Phase 6: Document Pagination
 const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
@@ -57,22 +58,43 @@ export function DocumentEditor({
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
 
-  // Phase 6: Pagination State
+  // Phase 6: Pagination State - UPDATED to use viewport-based pagination
   const [fullContentHtml, setFullContentHtml] = useState(initialDocument.content || '')
-  const [currentPage, setCurrentPage] = useState(1)
+  
+  // VIEWPORT-BASED PAGINATION: Replace character-based pagination with viewport-based
+  const {
+    totalPages,
+    currentPage,
+    pageContent,
+    pageOffset,
+    visibleRange,
+    estimatedLinesPerPage,
+    handlePageChange
+  } = useViewportPagination(fullContentHtml, 1)
+
+  console.log('[DocumentEditor] Viewport pagination state:', {
+    totalPages,
+    currentPage,
+    pageContentLength: pageContent.length,
+    pageOffset,
+    visibleRange,
+    estimatedLinesPerPage,
+    fullContentLength: fullContentHtml.length
+  })
 
   // Phase 6.1: Full Document Check State
   const [isFullDocCheckDialogOpen, setIsFullDocCheckDialogOpen] = useState(false)
   const [isFullDocumentChecking, setIsFullDocumentChecking] = useState(false)
 
-  const { totalPages, pageContent, pageOffset } = useMemo(() => {
-    const totalPages = Math.max(1, Math.ceil(fullContentHtml.length / PAGE_SIZE_CHARS))
-    const safeCurrentPage = Math.min(currentPage, totalPages)
-    const start = (safeCurrentPage - 1) * PAGE_SIZE_CHARS
-    const end = Math.min(start + PAGE_SIZE_CHARS, fullContentHtml.length)
-    const pageContent = fullContentHtml.substring(start, end)
-    return { totalPages, pageContent, pageOffset: start }
-  }, [fullContentHtml, currentPage])
+  // SIMPLIFIED PAGINATION: Remove complex character-based calculation
+  // const { totalPages, pageContent, pageOffset } = useMemo(() => {
+  //   const totalPages = Math.max(1, Math.ceil(fullContentHtml.length / PAGE_SIZE_CHARS))
+  //   const safeCurrentPage = Math.min(currentPage, totalPages)
+  //   const start = (safeCurrentPage - 1) * PAGE_SIZE_CHARS
+  //   const end = Math.min(start + PAGE_SIZE_CHARS, fullContentHtml.length)
+  //   const pageContent = fullContentHtml.substring(start, end)
+  //   return { totalPages, pageContent, pageOffset: start }
+  // }, [fullContentHtml, currentPage])
   
   // We need plain text of the full document for the grammar checker
   const fullPlainText = useMemo(() => {
@@ -84,10 +106,11 @@ export function DocumentEditor({
       return div.textContent || ''
   }, [fullContentHtml])
 
-  const visibleRange = useMemo(() => ({
-    start: pageOffset,
-    end: pageOffset + pageContent.length,
-  }), [pageOffset, pageContent]);
+  // SIMPLIFIED VISIBLE RANGE: Use the viewport pagination visible range directly
+  // const visibleRange = useMemo(() => ({
+  //   start: pageOffset,
+  //   end: pageOffset + pageContent.length,
+  // }), [pageOffset, pageContent]);
 
   const { user } = useAuth()
   // Phase 6: Pass visibleRange to the grammar checker hook
@@ -156,13 +179,6 @@ export function DocumentEditor({
     },
   })
 
-  // Phase 6: Page change handler
-  const handlePageChange = useCallback((newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-    }
-  }, [totalPages])
-
   // **PHASE 6.1 SUBFEATURE 4: Full Document Check**
   const handleFullDocumentCheck = useCallback(async () => {
     console.log('[DocumentEditor] Phase 6.1: Starting full document grammar check');
@@ -195,7 +211,32 @@ export function DocumentEditor({
         const currentEditorContent = editor.getHTML()
         if (currentEditorContent !== pageContent) {
             console.log(`[DocumentEditor] Page changed to ${currentPage}. Updating editor content.`)
+            console.log('[DocumentEditor] VIEWPORT: Page content length:', pageContent.length, 'Editor content length:', currentEditorContent.length)
+            
+            // IMPROVED CURSOR POSITIONING: Store cursor position before content change
+            const selection = editor.state.selection
+            const cursorPos = selection.from
+            console.log('[DocumentEditor] VIEWPORT: Storing cursor position:', cursorPos, 'before page content update')
+            
             editor.commands.setContent(pageContent, false) // `false` to avoid triggering onUpdate
+            
+            // IMPROVED CURSOR POSITIONING: Restore cursor position if within new content bounds
+            setTimeout(() => {
+              if (editor && !editor.isDestroyed) {
+                const newDocSize = editor.state.doc.content.size
+                const restoredPos = Math.min(cursorPos, newDocSize)
+                console.log('[DocumentEditor] VIEWPORT: Restoring cursor to position:', restoredPos, 'of', newDocSize)
+                
+                try {
+                  editor.commands.setTextSelection(restoredPos)
+                  editor.commands.focus()
+                } catch (error) {
+                  console.warn('[DocumentEditor] VIEWPORT: Failed to restore cursor position:', error)
+                  // Fallback: focus at the end
+                  editor.commands.focus('end')
+                }
+              }
+            }, 0)
         }
     }
   }, [pageContent, editor, currentPage])
@@ -204,14 +245,31 @@ export function DocumentEditor({
     (error: GrammarError, suggestion: string) => {
       if (!editor || !user) return
 
-      // Adjust error positions to be relative to the current page
+      // SIMPLIFIED POSITION MAPPING: Error positions are already page-relative from grammar checker
       const relativeStart = error.start - pageOffset
       const relativeEnd = error.end - pageOffset
 
+      console.log('[DocumentEditor] VIEWPORT: Applying suggestion for error:', error.id)
+      console.log('[DocumentEditor] VIEWPORT: Error absolute positions:', error.start, '-', error.end)
+      console.log('[DocumentEditor] VIEWPORT: Error relative positions:', relativeStart, '-', relativeEnd)
+      console.log('[DocumentEditor] VIEWPORT: Page offset:', pageOffset, 'Editor doc size:', editor.state.doc.content.size)
+
       // Check if the error is on the current page
       if (relativeStart < 0 || relativeEnd > editor.state.doc.content.size) {
-          console.warn(`[DocumentEditor] Attempted to apply suggestion for an error not on the current page. Error ID: ${error.id}`)
-          // Future enhancement: automatically switch to the page with the error.
+          console.warn(`[DocumentEditor] VIEWPORT: Attempted to apply suggestion for an error not on the current page. Error ID: ${error.id}`)
+          console.warn(`[DocumentEditor] VIEWPORT: Relative positions (${relativeStart}, ${relativeEnd}) outside editor bounds (0, ${editor.state.doc.content.size})`)
+          
+          // IMPROVED USER EXPERIENCE: Navigate to the page containing the error
+          const errorPage = Math.floor(error.start / Math.max(1, Math.floor(fullContentHtml.length / totalPages))) + 1
+          console.log('[DocumentEditor] VIEWPORT: Error is on page', errorPage, 'navigating there first')
+          
+          if (errorPage !== currentPage && errorPage >= 1 && errorPage <= totalPages) {
+            handlePageChange(errorPage)
+            // Re-trigger the suggestion application after page change
+            setTimeout(() => {
+              handleApplySuggestion(error, suggestion)
+            }, 100)
+          }
           return
       }
 
@@ -224,9 +282,10 @@ export function DocumentEditor({
 
       if (textInDoc !== error.error) {
         console.warn(
-          `[DocumentEditor] Mismatch detected. Expected: "${error.error}", Found: "${textInDoc}". Searching for correct position.`,
+          `[DocumentEditor] VIEWPORT: Text mismatch detected. Expected: "${error.error}", Found: "${textInDoc}". Searching for correct position.`,
         )
 
+        // SIMPLIFIED SEARCH: Look for the error text within the current page only
         const potentialRanges: { from: number; to: number }[] = []
         editor.state.doc.nodesBetween(
           0,
@@ -251,21 +310,25 @@ export function DocumentEditor({
 
         if (potentialRanges.length > 0) {
           const bestMatch = potentialRanges.reduce((prev, curr) => {
-            const prevDist = Math.abs(prev.from - error.start)
-            const currDist = Math.abs(curr.from - error.start)
+            const prevDist = Math.abs(prev.from - relativeStart)
+            const currDist = Math.abs(curr.from - relativeStart)
             return currDist < prevDist ? curr : prev
           })
           replacementRange = bestMatch
           console.log(
-            `[DocumentEditor] Found closest match. New range: [${replacementRange.from}, ${replacementRange.to}]`,
+            `[DocumentEditor] VIEWPORT: Found closest match. New range: [${replacementRange.from}, ${replacementRange.to}]`,
           )
         } else {
           console.error(
-            `[DocumentEditor] Could not find text "${error.error}" in document to apply suggestion. Aborting.`,
+            `[DocumentEditor] VIEWPORT: Could not find text "${error.error}" in current page. Aborting suggestion application.`,
           )
           return
         }
       }
+
+      // IMPROVED EDIT APPLICATION: Apply the change and handle position updates
+      const beforeText = editor.getText()
+      console.log('[DocumentEditor] VIEWPORT: Document text before edit (length):', beforeText.length)
 
       editor
         .chain()
@@ -274,9 +337,12 @@ export function DocumentEditor({
         .insertContentAt(replacementRange.from, suggestion)
         .run()
 
+      const afterText = editor.getText()
+      console.log('[DocumentEditor] VIEWPORT: Document text after edit (length):', afterText.length)
+
+      // IMMEDIATE GRAMMAR RE-CHECK: Trigger re-check with updated content
       if (editor) {
-        // After applying suggestion, the content is updated, onUpdate will trigger a full re-check
-        // We pass the full plain text to ensure context is always up-to-date
+        console.log('[DocumentEditor] VIEWPORT: Triggering immediate grammar check after suggestion application')
         checkGrammarImmediately(fullPlainText)
       }
 
@@ -291,7 +357,7 @@ export function DocumentEditor({
       removeError(error.id)
       setContextMenu(null)
     },
-    [editor, user, documentId, removeError, pageOffset, checkGrammarImmediately, fullPlainText],
+    [editor, user, documentId, removeError, pageOffset, checkGrammarImmediately, fullPlainText, totalPages, currentPage, handlePageChange],
   )
 
   const handleIgnoreError = useCallback(
@@ -351,7 +417,7 @@ export function DocumentEditor({
     console.log('[DocumentEditor] Phase 8.2: New content length:', newContent.length)
     
     setFullContentHtml(newContent)
-    setCurrentPage(1) // Reset to first page on document change
+    handlePageChange(1) // Reset to first page on document change
 
     // **CRITICAL FIX**: Ensure editor content is immediately synchronized after state update
     // This fixes version restore by forcing editor content update after fullContentHtml changes
@@ -375,7 +441,7 @@ export function DocumentEditor({
       }
     }, 0) // Use setTimeout to ensure state update completes before editor update
 
-  }, [initialDocument.content, documentId, editor]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
+  }, [initialDocument.content, documentId, editor, handlePageChange]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
@@ -745,14 +811,23 @@ export function DocumentEditor({
         )}
       </div>
 
-      {/* Enhanced status bar */}
+      {/* VIEWPORT-BASED STATUS BAR: Enhanced status bar with viewport pagination info */}
       <DocumentStatusBar
         saveStatus={saveStatus}
         wordCount={wordCount}
         characterCount={characterCount}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
+        currentPage={totalPages > 1 ? currentPage : undefined}
+        totalPages={totalPages > 1 ? totalPages : undefined}
+        onPageChange={totalPages > 1 ? handlePageChange : undefined}
+        // ENHANCEMENT: Add viewport-specific debug info
+        debugInfo={{
+          estimatedLinesPerPage,
+          pageContentLength: pageContent.length,
+          pageOffset,
+          visibleRangeStart: visibleRange.start,
+          visibleRangeEnd: visibleRange.end,
+          fullContentLength: fullContentHtml.length
+        }}
       />
     </div>
   )

@@ -19,6 +19,14 @@ interface DocumentStatusBarProps {
   currentPage?: number
   totalPages?: number
   onPageChange?: (page: number) => void
+  debugInfo?: {
+    estimatedLinesPerPage?: number
+    pageContentLength?: number
+    pageOffset?: number
+    visibleRangeStart?: number
+    visibleRangeEnd?: number
+    fullContentLength?: number
+  }
 }
 
 export function DocumentStatusBar({
@@ -28,6 +36,7 @@ export function DocumentStatusBar({
   currentPage,
   totalPages,
   onPageChange,
+  debugInfo,
 }: DocumentStatusBarProps) {
   const getSaveStatusIcon = () => {
     switch (saveStatus.status) {
@@ -60,13 +69,29 @@ export function DocumentStatusBar({
     }
   }
 
+  console.log('[DocumentStatusBar] Rendering with viewport pagination:', {
+    currentPage,
+    totalPages,
+    hasPageChange: !!onPageChange,
+    debugInfo
+  })
+
   return (
     <div className="flex items-center justify-between border-t bg-background/50 px-6 py-2 text-xs text-muted-foreground backdrop-blur-sm">
       <div className="flex items-center gap-2">
         {getSaveStatusIcon()}
         <span>{getSaveStatusText()}</span>
+        {/* VIEWPORT DEBUG INFO: Show debug information in development */}
+        {debugInfo && (
+          <span className="ml-4 text-blue-600 dark:text-blue-400 text-xs">
+            Lines/Page: {debugInfo.estimatedLinesPerPage} | 
+            Page Size: {debugInfo.pageContentLength} chars | 
+            Range: {debugInfo.visibleRangeStart}-{debugInfo.visibleRangeEnd}
+          </span>
+        )}
       </div>
 
+      {/* IMPROVED PAGINATION CONTROLS: Only show when needed */}
       {totalPages && totalPages > 1 && currentPage && onPageChange && (
         <Pagination>
           <PaginationContent>
@@ -75,6 +100,7 @@ export function DocumentStatusBar({
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
+                  console.log('[DocumentStatusBar] Previous page clicked, current:', currentPage)
                   if (currentPage > 1) {
                     onPageChange(currentPage - 1)
                   }
@@ -87,6 +113,12 @@ export function DocumentStatusBar({
             <PaginationItem>
               <span className="px-4 py-2">
                 Page {currentPage} of {totalPages}
+                {/* VIEWPORT ENHANCEMENT: Show viewport-based pagination info */}
+                {debugInfo && (
+                  <span className="ml-2 text-blue-600 dark:text-blue-400 text-xs">
+                    (Viewport-based)
+                  </span>
+                )}
               </span>
             </PaginationItem>
             <PaginationItem>
@@ -94,6 +126,7 @@ export function DocumentStatusBar({
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
+                  console.log('[DocumentStatusBar] Next page clicked, current:', currentPage, 'total:', totalPages)
                   if (currentPage < totalPages) {
                     onPageChange(currentPage + 1)
                   }
@@ -112,6 +145,12 @@ export function DocumentStatusBar({
       <div className="flex items-center gap-4">
         <span>{wordCount} words</span>
         <span>{characterCount} characters</span>
+        {/* VIEWPORT ENHANCEMENT: Show total content info */}
+        {debugInfo && (
+          <span className="text-blue-600 dark:text-blue-400 text-xs">
+            Total: {debugInfo.fullContentLength} chars
+          </span>
+        )}
       </div>
     </div>
   )
