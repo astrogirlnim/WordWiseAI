@@ -819,7 +819,7 @@ exports.acceptInvite = onCall(async (request) => {
     userId: userId,
     email: normalizedUserEmail, // Use normalized email for consistency
     role: invitation.role,
-    addedAt: FieldValue.serverTimestamp(),
+    addedAt: Date.now(), // Use a plain timestamp, not FieldValue.serverTimestamp()
     addedBy: invitation.invitedBy,
   };
 
@@ -829,8 +829,8 @@ exports.acceptInvite = onCall(async (request) => {
 
   // Add user to the document's access list
   batch.update(documentRef, {
-    sharedWith: admin.firestore.FieldValue.arrayUnion(newAccess),
-    sharedWithIds: admin.firestore.FieldValue.arrayUnion(userId),
+    sharedWith: FieldValue.arrayUnion(newAccess),
+    sharedWithIds: FieldValue.arrayUnion(userId),
   });
 
   // Mark the invitation as accepted
