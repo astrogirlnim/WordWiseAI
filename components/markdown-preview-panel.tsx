@@ -22,7 +22,7 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
   content,
   isVisible,
   className = '',
-}: MarkdownPreviewPanelProps): JSX.Element | null {
+}: MarkdownPreviewPanelProps): React.ReactElement | null {
   console.log('[MarkdownPreviewPanel] Rendering with content length:', content.length, 'Visible:', isVisible)
   console.log('[MarkdownPreviewPanel] Content preview (first 200 chars):', JSON.stringify(content.substring(0, 200)))
   

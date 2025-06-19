@@ -21,7 +21,7 @@ export function MarkdownPreviewToggle({
   isMarkdownDetected, 
   onToggle,
   className 
-}: MarkdownPreviewToggleProps): JSX.Element {
+}: MarkdownPreviewToggleProps): React.ReactElement {
   console.log('[MarkdownPreviewToggle] Rendering with state:', {
     isPreviewOpen,
     isMarkdownDetected
@@ -40,7 +40,7 @@ export function MarkdownPreviewToggle({
     return 'Markdown Preview'
   }
 
-  const getIcon = (): JSX.Element => {
+  const getIcon = (): React.ReactElement => {
     if (isPreviewOpen) return <EyeOff className="h-4 w-4" />
     if (isMarkdownDetected) return <Eye className="h-4 w-4" />
     return <FileText className="h-4 w-4" />
