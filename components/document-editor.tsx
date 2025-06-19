@@ -45,6 +45,7 @@ interface DocumentEditorProps {
   onSave?: (content: string, title: string) => void
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
+  isEditable: boolean
 }
 
 export function DocumentEditor({
@@ -53,8 +54,9 @@ export function DocumentEditor({
   onSave,
   onContentChange,
   saveStatus,
+  isEditable,
 }: DocumentEditorProps) {
-  console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
+  console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}, Editable: ${isEditable}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
 
   // Phase 6: Pagination State
@@ -121,6 +123,7 @@ export function DocumentEditor({
   }
 
   const editor = useEditor({
+    editable: isEditable,
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({

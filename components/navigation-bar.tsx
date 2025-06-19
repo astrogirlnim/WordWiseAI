@@ -14,10 +14,18 @@ import { VersionHistoryButton } from './version-history-button'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ShareDialog } from './share-dialog'
+import { DocumentService } from '@/services/document-service'
+import { useToast } from '@/hooks/use-toast'
+import { useState } from 'react'
+import { Button } from './ui/button'
+import { UserPlus } from 'lucide-react'
 
 interface NavigationBarProps {
   user: User
-  documents: Document[]
+  myDocuments: Document[]
+  sharedDocuments: Document[]
+  publicDocuments: Document[]
   displayMode?: 'editor' | 'settings'
   activeDocumentId?: string
   isAISidebarOpen?: boolean
@@ -36,7 +44,9 @@ interface NavigationBarProps {
 
 export function NavigationBar({
   user,
-  documents,
+  myDocuments,
+  sharedDocuments,
+  publicDocuments,
   displayMode = 'editor',
   activeDocumentId,
   isAISidebarOpen = false,
@@ -52,8 +62,13 @@ export function NavigationBar({
   onVersionHistoryClick,
   onDeleteDocument,
 }: NavigationBarProps) {
-  const { logout } = useAuth()
+  const { user: authUser, logout } = useAuth()
+  const { toast } = useToast()
   const router = useRouter()
+  const [isShareDialogOpen, setShareDialogOpen] = useState(false)
+
+  const allDocuments = [...myDocuments, ...sharedDocuments, ...publicDocuments]
+  const activeDocument = allDocuments.find(doc => doc.id === activeDocumentId)
 
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
@@ -61,6 +76,40 @@ export function NavigationBar({
 
     if (action === 'settings') {
       router.push('/settings')
+    }
+  }
+
+  const handleShare = async (emails: string[], role: 'editor' | 'commenter' | 'viewer') => {
+    if (!activeDocumentId || !authUser) return
+    try {
+      await DocumentService.shareDocument(activeDocumentId, emails, role, authUser.uid)
+      toast({ title: 'Success', description: 'Document shared successfully.' })
+      // Here you might want to refetch documents or update state
+    } catch (error) {
+      console.error(error)
+      toast({ title: 'Error', description: 'Failed to share document.', variant: 'destructive' })
+    }
+  }
+
+  const handleUpdateRole = async (userId: string, role: 'editor' | 'commenter' | 'viewer') => {
+    if (!activeDocumentId) return
+    try {
+      await DocumentService.updateUserRole(activeDocumentId, userId, role)
+      toast({ title: 'Success', description: "Collaborator's role updated." })
+    } catch (error) {
+      console.error(error)
+      toast({ title: 'Error', description: 'Failed to update role.', variant: 'destructive' })
+    }
+  }
+
+  const handleRemoveAccess = async (userId: string) => {
+    if (!activeDocumentId) return
+    try {
+      await DocumentService.removeUserAccess(activeDocumentId, userId)
+      toast({ title: 'Success', description: 'Collaborator removed.' })
+    } catch (error) {
+      console.error(error)
+      toast({ title: 'Error', description: 'Failed to remove collaborator.', variant: 'destructive' })
     }
   }
 
@@ -101,7 +150,9 @@ export function NavigationBar({
           {/* Document Navigation - Hidden on mobile for cleaner layout */}
           <div className="hidden lg:flex items-center gap-6">
             <EnhancedDocumentList
-              documents={documents}
+              myDocuments={myDocuments}
+              sharedDocuments={sharedDocuments}
+              publicDocuments={publicDocuments}
               activeDocumentId={activeDocumentId}
               onDocumentSelect={onDocumentSelect}
               onNewDocument={onNewDocument}
@@ -125,7 +176,9 @@ export function NavigationBar({
           {/* Mobile Document List */}
           <div className="lg:hidden">
             <EnhancedDocumentList
-              documents={documents}
+              myDocuments={myDocuments}
+              sharedDocuments={sharedDocuments}
+              publicDocuments={publicDocuments}
               activeDocumentId={activeDocumentId}
               onDocumentSelect={onDocumentSelect}
               onNewDocument={onNewDocument}
@@ -163,6 +216,11 @@ export function NavigationBar({
               
               <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
 
+              <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Share
+              </Button>
+
               <div className="h-6 w-px bg-border/30 ml-1" />
             </div>
           )}
@@ -176,6 +234,17 @@ export function NavigationBar({
         </div>
       </div>
       
+      {activeDocument && (
+        <ShareDialog
+          isOpen={isShareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          document={activeDocument}
+          onShare={handleShare}
+          onUpdateRole={handleUpdateRole}
+          onRemoveAccess={handleRemoveAccess}
+        />
+      )}
+
       {/* Sophisticated bottom accent line */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-retro-primary/30 via-retro-sunset/20 to-transparent" />
     </header>
