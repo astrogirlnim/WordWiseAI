@@ -109,44 +109,26 @@ export function useAISuggestions({
    * Apply a suggestion to the document
    */
   const applySuggestion = useCallback(async (suggestion: AISuggestion) => {
-    console.log('[useAISuggestions] Applying suggestion:', suggestion.id)
-    console.log('[useAISuggestions] Suggestion details:', {
-      title: suggestion.title,
-      originalText: suggestion.originalText,
-      suggestedText: suggestion.suggestedText
-    })
-
+    console.log('[useAISuggestions] applySuggestion called', suggestion);
     try {
-      setError(null)
-      
-      // Apply the suggestion via the service
-      await SuggestionService.applySuggestion(suggestion)
-      
-      console.log('[useAISuggestions] Successfully applied suggestion:', suggestion.id)
-      
-      // Show success toast
-      toast({
-        title: 'Suggestion Applied',
-        description: `Applied: "${suggestion.title}"`,
-      })
-      
-      // Note: The real-time subscription will automatically update the suggestions state
-      // by removing the applied suggestion from the pending list
-      
+      setError(null);
+      if (typeof window !== 'undefined') {
+        console.log('[useAISuggestions] Dispatching AI_SUGGESTION_APPLY event', suggestion);
+        window.dispatchEvent(new CustomEvent('AI_SUGGESTION_APPLY', { detail: suggestion }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('[useAISuggestions] Event dispatched');
+      }
+      console.log('[useAISuggestions] Calling SuggestionService.applySuggestion', suggestion);
+      await SuggestionService.applySuggestion(suggestion);
+      console.log('[useAISuggestions] SuggestionService.applySuggestion complete', suggestion);
+      toast({ title: 'Suggestion Applied', description: `Applied: "${suggestion.title}"` });
     } catch (error) {
-      console.error('[useAISuggestions] Error applying suggestion:', error)
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      setError(`Failed to apply suggestion: ${errorMessage}`)
-      
-      // Show error toast
-      toast({
-        title: 'Error Applying Suggestion',
-        description: errorMessage,
-        variant: 'destructive',
-      })
+      console.error('[useAISuggestions] Error applying suggestion:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(`Failed to apply suggestion: ${errorMessage}`);
+      toast({ title: 'Error Applying Suggestion', description: errorMessage, variant: 'destructive' });
     }
-  }, [toast])
+  }, [toast]);
 
   /**
    * Dismiss a suggestion

@@ -48,6 +48,7 @@ interface DocumentEditorProps {
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
   onAISuggestionsChange?: (suggestions: AISuggestion[]) => void
+
 }
 
 export function DocumentEditor({
@@ -57,6 +58,7 @@ export function DocumentEditor({
   onContentChange,
   saveStatus,
   onAISuggestionsChange,
+
 }: DocumentEditorProps) {
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
@@ -128,6 +130,10 @@ export function DocumentEditor({
       onAISuggestionsChange(suggestions)
     }
   }, [suggestions, onAISuggestionsChange])
+
+
+
+
 
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
@@ -237,61 +243,183 @@ export function DocumentEditor({
    */
   const handleApplyAISuggestion = useCallback(async (suggestion: AISuggestion) => {
     if (!editor || !user) {
-      console.warn('[DocumentEditor] Cannot apply AI suggestion - missing editor or user')
-      return
+      console.warn('[DocumentEditor] Cannot apply AI suggestion - missing editor or user');
+      return;
     }
-
-    console.log('[DocumentEditor] Applying AI suggestion:', suggestion.id)
-    console.log('[DocumentEditor] Suggestion details:', {
-      title: suggestion.title,
-      originalText: suggestion.originalText,
-      suggestedText: suggestion.suggestedText,
-      position: suggestion.position
-    })
-
+    console.log('[DocumentEditor] handleApplyAISuggestion called', suggestion);
+    
     try {
-      // First, apply the suggestion via the service (updates Firestore)
-      applySuggestion(suggestion.id, 'style')
-
-      // Then apply the text change to the editor
-      // Note: Position mapping for AI suggestions might need different logic than grammar errors
-      // For now, we'll search for the original text in the current page
-      const currentPageText = editor.getText()
-      const originalText = suggestion.originalText
-      const suggestedText = suggestion.suggestedText
-
-      console.log('[DocumentEditor] Searching for original text in current page:', originalText)
-
-      // Find the original text in the current page
-      const originalIndex = currentPageText.indexOf(originalText)
-      if (originalIndex !== -1) {
-        console.log('[DocumentEditor] Found original text at index:', originalIndex)
+      const originalText = suggestion.originalText;
+      const suggestedText = suggestion.suggestedText;
+      const suggestionType = suggestion.type;
+      
+      console.log('[DocumentEditor] Applying suggestion:', {
+        id: suggestion.id,
+        type: suggestionType,
+        title: suggestion.title,
+        hasOriginalText: !!originalText,
+        suggestedTextLength: suggestedText?.length || 0
+      });
+      
+      console.log('[DocumentEditor] Current fullContentHtml (first 500 chars):', fullContentHtml.slice(0, 500));
+      let textReplaced = false;
+      
+      // Determine if this is a funnel suggestion (headline, subheadline, cta, outline)
+      const funnelTypes = ['headline', 'subheadline', 'cta', 'outline'];
+      const isFunnelSuggestion = funnelTypes.includes(suggestionType);
+      
+      if (!originalText || originalText.trim() === '') {
+        // Funnel suggestion: insert at strategic positions to avoid conflicts
+        console.log('[DocumentEditor] No originalText - treating as funnel suggestion');
         
-        // Calculate the range to replace
-        const from = originalIndex
-        const to = originalIndex + originalText.length
-
-        // Apply the replacement
-        editor
-          .chain()
-          .focus()
-          .deleteRange({ from, to })
-          .insertContentAt(from, suggestedText)
-          .run()
-
-        console.log('[DocumentEditor] Successfully replaced text in editor')
-
-        // Trigger grammar check after applying suggestion
-        checkGrammarImmediately(fullPlainText)
-      } else {
-        console.warn('[DocumentEditor] Could not find original text in current page. Suggestion may be on a different page.')
-        // TODO: Implement cross-page suggestion application
+        let insertPosition = 0;
+        let insertText = suggestedText;
+        
+        // Smart positioning based on suggestion type
+        if (suggestionType === 'headline') {
+          // Headlines go at the very beginning
+          insertPosition = 0;
+          insertText = `# ${suggestedText}\n\n`;
+        } else if (suggestionType === 'subheadline') {
+          // Subheadlines go after any existing headline
+          const headlineMatch = fullContentHtml.match(/^#\s+(.+?)(\n|$)/m);
+          if (headlineMatch) {
+            insertPosition = headlineMatch.index! + headlineMatch[0].length;
+            insertText = `## ${suggestedText}\n\n`;
+          } else {
+            insertPosition = 0;
+            insertText = `## ${suggestedText}\n\n`;
+          }
+        } else if (suggestionType === 'cta') {
+          // CTAs go at the end of the document
+          insertPosition = fullContentHtml.length;
+          insertText = `\n\n**${suggestedText}**\n`;
+        } else if (suggestionType === 'outline') {
+          // Outlines go after headlines/subheadlines but before content
+          const headerEndMatch = fullContentHtml.match(/^#{1,6}\s+.+?\n\n/gm);
+          if (headerEndMatch) {
+            const lastHeader = headerEndMatch[headerEndMatch.length - 1];
+            const lastHeaderIndex = fullContentHtml.lastIndexOf(lastHeader);
+            insertPosition = lastHeaderIndex + lastHeader.length;
+          } else {
+            insertPosition = 0;
+          }
+          insertText = `${suggestedText}\n\n`;
+        } else {
+          // Default: insert at position from suggestion or beginning
+          insertPosition = (suggestion.position && typeof suggestion.position.start === 'number' && suggestion.position.start >= 0) 
+            ? suggestion.position.start : 0;
+          insertText = suggestedText + '\n';
+        }
+        
+        console.log('[DocumentEditor] Inserting funnel suggestion:', {
+          type: suggestionType,
+          position: insertPosition,
+          text: insertText.substring(0, 100) + '...'
+        });
+        
+        // Insert into editor at calculated position
+        editor.chain().focus().insertContentAt(insertPosition, insertText).run();
+        
+        // Update full content HTML
+        const updatedFullContent = fullContentHtml.slice(0, insertPosition) + insertText + fullContentHtml.slice(insertPosition);
+        setFullContentHtml(updatedFullContent);
+        textReplaced = true;
+        
+        console.log('[DocumentEditor] Successfully inserted funnel suggestion at position', insertPosition);
+        
+      } else if (originalText && suggestedText) {
+        // Style suggestion: replace original text with suggested text
+        console.log('[DocumentEditor] Processing style suggestion with originalText:', originalText.substring(0, 100));
+        
+        if (fullContentHtml.includes(originalText)) {
+          console.log('[DocumentEditor] Found original text in full document HTML, replacing...');
+          const updatedFullContent = fullContentHtml.replace(originalText, suggestedText);
+          setFullContentHtml(updatedFullContent);
+          
+          // Also update current page if text is visible
+          const currentPageText = editor.getText();
+          if (currentPageText.includes(originalText)) {
+            const currentPageIndex = currentPageText.indexOf(originalText);
+            if (currentPageIndex !== -1) {
+              console.log('[DocumentEditor] Also replacing text in current page editor...');
+              const from = currentPageIndex;
+              const to = currentPageIndex + originalText.length;
+              editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, suggestedText).run();
+            }
+          }
+          textReplaced = true;
+          console.log('[DocumentEditor] Successfully replaced text in document');
+        } else {
+          const currentPageText = editor.getText();
+          const originalIndex = currentPageText.indexOf(originalText);
+          if (originalIndex !== -1) {
+            console.log('[DocumentEditor] Found original text in current page, replacing...');
+            const from = originalIndex;
+            const to = originalIndex + originalText.length;
+            editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, suggestedText).run();
+            textReplaced = true;
+            console.log('[DocumentEditor] Successfully replaced text in current page');
+          } else {
+            console.warn('[DocumentEditor] Could not find original text in document. Logging details:', {
+              originalText: originalText.substring(0, 100),
+              fullContentPreview: fullContentHtml.slice(0, 200),
+              currentPagePreview: editor.getText().slice(0, 200)
+            });
+          }
+        }
       }
-
+      
+      // Apply suggestion in Firestore with correct type
+      const applyType = isFunnelSuggestion ? 'funnel' : 'style';
+      console.log('[DocumentEditor] Applying suggestion to Firestore with type:', applyType);
+      await applySuggestion(suggestion.id, applyType);
+      
+      if (textReplaced) {
+        // Trigger grammar check and save
+        checkGrammarImmediately(fullPlainText);
+        if (onSave) {
+          onSave(fullContentHtml, title);
+        }
+        console.log('[DocumentEditor] Text replacement completed successfully');
+      } else {
+        console.warn('[DocumentEditor] No text replacement occurred - suggestion applied to Firestore only');
+      }
+      
     } catch (error) {
-      console.error('[DocumentEditor] Error applying AI suggestion:', error)
+      console.error('[DocumentEditor] Error applying AI suggestion:', error);
+      // Show user-friendly error
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('AI_SUGGESTION_ERROR', { 
+          detail: { 
+            suggestionId: suggestion.id, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          } 
+        }));
+      }
     }
-  }, [editor, user, applySuggestion, checkGrammarImmediately, fullPlainText])
+  }, [editor, user, applySuggestion, checkGrammarImmediately, fullPlainText, fullContentHtml, setFullContentHtml, onSave, title]);
+
+  // Listen for AI suggestion apply events from the sidebar
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleAISuggestionApplyEvent = (event: CustomEvent) => {
+      console.log('[DocumentEditor] Received AI_SUGGESTION_APPLY event:', event.detail);
+      const suggestion = event.detail as AISuggestion
+      if (suggestion) {
+        handleApplyAISuggestion(suggestion)
+      }
+    }
+
+    window.addEventListener('AI_SUGGESTION_APPLY', handleAISuggestionApplyEvent as EventListener)
+    console.log('[DocumentEditor] Added AI_SUGGESTION_APPLY event listener')
+
+    return () => {
+      window.removeEventListener('AI_SUGGESTION_APPLY', handleAISuggestionApplyEvent as EventListener)
+      console.log('[DocumentEditor] Removed AI_SUGGESTION_APPLY event listener')
+    }
+  }, [handleApplyAISuggestion])
 
   const handleApplySuggestion = useCallback(
     (error: GrammarError, suggestion: string) => {
