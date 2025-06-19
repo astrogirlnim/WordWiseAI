@@ -343,11 +343,35 @@ export function DocumentEditor({
     }
 
     console.log('[DocumentEditor] New initialDocument content detected. Updating full content state.')
+    console.log('[DocumentEditor] Phase 8.2: Previous fullContentHtml length:', fullContentHtml.length)
+    console.log('[DocumentEditor] Phase 8.2: New content length:', newContent.length)
+    
     setFullContentHtml(newContent)
     setCurrentPage(1) // Reset to first page on document change
 
-  }, [initialDocument.content, documentId]) // BUGFIX: Removed fullContentHtml from dependency array to prevent editor content from resetting on every user keystroke. This effect should only run when the document is changed externally (e.g., version restore, document switch).
+    // **CRITICAL FIX**: Ensure editor content is immediately synchronized after state update
+    // This fixes version restore by forcing editor content update after fullContentHtml changes
+    setTimeout(() => {
+      if (editor && !editor.isDestroyed) {
+        const newPageContent = newContent.substring(0, Math.min(PAGE_SIZE_CHARS, newContent.length))
+        const currentEditorContent = editor.getHTML()
+        
+        console.log('[DocumentEditor] Phase 8.2: Forcing editor content update for version restore')
+        console.log('[DocumentEditor] Phase 8.2: Current editor content length:', currentEditorContent.length)
+        console.log('[DocumentEditor] Phase 8.2: New page content length:', newPageContent.length)
+        
+        if (currentEditorContent !== newPageContent) {
+          console.log('[DocumentEditor] Phase 8.2: Updating editor content with restored version')
+          editor.commands.setContent(newPageContent, false) // false to avoid triggering onUpdate
+        } else {
+          console.log('[DocumentEditor] Phase 8.2: Editor content already matches, no update needed')
+        }
+      } else {
+        console.warn('[DocumentEditor] Phase 8.2: Editor not available for content sync')
+      }
+    }, 0) // Use setTimeout to ensure state update completes before editor update
 
+  }, [initialDocument.content, documentId, editor]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
@@ -363,41 +387,65 @@ export function DocumentEditor({
     
     const relativeErrors = errors
         .map((error, index) => {
+            // BUGFIX: Improved position conversion with validation
             const start = error.start - pageOffset;
             const end = error.end - pageOffset;
 
-            console.log(`[DocumentEditor] Phase 6.1: Processing error ${index + 1}/${errors.length} - ID: ${error.id}, Original pos: ${error.start}-${error.end}, Relative pos: ${start}-${end}`);
+            console.log(`[DocumentEditor] BUGFIX: Processing error ${index + 1}/${errors.length} - ID: ${error.id}`);
+            console.log(`[DocumentEditor] BUGFIX: Original positions: ${error.start}-${error.end}, Page offset: ${pageOffset}`);
+            console.log(`[DocumentEditor] BUGFIX: Calculated relative positions: ${start}-${end}, Editor doc size: ${editor.state.doc.content.size}`);
 
-            // Only include errors that are on the current page and within the page's content bounds
-            if (start >= 0 && end <= editor.state.doc.content.size && start < end) {
-                // We need to pass the original error in the data-error-json for context menu actions
+            // Enhanced validation: check if error is on current page and positions are valid
+            const isOnCurrentPage = start >= 0 && end <= editor.state.doc.content.size && start < end;
+            const isValidRange = end > start && start >= 0;
+            
+            if (isOnCurrentPage && isValidRange) {
+                // Get the actual text at these positions to verify alignment
+                const actualText = editor.state.doc.textBetween(start, end);
+                console.log(`[DocumentEditor] BUGFIX: Expected text: "${error.error}", Actual text: "${actualText}"`);
+                
+                // Flexible text matching: exact, trimmed, or containment
+                const exactMatch = actualText === error.error;
+                const trimmedMatch = actualText.trim() === error.error.trim();
+                const containsMatch = actualText.includes(error.error) || error.error.includes(actualText);
+                
+                if (exactMatch) {
+                    console.log(`[DocumentEditor] BUGFIX: ✓ Exact text alignment perfect for error ${error.id}`);
+                } else if (trimmedMatch) {
+                    console.log(`[DocumentEditor] BUGFIX: ✓ Trimmed text alignment confirmed for error ${error.id}`);
+                } else if (containsMatch && Math.abs(actualText.length - error.error.length) <= 2) {
+                    console.log(`[DocumentEditor] BUGFIX: ✓ Partial text alignment confirmed for error ${error.id}`);
+                } else {
+                    console.warn(`[DocumentEditor] BUGFIX: ⚠️ Text mismatch for error ${error.id} - but including anyway for debugging`);
+                }
+
                 const pageRelativeError = { 
                     ...error, 
                     start, 
                     end,
                 };
-                console.log(`[DocumentEditor] Phase 6.1: Including error ${error.id} on current page`);
-                return pageRelativeError
+                console.log(`[DocumentEditor] BUGFIX: ✓ Including error ${error.id} on current page at ${start}-${end}`);
+                return pageRelativeError;
             } else {
-                console.log(`[DocumentEditor] Phase 6.1: Excluding error ${error.id} - not on current page or invalid range`);
+                console.log(`[DocumentEditor] BUGFIX: ✗ Excluding error ${error.id} - not on current page or invalid range (${start}, ${end})`);
                 return null;
             }
         })
         .filter((e): e is GrammarError => e !== null);
 
-    console.log(`[DocumentEditor] Phase 6.1: Filtered ${relativeErrors.length} page-relative errors from ${errors.length} total errors`);
+    console.log(`[DocumentEditor] BUGFIX: Filtered ${relativeErrors.length} page-relative errors from ${errors.length} total errors`);
 
     // **PHASE 6.1: Always dispatch errors to ensure GrammarExtension receives updates**
     const { tr } = editor.state;
     tr.setMeta('grammarErrors', relativeErrors);
     
-    console.log(`[DocumentEditor] Phase 6.1: Dispatching ${relativeErrors.length} errors to GrammarExtension`);
+    console.log(`[DocumentEditor] BUGFIX: Dispatching ${relativeErrors.length} errors to GrammarExtension`);
     
     try {
       editor.view.dispatch(tr);
-      console.log('[DocumentEditor] Phase 6.1: Successfully dispatched errors to editor');
+      console.log('[DocumentEditor] BUGFIX: ✓ Successfully dispatched errors to editor');
     } catch (error) {
-      console.error('[DocumentEditor] Phase 6.1: Failed to dispatch errors to editor:', error);
+      console.error('[DocumentEditor] BUGFIX: ✗ Failed to dispatch errors to editor:', error);
     }
   }, [errors, editor, pageOffset])
 
