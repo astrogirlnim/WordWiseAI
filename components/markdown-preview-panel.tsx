@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Eye } from 'lucide-react'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface MarkdownPreviewPanelProps {
   content: string
@@ -77,108 +79,210 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  // Minimal custom components - let CSS handle spacing
+                  // Headers with proper styling
                   h1: ({ children }) => (
-                    <h1>{children}</h1>
+                    <h1 className="text-2xl font-semibold leading-tight mt-6 mb-4 pb-2 border-b border-border text-foreground first:mt-0">
+                      {children}
+                    </h1>
                   ),
                   h2: ({ children }) => (
-                    <h2>{children}</h2>
+                    <h2 className="text-xl font-semibold leading-tight mt-6 mb-4 pb-2 border-b border-border/50 text-foreground first:mt-0">
+                      {children}
+                    </h2>
                   ),
                   h3: ({ children }) => (
-                    <h3>{children}</h3>
+                    <h3 className="text-lg font-semibold leading-tight mt-6 mb-4 text-foreground first:mt-0">
+                      {children}
+                    </h3>
                   ),
                   h4: ({ children }) => (
-                    <h4>{children}</h4>
+                    <h4 className="text-base font-semibold leading-tight mt-6 mb-4 text-foreground first:mt-0">
+                      {children}
+                    </h4>
                   ),
                   h5: ({ children }) => (
-                    <h5>{children}</h5>
+                    <h5 className="text-sm font-semibold leading-tight mt-6 mb-4 text-foreground first:mt-0">
+                      {children}
+                    </h5>
                   ),
                   h6: ({ children }) => (
-                    <h6>{children}</h6>
+                    <h6 className="text-xs font-semibold leading-tight mt-6 mb-4 text-muted-foreground first:mt-0">
+                      {children}
+                    </h6>
                   ),
-                  p: ({ children }) => (
-                    <p>{children}</p>
-                  ),
-                  blockquote: ({ children }) => (
-                    <blockquote>{children}</blockquote>
-                  ),
-                  code: ({ children, className, ...props }) => {
-                    // Detect if it's a code block by checking for language class
-                    const isCodeBlock = className && className.startsWith('language-')
+                  
+                  // Code blocks with syntax highlighting
+                  code: ({ inline, className, children, ...props }: any) => {
+                    const match = /language-(\w+)/.exec(className || '')
+                    const language = match ? match[1] : ''
                     
-                    if (!isCodeBlock) {
-                      // Inline code
-                      return <code>{children}</code>
+                    console.log('💻 [CodeBlock] Rendering code:', { inline, language, className })
+                    
+                    if (!inline && language) {
+                      return (
+                        <SyntaxHighlighter
+                          style={vscDarkPlus}
+                          language={language}
+                          PreTag="div"
+                          customStyle={{
+                            margin: '16px 0',
+                            borderRadius: '6px',
+                            border: '1px solid hsl(var(--border) / 0.5)',
+                            fontSize: '14px',
+                            lineHeight: '1.45',
+                          } as React.CSSProperties}
+                          {...props}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      )
                     }
                     
-                    // Code block
                     return (
-                      <pre>
-                        <code className={className}>
-                          {children}
-                        </code>
-                      </pre>
+                      <code
+                        className="bg-muted text-retro-primary rounded px-1.5 py-0.5 text-sm font-mono font-medium"
+                        {...props}
+                      >
+                        {children}
+                      </code>
                     )
                   },
-                  ul: ({ children }) => (
-                    <ul>{children}</ul>
+                  
+                  // Lists with proper styling
+                  ul: ({ children, ...props }) => (
+                    <ul className="list-disc pl-8 my-4 space-y-1" {...props}>
+                      {children}
+                    </ul>
                   ),
-                  ol: ({ children }) => (
-                    <ol>{children}</ol>
+                  ol: ({ children, ...props }) => (
+                    <ol className="list-decimal pl-8 my-4 space-y-1" {...props}>
+                      {children}
+                    </ol>
                   ),
-                  li: ({ children }) => (
-                    <li>{children}</li>
+                  li: ({ children, className, ...props }) => {
+                    // Handle task list items
+                    if (className?.includes('task-list-item')) {
+                      return (
+                        <li className="list-none -ml-6 flex items-start gap-2" {...props}>
+                          {children}
+                        </li>
+                      )
+                    }
+                    
+                    return (
+                      <li className="text-foreground leading-relaxed" {...props}>
+                        {children}
+                      </li>
+                    )
+                  },
+                  
+                  // Checkboxes for task lists
+                  input: ({ type, checked, ...props }) => {
+                    if (type === 'checkbox') {
+                      return (
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled
+                          className="accent-retro-primary scale-110 mr-2"
+                          {...props}
+                        />
+                      )
+                    }
+                    return <input type={type} {...props} />
+                  },
+                  
+                  // Tables with proper alignment
+                  table: ({ children, ...props }) => (
+                    <div className="overflow-x-auto my-4">
+                      <table className="w-full border-collapse border border-border/50 rounded-md text-sm" {...props}>
+                        {children}
+                      </table>
+                    </div>
                   ),
-                  a: ({ href, children }) => (
-                    <a 
+                  th: ({ children, align, ...props }: any) => (
+                    <th
+                      className="bg-muted/50 border border-border/50 px-3 py-2 font-semibold text-foreground"
+                      style={{ textAlign: (align === 'char' ? 'left' : align) as 'left' | 'center' | 'right' | 'justify' }}
+                      {...props}
+                    >
+                      {children}
+                    </th>
+                  ),
+                  td: ({ children, align, ...props }: any) => (
+                    <td
+                      className="border border-border/50 px-3 py-2 text-foreground"
+                      style={{ textAlign: (align === 'char' ? 'left' : align) as 'left' | 'center' | 'right' | 'justify' }}
+                      {...props}
+                    >
+                      {children}
+                    </td>
+                  ),
+                  
+                  // Blockquotes with gradient background
+                  blockquote: ({ children, ...props }) => (
+                    <blockquote
+                      className="bg-gradient-to-r from-retro-primary/5 to-retro-sunset/5 border-l-4 border-retro-primary/30 pl-4 py-3 my-4 rounded-r-md"
+                      {...props}
+                    >
+                      <div className="text-muted-foreground italic">
+                        {children}
+                      </div>
+                    </blockquote>
+                  ),
+                  
+                  // Horizontal rules
+                  hr: (props) => (
+                    <hr className="border-none h-px bg-border my-6" {...props} />
+                  ),
+                  
+                  // Links with hover effects
+                  a: ({ children, href, title, ...props }) => (
+                    <a
                       href={href}
+                      title={title}
+                      className="text-retro-primary underline decoration-retro-primary/40 hover:decoration-retro-primary hover:text-retro-primary/80 transition-colors"
                       target="_blank"
                       rel="noopener noreferrer"
+                      {...props}
                     >
                       {children}
                     </a>
                   ),
-                  img: ({ src, alt }) => (
-                    <img src={src} alt={alt} />
-                  ),
-                  table: ({ children }) => (
-                    <table>{children}</table>
-                  ),
-                  thead: ({ children }) => (
-                    <thead>{children}</thead>
-                  ),
-                  tbody: ({ children }) => (
-                    <tbody>{children}</tbody>
-                  ),
-                  tr: ({ children }) => (
-                    <tr>{children}</tr>
-                  ),
-                  th: ({ children }) => (
-                    <th>{children}</th>
-                  ),
-                  td: ({ children }) => (
-                    <td>{children}</td>
-                  ),
-                  hr: () => (
-                    <hr />
-                  ),
-                  strong: ({ children }) => (
-                    <strong>{children}</strong>
-                  ),
-                  em: ({ children }) => (
-                    <em>{children}</em>
-                  ),
-                  del: ({ children }) => (
-                    <del>{children}</del>
-                  ),
-                  // Task list support
-                  input: ({ checked, ...props }) => (
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled
+                  
+                  // Images with proper styling
+                  img: ({ src, alt, title, ...props }) => (
+                    <img
+                      src={src}
+                      alt={alt}
+                      title={title}
+                      className="max-w-full h-auto rounded-md border border-border/50 my-4"
                       {...props}
                     />
+                  ),
+                  
+                  // Paragraphs with proper spacing
+                  p: ({ children, ...props }) => (
+                    <p className="text-foreground leading-relaxed mb-4 last:mb-0" {...props}>
+                      {children}
+                    </p>
+                  ),
+                  
+                  // Text formatting
+                  strong: ({ children, ...props }) => (
+                    <strong className="font-semibold text-foreground" {...props}>
+                      {children}
+                    </strong>
+                  ),
+                  em: ({ children, ...props }) => (
+                    <em className="italic text-foreground" {...props}>
+                      {children}
+                    </em>
+                  ),
+                  del: ({ children, ...props }) => (
+                    <del className="line-through text-muted-foreground" {...props}>
+                      {children}
+                    </del>
                   ),
                 }}
               >
