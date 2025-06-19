@@ -343,11 +343,35 @@ export function DocumentEditor({
     }
 
     console.log('[DocumentEditor] New initialDocument content detected. Updating full content state.')
+    console.log('[DocumentEditor] Phase 8.2: Previous fullContentHtml length:', fullContentHtml.length)
+    console.log('[DocumentEditor] Phase 8.2: New content length:', newContent.length)
+    
     setFullContentHtml(newContent)
     setCurrentPage(1) // Reset to first page on document change
 
-  }, [initialDocument.content, documentId]) // BUGFIX: Removed fullContentHtml from dependency array to prevent editor content from resetting on every user keystroke. This effect should only run when the document is changed externally (e.g., version restore, document switch).
+    // **CRITICAL FIX**: Ensure editor content is immediately synchronized after state update
+    // This fixes version restore by forcing editor content update after fullContentHtml changes
+    setTimeout(() => {
+      if (editor && !editor.isDestroyed) {
+        const newPageContent = newContent.substring(0, Math.min(PAGE_SIZE_CHARS, newContent.length))
+        const currentEditorContent = editor.getHTML()
+        
+        console.log('[DocumentEditor] Phase 8.2: Forcing editor content update for version restore')
+        console.log('[DocumentEditor] Phase 8.2: Current editor content length:', currentEditorContent.length)
+        console.log('[DocumentEditor] Phase 8.2: New page content length:', newPageContent.length)
+        
+        if (currentEditorContent !== newPageContent) {
+          console.log('[DocumentEditor] Phase 8.2: Updating editor content with restored version')
+          editor.commands.setContent(newPageContent, false) // false to avoid triggering onUpdate
+        } else {
+          console.log('[DocumentEditor] Phase 8.2: Editor content already matches, no update needed')
+        }
+      } else {
+        console.warn('[DocumentEditor] Phase 8.2: Editor not available for content sync')
+      }
+    }, 0) // Use setTimeout to ensure state update completes before editor update
 
+  }, [initialDocument.content, documentId, editor]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
