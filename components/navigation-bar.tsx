@@ -113,6 +113,17 @@ export function NavigationBar({
     }
   }
 
+  const handleUpdatePublicAccess = async (isPublic: boolean, publicViewMode: 'view' | 'comment' | 'disabled') => {
+    if (!activeDocumentId) return
+    try {
+      await DocumentService.updatePublicAccess(activeDocumentId, isPublic, publicViewMode)
+      toast({ title: 'Success', description: 'Public access settings updated.' })
+    } catch (error) {
+      console.error(error)
+      toast({ title: 'Error', description: 'Failed to update public access.', variant: 'destructive' })
+    }
+  }
+
   const handleSignOut = async () => {
     console.log('[NavigationBar] User signing out')
     await logout()
@@ -242,6 +253,7 @@ export function NavigationBar({
           onShare={handleShare}
           onUpdateRole={handleUpdateRole}
           onRemoveAccess={handleRemoveAccess}
+          onUpdatePublicAccess={handleUpdatePublicAccess}
         />
       )}
 

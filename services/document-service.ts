@@ -234,6 +234,24 @@ export class DocumentService {
     await batch.commit()
   }
 
+  static async updatePublicAccess(
+    documentId: string,
+    isPublic: boolean,
+    publicViewMode: DocumentType['publicViewMode'],
+  ): Promise<void> {
+    try {
+      const docRef = doc(firestore, 'documents', documentId)
+      await updateDoc(docRef, {
+        isPublic,
+        publicViewMode,
+        updatedAt: serverTimestamp(),
+      })
+    } catch (error) {
+      console.error('Error updating public access:', error)
+      throw new Error('Failed to update public access settings.')
+    }
+  }
+
   static async updateUserRole(
     documentId: string,
     userId: string,
