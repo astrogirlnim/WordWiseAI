@@ -14,13 +14,15 @@ import type { UserProfile } from "@/types/user"
 import { userService } from "@/services/user-service"
 import { getStorage, ref, uploadBytes } from "firebase/storage"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface UserPreferencesFormProps {
   onSave?: (profile: UserProfile) => void
 }
 
 export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
-  const { user } = useAuth()
+  const { user, updateUserProfile } = useAuth()
+  const { toast } = useToast()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -109,9 +111,21 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
     try {
       setSaving(true)
       await userService.updateUserProfile(user.uid, profile)
+      if (profile.name !== user.displayName) {
+        await updateUserProfile(profile.name)
+      }
+      toast({
+        title: "Preferences Saved",
+        description: "Your settings have been successfully updated.",
+      })
       onSave?.(profile)
     } catch (error) {
       console.error("Error saving user profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save your preferences. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }

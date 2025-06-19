@@ -9,6 +9,7 @@ import {
   signOut,
   GoogleAuthProvider,
   signInWithPopup,
+  updateProfile,
 } from 'firebase/auth'
 import { auth } from './firebase'
 
@@ -19,6 +20,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   logout: () => Promise<void>
+  updateUserProfile: (name: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -53,6 +55,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth)
   }
 
+  const updateUserProfile = async (name: string) => {
+    if (auth.currentUser) {
+      await updateProfile(auth.currentUser, { displayName: name })
+      // Create a new object to force re-render
+      setUser(auth.currentUser ? { ...auth.currentUser } : null)
+    } else {
+      throw new Error('No user is currently signed in.')
+    }
+  }
+
   const value = {
     user,
     loading,
@@ -60,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signInWithGoogle,
     logout,
+    updateUserProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
