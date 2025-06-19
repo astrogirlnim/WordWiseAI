@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
-// import { DocumentEditor } from './document-editor' - Will be dynamically imported
 import { AISidebar } from './ai-sidebar'
 import { NavigationBar } from './navigation-bar'
 import { WritingGoalsModal } from './writing-goals-modal'
@@ -13,13 +12,10 @@ import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
 import { VersionHistorySidebar } from './version-history-sidebar'
 import type { AutoSaveStatus, Document as DocumentType } from '@/types/document'
-import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
-import { AuditService, AuditEvent } from '@/services/audit-service'
 import { CollaborationService } from '@/services/collaboration-service'
-import { CollaborationPresence } from './collaboration-presence'
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
@@ -63,7 +59,7 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     [documents, activeDocumentId]
   );
 
-  const { userRole, canEdit } = useMemo(() => {
+  const { canEdit } = useMemo(() => {
     if (!activeDocument || !user) {
       return { userRole: null, canEdit: false };
     }
@@ -296,68 +292,25 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
 
   const handleDeleteDocument = useCallback(
     async (documentId: string) => {
-      if (!deleteDocument) return
-
-      const docToDelete = documents.find((d) => d.id === documentId)
-      if (!docToDelete) return
-
       try {
         await deleteDocument(documentId)
-
-        if (activeDocumentId === documentId) {
-          const remainingDocs = documents.filter((d) => d.id !== documentId)
-          setActiveDocumentId(remainingDocs.length > 0 ? remainingDocs[0].id : null)
-        }
-
         toast({
-          title: 'Document Deleted',
-          description: `"${docToDelete.title}" has been permanently deleted.`,
+          title: 'Document deleted',
+          description: 'The document has been successfully deleted.',
         })
       } catch (error) {
-        console.error('Failed to delete document:', error)
+        console.error('[DocumentContainer] Failed to delete document:', error)
         toast({
-          title: 'Error Deleting Document',
-          description: 'An unexpected error occurred. Please try again.',
+          title: 'Error',
+          description: 'Failed to delete the document. Please try again.',
           variant: 'destructive',
         })
       }
     },
-    [deleteDocument, documents, activeDocumentId, toast],
+    [deleteDocument, toast],
   )
 
-  const handleUserAction = useCallback((action: string) => {
-    switch (action) {
-      case 'profile':
-        console.log('Opening profile...')
-        break
-      case 'settings':
-        console.log('Opening settings...')
-        break
-      case 'billing':
-        console.log('Opening billing...')
-        break
-      case 'help':
-        console.log('Opening help...')
-        break
-      case 'signout':
-        console.log('Signing out...')
-        break
-      default:
-        console.log('Unknown action:', action)
-    }
-  }, [])
 
-  const handleAISidebarToggle = useCallback(() => {
-    setIsAISidebarOpen((prev) => !prev)
-  }, [])
-
-  const handleDistractionFreeToggle = useCallback(() => {
-    setIsDistractionFree((prev) => !prev)
-  }, [])
-
-  const handleWritingGoalsClick = useCallback(() => {
-    setIsGoalsModalOpen(true)
-  }, [])
 
   const handleSaveWritingGoals = useCallback(async (newGoals: WritingGoals, title?: string) => {
     console.log('[DocumentContainer] Saving writing goals:', { 
@@ -395,22 +348,7 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     }
   }, [isCreatingNewDocument, createDocument, user?.uid, toast])
 
-  // Memoize initialDocument to prevent unnecessary re-renders that cause title reset
-  const initialDocument = useMemo(() => {
-    if (!activeDocument) return null
-    console.log('[DocumentContainer] Memoizing initialDocument for', activeDocument.title)
-    return {
-      ...activeDocument,
-      content: activeDocument.content || ''
-    }
-  }, [activeDocument]) // Depend on activeDocument to satisfy linter
 
-  const mockUser = {
-    id: user?.uid || '',
-    name: user?.displayName || 'User',
-    email: user?.email || '',
-    plan: 'pro' as const,
-  }
 
   const handleContentChange = useAutoSave(
     (content: string) => {
@@ -429,31 +367,23 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
 
   const handleDeleteVersion = useCallback(
     async (versionId: string) => {
-      if (!activeDocumentId || !deleteVersion || !user?.uid) return
-
+      if (!activeDocumentId) return
       try {
         await deleteVersion(versionId)
-
-        // Optional audit log
-        await AuditService.logEvent(AuditEvent.VERSION_DELETE, user.uid, {
-          documentId: activeDocumentId,
-          versionId,
-        })
-
         toast({
-          title: 'Version Deleted',
-          description: 'The selected version has been permanently removed.',
+          title: 'Version deleted',
+          description: 'The version has been successfully deleted.',
         })
       } catch (error) {
-        console.error('Failed to delete version:', error)
+        console.error('[DocumentContainer] Failed to delete version:', error)
         toast({
-          title: 'Error Deleting Version',
-          description: 'An unexpected error occurred. Please try again.',
+          title: 'Error',
+          description: 'Failed to delete the version. Please try again.',
           variant: 'destructive',
         })
       }
     },
-    [activeDocumentId, deleteVersion, toast, user?.uid],
+    [activeDocumentId, deleteVersion, toast],
   )
 
   if (loading) {

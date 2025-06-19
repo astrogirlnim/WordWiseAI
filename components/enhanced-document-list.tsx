@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, ChevronDown, Clock, BarChart3, Trash } from "lucide-react"
+import { FileText, Plus, ChevronDown, Clock, BarChart3, Trash, AlertTriangle, Globe, Users, Trash2 } from "lucide-react"
 import type { Document } from "@/types/document"
 import { formatLastSaved } from "@/utils/document-utils"
 import { Timestamp } from "firebase/firestore"
@@ -32,18 +32,18 @@ interface DocumentSectionProps {
   title: string
   documents: Document[]
   activeDocumentId?: string
-  onDocumentSelect: (documentId: string) => void
+  onDocumentSelect?: (documentId: string) => void
   onDeleteDocument?: (documentId: string) => Promise<void>
   isDeleting: boolean
   deleteCandidateId: string | null
   setDeleteCandidateId: (id: string | null) => void
   handleDeleteConfirm: () => void
   handleDeleteCancel: () => void
-  getStatusColor: (status: Document['status']) => 'secondary' | 'default' | 'outline'
+  getStatusColor: (status: string) => 'secondary' | 'default' | 'outline' | 'destructive'
   getAlignmentColor: (score: number) => string
 }
 
-const DocumentSection: React.FC<DocumentSectionProps> = ({
+function DocumentSection({
   title,
   documents,
   activeDocumentId,
@@ -56,7 +56,7 @@ const DocumentSection: React.FC<DocumentSectionProps> = ({
   handleDeleteCancel,
   getStatusColor,
   getAlignmentColor,
-}) => {
+}: DocumentSectionProps) {
   if (documents.length === 0) {
     return null
   }
@@ -68,7 +68,7 @@ const DocumentSection: React.FC<DocumentSectionProps> = ({
         <DropdownMenuItem
           key={document.id}
           className="group flex flex-col items-start gap-2 p-4 cursor-pointer"
-          onClick={() => onDocumentSelect(document.id)}
+          onClick={() => onDocumentSelect?.(document.id)}
           onSelect={(e) => {
             if (deleteCandidateId) e.preventDefault()
           }}
@@ -187,16 +187,16 @@ export function EnhancedDocumentList({
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const getStatusColor = (status: Document["status"]) => {
+  const getStatusColor = (status: string): 'secondary' | 'default' | 'outline' | 'destructive' => {
     switch (status) {
       case "draft":
         return "secondary"
       case "review":
-        return "default"
+        return "outline"
       case "final":
         return "default"
       case "archived":
-        return "outline"
+        return "destructive"
       default:
         return "secondary"
     }
