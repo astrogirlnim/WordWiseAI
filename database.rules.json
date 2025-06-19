@@ -4,16 +4,18 @@
     ".write": false,
     "documents": {
       "$docId": {
+        ".read": "auth != null && (root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid || root.child('documents').child($docId).child('metadata').child('sharedUserIds').child(auth.uid).exists())",
+        ".write": "auth != null && (root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid || root.child('documents').child($docId).child('metadata').child('sharedUserIds').child(auth.uid).exists())",
         "ot": {
-          ".read": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid",
-          ".write": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid"
+          ".read": "auth != null && (root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid || root.child('documents').child($docId).child('metadata').child('sharedUserIds').child(auth.uid).exists())",
+          ".write": "auth != null && (root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid || root.child('documents').child($docId).child('metadata').child('sharedUserIds').child(auth.uid).exists())"
         },
         "presence": {
-          ".read": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid",
-          ".write": "auth != null && root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid"
+          ".read": "auth != null && (root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid || root.child('documents').child($docId).child('metadata').child('sharedUserIds').child(auth.uid).exists())",
+          ".write": "auth != null && (root.child('documents').child($docId).child('metadata').child('sharedUserIds').child(auth.uid).exists() || root.child('documents').child($docId).child('metadata').child('ownerId').val() == auth.uid)"
         },
         "metadata": {
-          ".read": "auth != null && data.child('ownerId').val() == auth.uid",
+          ".read": "auth != null && (data.child('ownerId').val() == auth.uid || data.child('sharedUserIds').child(auth.uid).exists())",
           ".write": "auth != null && (!data.exists() || data.child('ownerId').val() == auth.uid) && newData.child('ownerId').val() == auth.uid"
         }
       }

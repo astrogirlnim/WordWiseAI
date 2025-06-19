@@ -303,6 +303,38 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 
 ---
 
+## Phase 7: Dedicated User Management Page
+
+### Background/Architecture
+- Motivation: As the number of collaborators and invitations grows, managing users in the Share Dialog becomes unwieldy. A dedicated page is needed for scalable, organized user management.
+- Uses: `components/manage-users-page.tsx` (new), `components/user-list.tsx` (new/shared), `components/navigation-bar.tsx`, `components/user-menu.tsx`, `services/invitation-service.ts`, `services/document-service.ts`, `types/invitation.ts`, `types/document.ts`, `firestore.rules`
+- Entry: Accessible from the user dropdown menu (like Settings), and optionally from the document UI.
+
+### Steps
+- [ ] Create a new page: `app/(main)/manage-users/page.tsx` (or `app/(main)/settings/manage-users/page.tsx` for better organization)
+- [ ] Add a "Manage Users" entry to the user dropdown menu (`components/user-menu.tsx`)
+- [ ] Move user/collaborator list, role management, and invitation revocation UI from `ShareDialog` to the new page
+- [ ] Keep only public link and quick invite in the Share Dialog
+- [ ] Extract user list logic/UI into a reusable component (`components/user-list.tsx`) if needed
+- [ ] Ensure only owners/editors can access/manage users
+- [ ] When accessed from a document, show/manage users for that document; otherwise, show all manageable documents
+- [ ] Add navigation and routing logic for seamless access
+- [ ] Update documentation and user flow to reflect the new management page
+
+### Files Added/Modified
+- `app/(main)/manage-users/page.tsx` (new): Dedicated user management page
+- `components/user-list.tsx` (new/shared): User/collaborator list, roles, revoke, pending invites
+- `components/share-dialog.tsx`: Remove user list, keep only public link and quick invite
+- `components/navigation-bar.tsx`, `components/user-menu.tsx`: Add navigation to Manage Users page
+- `services/invitation-service.ts`, `services/document-service.ts`: No major changes, but ensure all logic is reusable
+- `types/invitation.ts`, `types/document.ts`: No changes expected
+- `firestore.rules`: No changes expected unless new permissions are required
+
+### Summary
+A dedicated Manage Users page will provide a scalable, organized interface for managing collaborators, roles, and invitations. This keeps the Share Dialog focused and uncluttered, and ensures best practices for large teams and future growth.
+
+---
+
 ## Checklist (per phase)
 
 ### Phase 1: Funnel Document Creation & Goals
@@ -341,4 +373,11 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 ### Phase 6: Review & Approval Workflow
 - [ ] Status controls and workflow UI
 - [ ] Reviewer notifications
+
+### Phase 7: Dedicated User Management Page
+- [ ] Manage Users page creation
+- [ ] User list extraction and UI
+- [ ] Public link and quick invite in Share Dialog
+- [ ] User role management
+- [ ] Invitation revocation
   

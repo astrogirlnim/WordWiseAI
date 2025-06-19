@@ -126,7 +126,7 @@ export function NavigationBar({
 
   const handleSignOut = async () => {
     console.log('[NavigationBar] User signing out')
-    await logout()
+    await logout(activeDocumentId)
     router.push('/sign-in')
   }
 
@@ -250,7 +250,6 @@ export function NavigationBar({
           isOpen={isShareDialogOpen}
           onOpenChange={setShareDialogOpen}
           document={activeDocument}
-          onShare={handleShare}
           onUpdateRole={handleUpdateRole}
           onRemoveAccess={handleRemoveAccess}
           onUpdatePublicAccess={handleUpdatePublicAccess}
