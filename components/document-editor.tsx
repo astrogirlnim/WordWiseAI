@@ -562,25 +562,27 @@ export function DocumentEditor({
                     <AlertTriangle className="h-5 w-5 text-amber-500" />
                     Full Document Grammar Check
                   </DialogTitle>
-                  <DialogDescription className="space-y-3">
-                    <p>
-                      You&apos;re about to perform a grammar check on the entire document ({Math.ceil(fullPlainText.length / 1000)}k characters).
-                    </p>
-                    <div className="awwwards-card bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 p-4">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-sm">
-                          <p className="font-medium text-amber-800 dark:text-amber-200">Rate Limit Warning</p>
-                          <p className="text-amber-700 dark:text-amber-300 mt-1">
-                            This may trigger rate limits and could take several minutes. 
-                            Consider checking smaller sections instead.
-                          </p>
+                  <DialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>
+                        You&apos;re about to perform a grammar check on the entire document ({Math.ceil(fullPlainText.length / 1000)}k characters).
+                      </p>
+                      <div className="awwwards-card bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 p-4">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm">
+                            <p className="font-medium text-amber-800 dark:text-amber-200">Rate Limit Warning</p>
+                            <p className="text-amber-700 dark:text-amber-300 mt-1">
+                              This may trigger rate limits and could take several minutes. 
+                              Consider checking smaller sections instead.
+                            </p>
+                          </div>
                         </div>
                       </div>
+                      <p className="text-sm text-muted-foreground">
+                        After completion, the system will return to checking only the visible page.
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      After completion, the system will return to checking only the visible page.
-                    </p>
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
