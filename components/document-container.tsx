@@ -59,21 +59,38 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     [documents, activeDocumentId]
   );
 
-  const { canEdit } = useMemo(() => {
-    if (!activeDocument || !user) {
+  const { userRole, canEdit } = useMemo(() => {
+    if (!activeDocument) {
+      return { userRole: null, canEdit: false }
+    }
+
+    // Handle public access for logged-out users first
+    if (!user) {
+      if (activeDocument.isPublic && activeDocument.publicViewMode !== 'disabled') {
+        const role = activeDocument.publicViewMode === 'comment' ? 'commenter' : 'viewer';
+        return { userRole: role, canEdit: false };
+      }
       return { userRole: null, canEdit: false };
     }
+
+    // Handle access for logged-in users
     if (activeDocument.ownerId === user.uid) {
-      return { userRole: 'owner', canEdit: true };
+      return { userRole: 'owner', canEdit: true }
     }
-    const sharedInfo = activeDocument.sharedWith.find(s => s.userId === user.uid);
+
+    const sharedInfo = activeDocument.sharedWith.find(
+      (s) => s.userId === user.uid
+    )
     if (sharedInfo) {
-      return { userRole: sharedInfo.role, canEdit: sharedInfo.role === 'editor' };
+      return { userRole: sharedInfo.role, canEdit: sharedInfo.role === 'editor' }
     }
+
     if (activeDocument.isPublic && activeDocument.publicViewMode !== 'disabled') {
-      return { userRole: 'viewer', canEdit: false };
+      const role = activeDocument.publicViewMode === 'comment' ? 'commenter' : 'viewer';
+      return { userRole: role, canEdit: false };
     }
-    return { userRole: null, canEdit: false };
+
+    return { userRole: null, canEdit: false }
   }, [activeDocument, user]);
 
   const { myDocuments, sharedWithMe, publicDocuments } = useMemo(() => {

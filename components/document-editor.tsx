@@ -378,7 +378,7 @@ export function DocumentEditor({
       }
     }, 0) // Use setTimeout to ensure state update completes before editor update
 
-  }, [initialDocument.content, documentId, editor]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
+  }, [initialDocument.content, documentId, editor])  
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging

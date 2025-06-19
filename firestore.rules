@@ -25,11 +25,13 @@ service cloud.firestore {
       return isOwner(docData) || hasRole(docData, 'editor');
     }
 
+    function isPublic(docData) {
+      return 'isPublic' in docData && docData.isPublic == true &&
+             'publicViewMode' in docData && docData.publicViewMode != 'disabled';
+    }
+
     function canView(docData) {
-      return isOwner(docData) || 
-             isSharedWith(docData) || 
-             ('isPublic' in docData && docData.isPublic == true && 
-              'publicViewMode' in docData && docData.publicViewMode != 'disabled');
+      return isPublic(docData) || (request.auth != null && (isOwner(docData) || isSharedWith(docData)));
     }
 
     // Users can only read and write their own data.
@@ -41,7 +43,7 @@ service cloud.firestore {
     // Rules for the 'documents' collection
     match /documents/{documentId} {
       // READ access: Owner, shared users, or public
-      allow get: if request.auth != null && canView(resource.data);
+      allow get: if canView(resource.data);
       allow list: if request.auth != null;
 
       // WRITE access:

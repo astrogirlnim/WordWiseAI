@@ -1,4 +1,4 @@
-/* eslint-disable max-len, indent, comma-dangle */
+ 
 /**
  * Import function triggers from their respective submodules:
  *
@@ -72,7 +72,7 @@ exports.generateSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (reque
 
   if (userEntry.count > rateLimit.maxCalls) {
     logger.warn("Rate limit exceeded", {userId, count: userEntry.count});
-    // eslint-disable-next-line max-len
+     
     throw new HttpsError(
       "resource-exhausted",
       "Rate limit exceeded. Please try again later."

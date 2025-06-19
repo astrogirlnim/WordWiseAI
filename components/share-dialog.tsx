@@ -23,6 +23,8 @@ import { useAuth } from '@/lib/auth-context'
 import type { Document } from '@/types/document'
 import { X, Copy } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 interface ShareDialogProps {
   document: Document
@@ -31,6 +33,7 @@ interface ShareDialogProps {
   onShare: (emails: string[], role: 'editor' | 'commenter' | 'viewer') => Promise<void>
   onRemoveAccess: (userId: string) => Promise<void>
   onUpdateRole: (userId: string, role: 'editor' | 'commenter' | 'viewer') => Promise<void>
+  onUpdatePublicAccess: (isPublic: boolean, publicViewMode: 'view' | 'comment' | 'disabled') => Promise<void>
 }
 
 const getInitials = (email: string) => {
@@ -44,6 +47,7 @@ export function ShareDialog({
   onShare,
   onRemoveAccess,
   onUpdateRole,
+  onUpdatePublicAccess,
 }: ShareDialogProps) {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -116,6 +120,40 @@ export function ShareDialog({
           </Button>
         </div>
         
+        <div className="py-4 border-t">
+          <h4 className="text-sm font-medium">Public Access</h4>
+          <div className="flex items-center justify-between mt-2">
+            <Label htmlFor="public-access" className="flex flex-col gap-1">
+              <span>Share with anyone</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Anyone with the link can view or comment, based on your choice.
+              </span>
+            </Label>
+            <div className="flex items-center gap-2">
+              <Select
+                disabled={!document.isPublic}
+                value={document.publicViewMode}
+                onValueChange={(value) => onUpdatePublicAccess(true, value as 'view' | 'comment' | 'disabled')}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="view">Can view</SelectItem>
+                  <SelectItem value="comment">Can comment</SelectItem>
+                </SelectContent>
+              </Select>
+              <Switch
+                id="public-access"
+                checked={document.isPublic}
+                onCheckedChange={(checked) =>
+                  onUpdatePublicAccess(checked, checked ? 'view' : 'disabled')
+                }
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="py-4">
           <h4 className="text-sm font-medium">People with access</h4>
           <div className="space-y-2 mt-2">

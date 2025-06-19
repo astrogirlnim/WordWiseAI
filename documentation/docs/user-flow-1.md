@@ -120,9 +120,9 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
   - Files: `components/document-editor.tsx`, `services/document-service.ts`, `firestore.rules`, `types/document.ts`
 
 #### Phase 4: Public/Link Sharing
-- [ ] UI to toggle public access and copy shareable link.
-- [ ] Backend logic to set `isPublic` and `publicViewMode`.
-- [ ] UI for anonymous/public users to view/comment (if allowed).
+- [x] UI to toggle public access and copy shareable link.
+- [x] Backend logic to set `isPublic` and `publicViewMode`.
+- [x] UI for anonymous/public users to view/comment (if allowed).
   - Files: `components/document-container.tsx`, `components/ui/`, `services/document-service.ts`, `types/document.ts`, `firestore.rules`
 
 #### Phase 5: Manage & Remove Access
@@ -146,7 +146,7 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - [ ] Update backend and hooks to support shared/public document discovery.
 - [ ] Build sharing/invitation UI.
 - [ ] Enforce access control in UI and backend.
-- [ ] Add public/link sharing features.
+- [x] Add public/link sharing features.
 - [ ] Add collaborator management UI.
 
 ---
@@ -224,6 +224,33 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - `firestore.rules` - Comprehensive backend access control with null safety
 - `documentation/docs/user-flow-1.md` - Updated implementation checklist
 
+**Phase 4: Public/Link Sharing**
+
+*   **UI Controls**:
+    *   `components/share-dialog.tsx`: Added a "Public Access" section with a `Switch` to toggle `isPublic` and a `Select` to control `publicViewMode` ('view' or 'comment').
+    *   `components/navigation-bar.tsx`: Implemented `handleUpdatePublicAccess` to orchestrate the UI changes with the backend service.
+
+*   **Backend Logic**:
+    *   `services/document-service.ts`: Created a new `updatePublicAccess` method to update `isPublic` and `publicViewMode` fields in Firestore.
+    *   `firestore.rules`: Modified security rules to allow public read access (`get`) without authentication. A new `isPublic()` helper function was added, and the `canView()` function was refactored to check for public status before checking for authentication. This allows anonymous users to view documents shared via a public link.
+
+*   **Permission Handling**:
+    *   `components/document-container.tsx`: Refactored the `useMemo` hook that calculates `userRole` and `canEdit`. The new logic correctly handles anonymous (logged-out) users by checking `isPublic` and `publicViewMode` first, assigning the appropriate role ('viewer' or 'commenter'). This fixed a bug where public access was not correctly granted to unauthenticated users.
+
+*   **Verification**:
+    *   ✅ Public link sharing can be enabled/disabled from the Share dialog.
+    *   ✅ Anonymous users can access public documents via direct URL.
+    *   ✅ Permissions (`view` vs. `comment`) are correctly applied for public users.
+    *   ✅ Firestore rules prevent unauthorized access while allowing intended public access.
+
+*   **Files Modified**:
+    *   `components/share-dialog.tsx`
+    *   `components/navigation-bar.tsx`
+    *   `services/document-service.ts`
+    *   `firestore.rules`
+    *   `components/document-container.tsx`
+    *   `documentation/docs/user-flow-1.md`
+
 ---
 
 ## Phase 5: Review & Approval Workflow
@@ -267,7 +294,8 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 
 ### Phase 4: Document Sharing & Access Control
 - [ ] Sharing/invitation UI
-- [ ] Access control logic
+- [x] Access control logic
+- [x] Public/Link Sharing
 
 ### Phase 5: Review & Approval Workflow
 - [ ] Status controls and workflow UI
