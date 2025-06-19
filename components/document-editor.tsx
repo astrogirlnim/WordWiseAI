@@ -459,26 +459,65 @@ export function DocumentEditor({
 
   // Handle paste event to trigger grammar check and save
   const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    console.log('[DocumentEditor] handlePaste: Paste event detected')
+    console.log('[DocumentEditor] handlePaste: Current document state - fullContentHtml length:', fullContentHtml.length)
+    console.log('[DocumentEditor] handlePaste: Current page offset:', pageOffset, 'Page content length:', pageContent.length)
+    console.log('[DocumentEditor] handlePaste: Document ID:', documentId)
+    
     // Let the paste happen, then trigger grammar check and save after a short delay
     setTimeout(() => {
-      if (!editor) return;
-      const newPageHtml = editor.getHTML();
+      if (!editor) {
+        console.warn('[DocumentEditor] handlePaste: Editor not available, aborting paste processing')
+        return
+      }
+      
+      const newPageHtml = editor.getHTML()
+      console.log('[DocumentEditor] handlePaste: New page HTML length after paste:', newPageHtml.length)
+      console.log('[DocumentEditor] handlePaste: New page HTML preview:', JSON.stringify(newPageHtml.substring(0, 100)))
+      
       // Use the same logic as onUpdate to reconstruct the full document
       setFullContentHtml(prevFullContentHtml => {
-        const oldPageEndIndex = pageOffset + pageContent.length;
+        const oldPageEndIndex = pageOffset + pageContent.length
         const updatedFullContent =
           prevFullContentHtml.substring(0, pageOffset) +
           newPageHtml +
-          prevFullContentHtml.substring(oldPageEndIndex);
-        console.log('[DocumentEditor] handlePaste: updatedFullContent.length:', updatedFullContent.length);
-        if (onContentChange) onContentChange(updatedFullContent);
-        if (onSave) onSave(updatedFullContent, title);
+          prevFullContentHtml.substring(oldPageEndIndex)
+        
+        console.log('[DocumentEditor] handlePaste: Document reconstruction completed')
+        console.log('[DocumentEditor] handlePaste: Previous full content length:', prevFullContentHtml.length)
+        console.log('[DocumentEditor] handlePaste: Updated full content length:', updatedFullContent.length)
+        console.log('[DocumentEditor] handlePaste: Content change detected:', prevFullContentHtml !== updatedFullContent)
+        
+        // Get plain text for grammar checking
+        const div = document.createElement('div')
+        div.innerHTML = updatedFullContent
+        const plainText = div.textContent || ''
+        console.log('[DocumentEditor] handlePaste: Plain text length for grammar check:', plainText.length)
+        
+        // Trigger content change callback
+        if (onContentChange) {
+          console.log('[DocumentEditor] handlePaste: Calling onContentChange callback')
+          onContentChange(updatedFullContent)
+        } else {
+          console.warn('[DocumentEditor] handlePaste: onContentChange callback not available')
+        }
+        
+        // Trigger save callback  
+        if (onSave) {
+          console.log('[DocumentEditor] handlePaste: Calling onSave callback with content length:', updatedFullContent.length, 'title:', title)
+          onSave(updatedFullContent, title)
+        } else {
+          console.warn('[DocumentEditor] handlePaste: onSave callback not available')
+        }
+        
         // Trigger grammar check immediately
-        checkGrammarImmediately(updatedFullContent);
-        return updatedFullContent;
-      });
-    }, 10); // 10ms delay to let the paste finish
-  }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately]);
+        console.log('[DocumentEditor] handlePaste: Triggering immediate grammar check')
+        checkGrammarImmediately(plainText)
+        
+        return updatedFullContent
+      })
+    }, 10) // 10ms delay to let the paste finish
+  }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately, fullContentHtml, documentId])
 
   if (!editor) {
     return null
