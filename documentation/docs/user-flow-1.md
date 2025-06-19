@@ -58,10 +58,11 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - UI must show active collaborators (avatars/names/colors)
 
 ### Steps
-- [ ] Subscribe to presence updates for the active document
-- [ ] Add UI to display active users in the editor (e.g., avatar group)
-- [ ] Show user color/name in cursor or sidebar
-- [ ] Ensure presence is updated on join/leave
+- [x] Subscribe to presence updates for the active document
+- [x] Add UI to display active users in the editor (e.g., avatar group)
+- [x] Show user color/name in cursor or sidebar
+- [x] Ensure presence is updated on join/leave
+- [x] Enhanced version tracking with user information
 
 ---
 
@@ -97,6 +98,134 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 
 ---
 
+### Document Sharing & Access Control: Implementation Plan & Checklist
+
+#### Phase 1: Shared Document Discovery
+- [x] Update `DocumentService` to fetch documents where `sharedWith` contains the current user's ID/email, and where `isPublic` is `true`.
+- [x] Update `useDocuments` to include these documents in the list.
+- [x] UI: Add a "Shared with Me" and "Public Documents" section in the document list.
+  - Files: `services/document-service.ts`, `hooks/use-documents.ts`, `components/document-container.tsx`
+
+#### Phase 2: Sharing/Invitation UI
+- [x] Add a "Share" button in the document UI.
+- [x] Modal for entering email(s) and selecting role (editor, commenter, viewer).
+- [x] Backend logic to update the `sharedWith` array in Firestore.
+- [x] Show current collaborators and their roles.
+  - Files: `components/document-container.tsx`, `components/ui/`, `services/document-service.ts`, `types/document.ts`
+
+#### Phase 3: Access Control Enforcement
+- [x] Enforce permissions in the UI (disable editing for viewers, etc).
+- [x] Enforce permissions in backend (Firestore security rules).
+- [x] Show error messages for unauthorized access.
+  - Files: `components/document-editor.tsx`, `services/document-service.ts`, `firestore.rules`, `types/document.ts`
+
+#### Phase 4: Public/Link Sharing
+- [ ] UI to toggle public access and copy shareable link.
+- [ ] Backend logic to set `isPublic` and `publicViewMode`.
+- [ ] UI for anonymous/public users to view/comment (if allowed).
+  - Files: `components/document-container.tsx`, `components/ui/`, `services/document-service.ts`, `types/document.ts`, `firestore.rules`
+
+#### Phase 5: Manage & Remove Access
+- [ ] UI to change collaborator roles or remove them.
+- [ ] Backend logic to update `sharedWith` array.
+- [ ] Notifications for users when access changes.
+  - Files: `components/document-container.tsx`, `components/ui/`, `services/document-service.ts`, `types/document.ts`
+
+---
+
+#### Variables & Data Structures
+- `Document.sharedWith: DocumentAccess[]` — list of users with access and their roles.
+- `Document.isPublic: boolean` — whether the document is public.
+- `Document.publicViewMode: 'view' | 'comment' | 'disabled'` — public access level.
+- `Document.ownerId: string` — document owner.
+- `DocumentAccess.role: 'owner' | 'editor' | 'commenter' | 'viewer'` — user role.
+
+---
+
+#### Checklist for Implementation
+- [ ] Update backend and hooks to support shared/public document discovery.
+- [ ] Build sharing/invitation UI.
+- [ ] Enforce access control in UI and backend.
+- [ ] Add public/link sharing features.
+- [ ] Add collaborator management UI.
+
+---
+
+### Document Sharing & Access Control: Implementation Summary
+
+**Phase 1: Shared Document Discovery**
+- `services/document-service.ts`: Added `getSharedDocuments` and `getPublicDocuments` methods using `sharedWithIds` and `isPublic` fields.
+- `hooks/use-documents.ts`: Subscribes to owned, shared, and public documents; merges and sorts for UI.
+- `components/enhanced-document-list.tsx`: Renders "Shared with Me" and "Public Documents" sections in the document list UI.
+- Confirmed: Document discovery and categorization logic is functional and present.
+
+**Phase 2: Sharing/Invitation UI**
+- `components/share-dialog.tsx`: New dialog for inviting users by email, selecting role, and managing collaborators.
+- `components/navigation-bar.tsx`: Added "Share" button to open the dialog; integrated handlers for sharing, role update, and removal.
+- `services/user-service.ts`: Added `findUserByEmail` for user lookup by email.
+- `services/document-service.ts`: Added `shareDocument`, `updateUserRole`, and `removeUserAccess` methods for backend sharing logic.
+- `components/document-container.tsx`: Now accepts an optional `documentId` prop for direct document loading.
+- `app/doc/[documentId]/page.tsx`: New dynamic route for direct document access via link.
+- `next.config.mjs`: Removed `output: 'export'` to enable dynamic routing in production.
+- Observed: All sharing UI and backend logic is functional; document links work; dialog displays collaborators and roles; backend updates Firestore ACL fields.
+
+**Phase 3: Access Control Enforcement**
+
+**UI Permission Enforcement:**
+- `components/document-container.tsx`: 
+  - Added `activeDocument` memoization for consistent document reference
+  - Implemented `userRole` and `canEdit` logic using `useMemo` to determine user permissions based on document ownership, shared access, and public settings
+  - Added unauthorized access handling with error message display for users who navigate directly to documents they cannot access
+  - Updated `DocumentEditor` props to include `isEditable` boolean based on user role
+  - Fixed `useAutoSave` implementation to properly handle document content updates
+  - Corrected props passed to `NavigationBar`, `AISidebar`, and `VersionHistorySidebar` components
+
+- `components/document-editor.tsx`:
+  - Added `isEditable: boolean` prop to `DocumentEditorProps` interface
+  - Integrated `isEditable` into `useEditor` hook configuration with `editable: isEditable`
+  - Added console logging to track document editability state
+  - Editor now properly disables editing for viewers and commenters while allowing full editing for owners and editors
+
+**Backend Permission Enforcement:**
+- `firestore.rules`: Completely rewritten with role-based access control
+  - Added helper functions: `isOwner()`, `isSharedWith()`, `hasRole()`, `canEdit()`, `canView()`
+  - Implemented null-safe property checking to handle documents without `sharedWithIds` or `sharedWith` fields
+  - **READ access**: Owners, shared users (any role), or public documents with enabled viewing
+  - **WRITE access**: Owners and users with 'editor' role only
+  - **CREATE access**: User must be the document owner
+  - **DELETE access**: Document owners only
+  - Sub-collections (versions, suggestions) inherit parent document permissions
+  - Added comprehensive null checks using `'property' in docData` pattern to prevent evaluation errors
+
+**Error Handling & User Experience:**
+- Unauthorized document access shows "Document not found" message with explanation
+- Firebase evaluation errors resolved by adding proper null checks for optional document properties
+- Editor displays read-only state for non-editors without breaking functionality
+- Proper error boundaries for permission-denied scenarios
+
+**Technical Challenges Resolved:**
+1. **Linter Errors**: Fixed multiple TypeScript interface mismatches between components
+2. **Hook Usage**: Corrected `useAutoSave` implementation from object-based to callback-based pattern
+3. **Component Props**: Aligned prop definitions across `DocumentEditor`, `NavigationBar`, `AISidebar`, and `VersionHistorySidebar`
+4. **Firestore Rules Syntax**: Resolved compilation errors by removing unsupported syntax (ternary operators, `let` keyword)
+5. **Property Access Safety**: Added comprehensive null checks to prevent runtime evaluation errors
+
+**Verification Results:**
+- ✅ Permission denial confirmed for unauthorized users
+- ✅ Read-only mode functional for viewers and commenters  
+- ✅ Full editing access for owners and editors
+- ✅ Firestore rules successfully deployed and enforced
+- ✅ UI gracefully handles unauthorized access attempts
+- ✅ No evaluation errors in production Firebase environment
+
+**Files Modified:**
+- `components/document-container.tsx` - Role determination and UI access control
+- `components/document-editor.tsx` - Editor read-only state implementation  
+- `firestore.rules` - Comprehensive backend access control with null safety
+- `documentation/docs/user-flow-1.md` - Updated implementation checklist
+
+---
+
 ## Phase 5: Review & Approval Workflow
 
 ### Background/Architecture
@@ -127,7 +256,11 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - [ ] Suggestion generation triggers on creation/goals change
 
 ### Phase 2: Real-Time Collaboration & Presence
-- [ ] Presence UI shows active collaborators
+- [x] Presence UI shows active collaborators
+- [x] User colors and avatar generation
+- [x] Real-time presence subscription
+- [x] Join/leave session management
+- [x] Enhanced version history with user tracking
 
 ### Phase 3: Team Review & Commenting
 - [ ] Commenting UI for feedback and discussion

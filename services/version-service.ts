@@ -69,55 +69,60 @@ export class VersionService {
     }
   }
 
+  /**
+   * Create a new version with enhanced user tracking for collaboration
+   * @param documentId - Document ID to create version for
+   * @param content - Document content at time of version
+   * @param authorId - User ID of the author
+   * @param authorName - Display name of the author
+   * @param title - Optional title of the document at time of version
+   * @returns Promise<string | null> - Version ID if successful
+   */
   static async createVersion(
     documentId: string,
     content: string,
-    author: Pick<UserProfile, 'id' | 'name'>,
-  ): Promise<string> {
+    authorId: string,
+    authorName: string,
+    title?: string
+  ): Promise<string | null> {
     try {
-      console.log('[VersionService.createVersion] Creating version for document:', documentId, 'by author:', author.name, 'content length:', content.length)
+      console.log('[VersionService.createVersion] Creating version for document:', documentId)
+      console.log('[VersionService.createVersion] Author:', authorName, '(ID:', authorId, ')')
+      console.log('[VersionService.createVersion] Content length:', content.length)
+      console.log('[VersionService.createVersion] Title:', title)
+
+      const versionsRef = collection(firestore, `documents/${documentId}/versions`)
       
-      // Check if there's a recent version with the same content to prevent duplicates
-      const recentVersionsRef = collection(
-        firestore,
-        `documents/${documentId}/versions`,
-      )
-      const recentQuery = query(
-        recentVersionsRef, 
-        orderBy('createdAt', 'desc'), 
-        limit(1)
-      )
-      const recentSnapshot = await getDocs(recentQuery)
-      
-      if (!recentSnapshot.empty) {
-        const lastVersion = recentSnapshot.docs[0].data() as Omit<Version, 'id'>
-        const lastContent = lastVersion.content.trim()
-        const newContent = content.trim()
-        
-        console.log('[VersionService.createVersion] Comparing with last version - Last length:', lastContent.length, 'New length:', newContent.length)
-        
-        if (lastContent === newContent) {
-          console.log('[VersionService.createVersion] Content identical to last version, skipping creation')
-          return recentSnapshot.docs[0].id
-        }
-      }
-      
-      const versionsRef = collection(
-        firestore,
-        `documents/${documentId}/versions`,
-      )
-      const versionData: Omit<Version, 'id'> = {
+      const versionData = {
         content,
-        authorId: author.id,
-        authorName: author.name,
+        authorId,
+        authorName,
+        title: title || 'Untitled Document',
         createdAt: serverTimestamp(),
+        // Additional metadata for collaboration tracking
+        contentLength: content.length,
+        wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+        changeType: 'manual_save', // Could be expanded to track different types of changes
       }
+
+      console.log('[VersionService.createVersion] Version data prepared:', {
+        ...versionData,
+        content: `${content.substring(0, 100)}...`,
+      })
+
       const docRef = await addDoc(versionsRef, versionData)
-      console.log('[VersionService.createVersion] New version created with ID:', docRef.id)
+      
+      console.log('[VersionService.createVersion] Version created successfully with ID:', docRef.id)
+      console.log('[VersionService.createVersion] Collection path was:', `documents/${documentId}/versions`)
+      
       return docRef.id
     } catch (error) {
       console.error('[VersionService.createVersion] Error creating version:', error)
-      throw new Error('Failed to create version')
+      console.error('[VersionService.createVersion] Document ID:', documentId)
+      console.error('[VersionService.createVersion] Author ID:', authorId)
+      console.error('[VersionService.createVersion] Author Name:', authorName)
+      console.error('[VersionService.createVersion] Content length:', content?.length)
+      return null
     }
   }
 
@@ -128,17 +133,72 @@ export class VersionService {
    */
   static async deleteVersion(documentId: string, versionId: string): Promise<void> {
     try {
-      console.log('[VersionService.deleteVersion] Deleting version', versionId, 'for document', documentId)
-      const versionRef = doc(
-        firestore,
-        `documents/${documentId}/versions`,
-        versionId,
-      )
+      console.log('[VersionService.deleteVersion] Deleting version:', versionId, 'from document:', documentId)
+      
+      const versionRef = doc(firestore, `documents/${documentId}/versions/${versionId}`)
       await deleteDoc(versionRef)
+      
       console.log('[VersionService.deleteVersion] Version deleted successfully')
     } catch (error) {
       console.error('[VersionService.deleteVersion] Error deleting version:', error)
-      throw new Error('Failed to delete version')
+      throw error
+    }
+  }
+
+  /**
+   * Get the latest version for a document
+   * @param documentId - Document ID
+   * @returns Promise<Version | null> - Latest version or null
+   */
+  static async getLatestVersion(documentId: string): Promise<Version | null> {
+    try {
+      console.log('[VersionService.getLatestVersion] Getting latest version for document:', documentId)
+      
+      const versionsRef = collection(firestore, `documents/${documentId}/versions`)
+      const q = query(versionsRef, orderBy('createdAt', 'desc'), limit(1))
+      const querySnapshot = await getDocs(q)
+      
+      if (querySnapshot.empty) {
+        console.log('[VersionService.getLatestVersion] No versions found for document:', documentId)
+        return null
+      }
+      
+      const latestDoc = querySnapshot.docs[0]
+      const version = { id: latestDoc.id, ...latestDoc.data() } as Version
+      
+      console.log('[VersionService.getLatestVersion] Latest version found:', version.id, 'by', version.authorName)
+      return version
+    } catch (error) {
+      console.error('[VersionService.getLatestVersion] Error getting latest version:', error)
+      return null
+    }
+  }
+
+  /**
+   * Get versions by author for collaboration analytics
+   * @param documentId - Document ID
+   * @param authorId - Author ID to filter by
+   * @returns Promise<Version[]> - Versions by author
+   */
+  static async getVersionsByAuthor(documentId: string, authorId: string): Promise<Version[]> {
+    try {
+      console.log('[VersionService.getVersionsByAuthor] Getting versions by author:', authorId, 'for document:', documentId)
+      
+      const versionsRef = collection(firestore, `documents/${documentId}/versions`)
+      // Note: This would require a Firestore index on authorId field
+      // For now, we'll get all versions and filter client-side
+      const q = query(versionsRef, orderBy('createdAt', 'desc'))
+      const querySnapshot = await getDocs(q)
+      
+      const authorVersions = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Version))
+        .filter(version => version.authorId === authorId)
+      
+      console.log('[VersionService.getVersionsByAuthor] Found', authorVersions.length, 'versions by author:', authorId)
+      return authorVersions
+    } catch (error) {
+      console.error('[VersionService.getVersionsByAuthor] Error getting versions by author:', error)
+      return []
     }
   }
 } 

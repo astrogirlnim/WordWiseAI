@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { firestore } from '@/lib/firebase'
 import type { UserProfile } from '@/types/user'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
@@ -71,6 +71,23 @@ export const userService = {
     } catch (error) {
       console.error('Error updating user profile:', error)
       throw error
+    }
+  },
+
+  async findUserByEmail(email: string): Promise<UserProfile | null> {
+    try {
+      const usersRef = collection(firestore, 'users')
+      const q = query(usersRef, where('email', '==', email), limit(1))
+      const querySnapshot = await getDocs(q)
+
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0]
+        return { id: userDoc.id, ...userDoc.data() } as UserProfile
+      }
+      return null
+    } catch (error) {
+      console.error('Error finding user by email:', error)
+      return null
     }
   },
 } 

@@ -1,33 +1,76 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isOwner(docData) {
+      return request.auth != null && request.auth.uid == docData.ownerId;
+    }
+
+    function isSharedWith(docData) {
+      return request.auth != null && 
+             'sharedWithIds' in docData && 
+             docData.sharedWithIds != null &&
+             request.auth.uid in docData.sharedWithIds;
+    }
+
+    function hasRole(docData, targetRole) {
+      return request.auth != null && 
+             'sharedWith' in docData &&
+             docData.sharedWith != null &&
+             docData.sharedWith.hasAny([{'userId': request.auth.uid, 'role': targetRole}]);
+    }
+
+    function canEdit(docData) {
+      return isOwner(docData) || hasRole(docData, 'editor');
+    }
+
+    function canView(docData) {
+      return isOwner(docData) || 
+             isSharedWith(docData) || 
+             ('isPublic' in docData && docData.isPublic == true && 
+              'publicViewMode' in docData && docData.publicViewMode != 'disabled');
+    }
+
     // Users can only read and write their own data.
     match /users/{userId} {
       allow read, update, delete: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Example for a 'documents' collection where documents have an 'ownerId'.
+    // Rules for the 'documents' collection
     match /documents/{documentId} {
-      allow get, read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // READ access: Owner, shared users, or public
+      allow get: if request.auth != null && canView(resource.data);
       allow list: if request.auth != null;
 
-      // Allow the document owner to read/write versions sub-collection
+      // WRITE access:
+      // CREATE: User must be the owner of the new document.
+      allow create: if request.auth != null && isOwner(request.resource.data);
+
+      // UPDATE: Owner or editors can update.
+      allow update: if request.auth != null && canEdit(resource.data);
+
+      // DELETE: Only the owner can delete.
+      allow delete: if request.auth != null && isOwner(resource.data);
+
+      // Sub-collections
       match /versions/{versionId} {
-        allow read, list: if request.auth != null;
-        allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        // Allow read if user has access to the parent document
+        allow read, list: if request.auth != null && canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+        // Only owners can create/update/delete versions
+        allow create, update, delete: if request.auth != null && isOwner(get(/databases/$(database)/documents/documents/$(documentId)).data);
       }
 
-      // Allow the document owner to manage style suggestions
+      // Allow users with document access to manage suggestions
       match /styleSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read: if request.auth != null && canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+        allow write, create, delete: if request.auth != null && canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data);
       }
 
-      // Allow the document owner to manage funnel suggestions
       match /funnelSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read: if request.auth != null && canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+        allow write, create, delete: if request.auth != null && canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data);
       }
     }
 
