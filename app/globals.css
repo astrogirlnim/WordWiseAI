@@ -443,13 +443,17 @@ body {
 /* **MARKDOWN PREVIEW STYLING** */
 .awwwards-preview-content {
   font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
+  line-height: 1.6;
 }
 
 .awwwards-preview-content .prose {
   color: hsl(var(--foreground));
   max-width: none;
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 
+/* Header Hierarchy - Better spacing and sizing */
 .awwwards-preview-content .prose h1,
 .awwwards-preview-content .prose h2,
 .awwwards-preview-content .prose h3,
@@ -459,25 +463,50 @@ body {
   color: hsl(var(--foreground));
   font-weight: 600;
   letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
+/* Ensure first heading has no top margin */
+.awwwards-preview-content .prose h1:first-child,
+.awwwards-preview-content .prose h2:first-child,
+.awwwards-preview-content .prose h3:first-child,
+.awwwards-preview-content .prose h4:first-child,
+.awwwards-preview-content .prose h5:first-child,
+.awwwards-preview-content .prose h6:first-child {
+  margin-top: 0 !important;
+}
+
+/* Paragraph spacing */
 .awwwards-preview-content .prose p {
   color: hsl(var(--foreground));
   line-height: 1.6;
+  margin-top: 0;
+  margin-bottom: 1rem;
 }
 
+.awwwards-preview-content .prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* Enhanced blockquote styling */
 .awwwards-preview-content .prose blockquote {
   background: linear-gradient(135deg, hsl(var(--retro-primary) / 0.05), hsl(var(--retro-sunset) / 0.05));
   border-left: 4px solid hsl(var(--retro-primary) / 0.3);
   backdrop-filter: blur(8px);
+  margin: 1.5rem 0;
+  border-radius: 0 0.375rem 0.375rem 0;
 }
 
+/* Code styling with better contrast */
 .awwwards-preview-content .prose code {
   background: hsl(var(--muted));
   color: hsl(var(--retro-primary));
   border-radius: 0.375rem;
-  font-size: 0.875em;
+  font-size: 0.8em;
   font-weight: 500;
+  padding: 0.125rem 0.375rem;
 }
 
 .awwwards-preview-content .prose pre {
@@ -486,18 +515,24 @@ body {
   border-radius: 0.5rem;
   overflow-x: auto;
   backdrop-filter: blur(8px);
+  margin: 1.5rem 0;
+  line-height: 1.5;
 }
 
 .awwwards-preview-content .prose pre code {
   background: transparent;
   color: hsl(var(--foreground));
   border-radius: 0;
+  padding: 0;
+  font-size: 0.875rem;
 }
 
+/* Link styling with smooth transitions */
 .awwwards-preview-content .prose a {
   color: hsl(var(--retro-primary));
   text-decoration-color: hsl(var(--retro-primary) / 0.3);
   transition: all 0.2s ease;
+  font-weight: 500;
 }
 
 .awwwards-preview-content .prose a:hover {
@@ -505,40 +540,55 @@ body {
   text-decoration-color: hsl(var(--retro-primary) / 0.6);
 }
 
+/* Table styling with proper spacing */
 .awwwards-preview-content .prose table {
   border-collapse: collapse;
   width: 100%;
   border: 1px solid hsl(var(--border) / 0.5);
   border-radius: 0.5rem;
   overflow: hidden;
+  margin: 1.5rem 0;
+  font-size: 0.8rem;
 }
 
 .awwwards-preview-content .prose th,
 .awwwards-preview-content .prose td {
   border: 1px solid hsl(var(--border) / 0.5);
-  padding: 0.5rem;
+  padding: 0.75rem;
   text-align: left;
+  line-height: 1.4;
 }
 
 .awwwards-preview-content .prose th {
   background: hsl(var(--muted) / 0.5);
   font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .awwwards-preview-content .prose tr:hover {
   background: hsl(var(--muted) / 0.25);
 }
 
+/* List styling with proper spacing */
 .awwwards-preview-content .prose ul,
 .awwwards-preview-content .prose ol {
-  padding-left: 1rem;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
 }
 
 .awwwards-preview-content .prose li {
-  margin: 0.25rem 0;
+  margin: 0.5rem 0;
   color: hsl(var(--foreground));
+  line-height: 1.6;
 }
 
+.awwwards-preview-content .prose li > p {
+  margin: 0.25rem 0;
+}
+
+/* Horizontal rule styling */
 .awwwards-preview-content .prose hr {
   border: none;
   height: 1px;
@@ -550,6 +600,31 @@ body {
 .awwwards-preview-content .prose input[type="checkbox"] {
   accent-color: hsl(var(--retro-primary));
   margin-right: 0.5rem;
+  transform: scale(1.1);
+}
+
+/* Task list items */
+.awwwards-preview-content .prose .task-list-item {
+  list-style: none;
+  margin-left: -1.5rem;
+  padding-left: 1.5rem;
+}
+
+/* Strong and emphasis styling */
+.awwwards-preview-content .prose strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose em {
+  font-style: italic;
+  color: hsl(var(--foreground));
+}
+
+.awwwards-preview-content .prose del {
+  text-decoration-line: line-through;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.7;
 }
 
 /* Smooth scrolling for preview panel */
@@ -557,21 +632,45 @@ body {
   scroll-behavior: smooth;
 }
 
+/* Fix spacing between adjacent elements */
+.awwwards-preview-content .prose > * + * {
+  margin-top: 1rem;
+}
+
+.awwwards-preview-content .prose > h1 + *,
+.awwwards-preview-content .prose > h2 + *,
+.awwwards-preview-content .prose > h3 + *,
+.awwwards-preview-content .prose > h4 + *,
+.awwwards-preview-content .prose > h5 + *,
+.awwwards-preview-content .prose > h6 + * {
+  margin-top: 0.5rem;
+}
+
 /* Responsive markdown preview */
 @media (max-width: 768px) {
   .awwwards-preview-content .prose {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
   }
   
   .awwwards-preview-content .prose h1 {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
   }
   
   .awwwards-preview-content .prose h2 {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
   }
   
   .awwwards-preview-content .prose h3 {
+    font-size: 1.25rem;
+  }
+  
+  .awwwards-preview-content .prose h4 {
     font-size: 1.125rem;
+  }
+  
+  .awwwards-preview-content .prose th,
+  .awwwards-preview-content .prose td {
+    padding: 0.5rem;
+    font-size: 0.75rem;
   }
 }

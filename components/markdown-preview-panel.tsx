@@ -72,49 +72,49 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
       <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
         <div className="awwwards-preview-content">
           {content.trim() ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                   // Custom components for enhanced styling
                   h1: ({ children }) => (
-                    <h1 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-border/50">
+                    <h1 className="text-3xl font-bold text-foreground mb-6 mt-8 pb-3 border-b-2 border-border/50 leading-tight tracking-tight first:mt-0">
                       {children}
                     </h1>
                   ),
                   h2: ({ children }) => (
-                    <h2 className="text-xl font-semibold text-foreground mb-3 mt-6">
+                    <h2 className="text-2xl font-semibold text-foreground mb-4 mt-8 pb-2 border-b border-border/30 leading-tight tracking-tight first:mt-0">
                       {children}
                     </h2>
                   ),
                   h3: ({ children }) => (
-                    <h3 className="text-lg font-medium text-foreground mb-2 mt-4">
+                    <h3 className="text-xl font-medium text-foreground mb-3 mt-6 leading-tight tracking-tight first:mt-0">
                       {children}
                     </h3>
                   ),
                   h4: ({ children }) => (
-                    <h4 className="text-base font-medium text-foreground mb-2 mt-3">
+                    <h4 className="text-lg font-medium text-foreground mb-2 mt-5 leading-tight tracking-tight first:mt-0">
                       {children}
                     </h4>
                   ),
                   h5: ({ children }) => (
-                    <h5 className="text-sm font-medium text-foreground mb-1 mt-2">
+                    <h5 className="text-base font-medium text-foreground mb-2 mt-4 leading-tight tracking-tight first:mt-0">
                       {children}
                     </h5>
                   ),
                   h6: ({ children }) => (
-                    <h6 className="text-sm font-medium text-muted-foreground mb-1 mt-2">
+                    <h6 className="text-sm font-medium text-muted-foreground mb-2 mt-3 leading-tight tracking-tight first:mt-0 uppercase">
                       {children}
                     </h6>
                   ),
                   p: ({ children }) => (
-                    <p className="text-sm text-foreground mb-4 leading-relaxed">
+                    <p className="text-sm text-foreground mb-4 leading-relaxed last:mb-0">
                       {children}
                     </p>
                   ),
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-4 border-retro-primary/30 pl-4 py-2 my-4 bg-retro-primary/5 rounded-r-md">
-                      <div className="text-sm text-muted-foreground italic">
+                    <blockquote className="border-l-4 border-retro-primary/30 pl-6 py-3 my-6 bg-retro-primary/5 rounded-r-md backdrop-blur-sm">
+                      <div className="text-sm text-muted-foreground italic leading-relaxed">
                         {children}
                       </div>
                     </blockquote>
@@ -126,7 +126,7 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
                     if (!isCodeBlock) {
                       // Inline code
                       return (
-                        <code className="px-1.5 py-0.5 bg-muted rounded-md text-xs font-mono text-retro-primary">
+                        <code className="px-2 py-1 bg-muted rounded-md text-xs font-mono text-retro-primary font-medium">
                           {children}
                         </code>
                       )
@@ -134,25 +134,27 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
                     
                     // Code block
                     return (
-                      <pre className="p-4 bg-muted rounded-lg overflow-x-auto border border-border/50">
-                        <code className={`text-xs font-mono ${className || ''}`}>
-                          {children}
-                        </code>
-                      </pre>
+                      <div className="my-6 first:mt-0 last:mb-0">
+                        <pre className="p-4 bg-muted rounded-lg overflow-x-auto border border-border/50 font-mono text-sm leading-relaxed">
+                          <code className={`${className || ''}`}>
+                            {children}
+                          </code>
+                        </pre>
+                      </div>
                     )
                   },
                   ul: ({ children }) => (
-                    <ul className="ml-4 mb-4 space-y-1">
+                    <ul className="ml-6 mb-4 space-y-2 list-disc marker:text-retro-primary">
                       {children}
                     </ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="ml-4 mb-4 space-y-1 list-decimal">
+                    <ol className="ml-6 mb-4 space-y-2 list-decimal marker:text-retro-primary marker:font-medium">
                       {children}
                     </ol>
                   ),
                   li: ({ children }) => (
-                    <li className="text-sm text-foreground leading-relaxed">
+                    <li className="text-sm text-foreground leading-relaxed pl-1">
                       {children}
                     </li>
                   ),
@@ -181,14 +183,14 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
                     </div>
                   ),
                   table: ({ children }) => (
-                    <div className="my-4 overflow-x-auto">
-                      <table className="w-full border-collapse border border-border/50 rounded-lg">
+                    <div className="my-6 overflow-x-auto first:mt-0 last:mb-0">
+                      <table className="w-full border-collapse border border-border/50 rounded-lg shadow-sm">
                         {children}
                       </table>
                     </div>
                   ),
                   thead: ({ children }) => (
-                    <thead className="bg-muted/50">
+                    <thead className="bg-muted/50 border-b border-border/50">
                       {children}
                     </thead>
                   ),
@@ -203,17 +205,17 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
                     </tr>
                   ),
                   th: ({ children }) => (
-                    <th className="p-2 text-left text-xs font-semibold text-foreground border-r border-border/50 last:border-r-0">
+                    <th className="p-3 text-left text-xs font-semibold text-foreground border-r border-border/50 last:border-r-0">
                       {children}
                     </th>
                   ),
                   td: ({ children }) => (
-                    <td className="p-2 text-xs text-foreground border-r border-border/50 last:border-r-0">
+                    <td className="p-3 text-xs text-foreground border-r border-border/50 last:border-r-0 leading-relaxed">
                       {children}
                     </td>
                   ),
                   hr: () => (
-                    <hr className="my-6 border-border/50" />
+                    <hr className="my-8 border-none h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                   ),
                   strong: ({ children }) => (
                     <strong className="font-semibold text-foreground">
