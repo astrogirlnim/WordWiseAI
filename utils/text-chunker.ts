@@ -1,4 +1,9 @@
 /**
+ * NOTE: Default chunk size increased to 5000 characters and overlap to 200 for rate limiting and backend efficiency.
+ * This reduces the number of parallel requests and helps avoid function spamming.
+ */
+
+/**
  * TextChunker - Smart text chunking utility for performance-optimized grammar checking
  * 
  * This utility implements intelligent sentence-boundary chunking to enable efficient
@@ -80,8 +85,8 @@ export class TextChunker {
   ];
 
   constructor(options: ChunkingOptions = {}) {
-    this.maxChunkSize = options.maxChunkSize ?? 2000;
-    this.overlapSize = options.overlapSize ?? 100;
+    this.maxChunkSize = options.maxChunkSize ?? 5000;
+    this.overlapSize = options.overlapSize ?? 200;
     this.respectSentences = options.respectSentences ?? true;
     this.customSentencePatterns = options.customSentencePatterns ?? [];
 

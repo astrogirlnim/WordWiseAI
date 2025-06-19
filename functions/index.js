@@ -313,13 +313,30 @@ exports.checkGrammar = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => 
     throw new HttpsError("unauthenticated", "You must be logged in to check grammar.");
   }
 
-  const {documentId, text} = request.data;
+  const {documentId, text, chunkMetadata} = request.data;
   if (!documentId || typeof text !== "string") {
-    logger.error("Invalid arguments for checkGrammar", {documentId, textExists: !!text});
+    logger.error("Invalid arguments for checkGrammar", {documentId, textExists: !!text, hasChunkMetadata: !!chunkMetadata});
     throw new HttpsError("invalid-argument", "The function requires 'documentId' and 'text'.");
   }
 
   const startTime = Date.now();
+  const isChunkedRequest = !!chunkMetadata;
+  
+  // Enhanced logging for chunked requests
+  if (isChunkedRequest) {
+    logger.log("Processing chunk for grammar check", {
+      userId, 
+      documentId, 
+      chunkId: chunkMetadata.chunkId,
+      chunkIndex: chunkMetadata.chunkIndex,
+      totalChunks: chunkMetadata.totalChunks,
+      textLength: text.length,
+      originalStart: chunkMetadata.originalStart,
+      originalEnd: chunkMetadata.originalEnd
+    });
+  } else {
+    logger.log("Processing full document for grammar check", {userId, documentId, textLength: text.length});
+  }
 
   // Apply rate limiting (same logic as other functions)
   const now = Date.now();
@@ -334,7 +351,7 @@ exports.checkGrammar = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => 
   userCalls.set(userId, userEntry);
 
   if (userEntry.count > rateLimit.maxCalls) {
-    logger.warn("Rate limit exceeded for checkGrammar", {userId, count: userEntry.count});
+    logger.warn("Rate limit exceeded for checkGrammar", {userId, count: userEntry.count, isChunkedRequest});
     throw new HttpsError(
       "resource-exhausted",
       "Rate limit exceeded. Please try again later."
@@ -351,23 +368,59 @@ exports.checkGrammar = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => 
       throw new HttpsError("not-found", "Document not found.");
     }
 
-    // 3. Caching logic
-    const cacheKey = `${userId}:${documentId}:${text}`;
+    // 3. Chunk-aware caching logic
+    let cacheKey;
+    if (isChunkedRequest) {
+      // Use chunk-specific cache key for better cache hit rates
+      const textHash = require('crypto').createHash('md5').update(text).digest('hex');
+      cacheKey = `${userId}:${documentId}:chunk:${textHash}`;
+      logger.log("Using chunk-based cache key", {cacheKey, chunkId: chunkMetadata.chunkId});
+    } else {
+      // Legacy full-document cache key
+      cacheKey = `${userId}:${documentId}:${text}`;
+      logger.log("Using full-document cache key", {cacheKey});
+    }
+    
     const cached = grammarCheckCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp < 10000)) {
-      logger.log("Returning cached grammar check response", {cacheKey});
+      logger.log("Returning cached grammar check response", {cacheKey, isChunkedRequest});
       const latency = Date.now() - startTime;
-      return {errors: cached.data.errors, latency};
+      
+      if (isChunkedRequest) {
+        return {
+          errors: cached.data.errors, 
+          latency,
+          chunkId: chunkMetadata.chunkId,
+          chunkIndex: chunkMetadata.chunkIndex
+        };
+      } else {
+        return {errors: cached.data.errors, latency};
+      }
     }
 
-    // 4. Forward text to GPT-4o
-    logger.log("Calling OpenAI API for grammar check", {userId, documentId, textLength: text.length});
+    // 4. Forward text to GPT-4o with enhanced prompt for chunked processing
+    let systemPrompt = "You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon.Analyze the user's text. Your response MUST be a JSON object with a single key \"errors\". The value of \"errors\" MUST be an array of error objects. Each error object must contain these keys: \"id\" (a unique string for the error), \"start\" (0-indexed character start), \"end\" (0-indexed character end), \"error\" (the incorrect text), \"suggestions\" (an array of up to 3 suggested corrections), \"explanation\" (why it's an error), and \"type\". The \"type\" must be one of \"grammar\", \"spelling\", \"style\", \"clarity\", or \"punctuation\". It is critical that the \"start\" and \"end\" values are precise. The substring of the user's text from the \"start\" index to the \"end\" index MUST be exactly equal to the \"error\" string. If no errors are found, the \"errors\" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens.";
+    
+    if (isChunkedRequest) {
+      systemPrompt += ` NOTE: This is a text chunk (part ${chunkMetadata.chunkIndex + 1} of ${chunkMetadata.totalChunks}) from a larger document. Focus on errors within this chunk. Position indices should be relative to the start of this chunk text.`;
+    }
+    
+    systemPrompt += " Text to analyze is below.";
+
+    logger.log("Calling OpenAI API for grammar check", {
+      userId, 
+      documentId, 
+      textLength: text.length, 
+      isChunkedRequest,
+      chunkId: isChunkedRequest ? chunkMetadata.chunkId : null
+    });
+    
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are a helpful grammar and spelling checker. Your audience is the general public, so craft your explanations to be clear, concise, and easy to understand. Avoid overly technical jargon.Analyze the user's text. Your response MUST be a JSON object with a single key \"errors\". The value of \"errors\" MUST be an array of error objects. Each error object must contain these keys: \"id\" (a unique string for the error), \"start\" (0-indexed character start), \"end\" (0-indexed character end), \"error\" (the incorrect text), \"suggestions\" (an array of up to 3 suggested corrections), \"explanation\" (why it's an error), and \"type\". The \"type\" must be one of \"grammar\", \"spelling\", \"style\", \"clarity\", or \"punctuation\". It is critical that the \"start\" and \"end\" values are precise. The substring of the user's text from the \"start\" index to the \"end\" index MUST be exactly equal to the \"error\" string. If no errors are found, the \"errors\" array MUST be empty. Do not add any extra text or formatting. Do not use hyphens. Text to analyze is below."
+          content: systemPrompt
         },
         {
           role: "user",
@@ -378,7 +431,11 @@ exports.checkGrammar = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => 
     });
 
     const aiResponse = completion.choices[0].message.content;
-    logger.log("Raw OpenAI Response for checkGrammar:", {aiResponse});
+    logger.log("Raw OpenAI Response for checkGrammar:", {
+      aiResponse, 
+      isChunkedRequest,
+      chunkId: isChunkedRequest ? chunkMetadata.chunkId : null
+    });
 
     // 5. Parse and handle response
     let errors = [];
@@ -388,30 +445,78 @@ exports.checkGrammar = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => 
         if (parsedResponse && Array.isArray(parsedResponse.errors)) {
           errors = parsedResponse.errors.map((e) => ({
             ...e,
-            id: e.id || `${e.start}-${e.error}`, // Fallback ID
+            id: e.id || `${e.start}-${e.error}${isChunkedRequest ? `-${chunkMetadata.chunkId}` : ''}`, // Ensure unique IDs for chunks
             suggestions: e.suggestions || (e.correction ? [e.correction] : []) // Handle old format
           }));
-          logger.log(`Found ${errors.length} grammar errors for checkGrammar.`, {documentId});
+          logger.log(`Found ${errors.length} grammar errors for checkGrammar.`, {
+            documentId, 
+            isChunkedRequest,
+            chunkId: isChunkedRequest ? chunkMetadata.chunkId : null
+          });
         } else {
-          logger.warn("Parsed response does not contain an 'errors' array for checkGrammar.", {documentId, aiResponse});
+          logger.warn("Parsed response does not contain an 'errors' array for checkGrammar.", {
+            documentId, 
+            aiResponse,
+            isChunkedRequest,
+            chunkId: isChunkedRequest ? chunkMetadata.chunkId : null
+          });
         }
       } catch (e) {
-        logger.error("Failed to parse JSON response from OpenAI in checkGrammar", {error: e, aiResponse});
+        logger.error("Failed to parse JSON response from OpenAI in checkGrammar", {
+          error: e, 
+          aiResponse,
+          isChunkedRequest,
+          chunkId: isChunkedRequest ? chunkMetadata.chunkId : null
+        });
       }
     }
 
     const latency = Date.now() - startTime;
-    const result = {errors, latency};
+    
+    // 6. Build result with chunk metadata if applicable
+    let result;
+    if (isChunkedRequest) {
+      result = {
+        errors, 
+        latency,
+        chunkId: chunkMetadata.chunkId,
+        chunkIndex: chunkMetadata.chunkIndex
+      };
+    } else {
+      result = {errors, latency};
+    }
 
     // Cache the result
     grammarCheckCache.set(cacheKey, {timestamp: Date.now(), data: result});
 
-    // 6. Return response (onCall functions return data directly)
-    logger.log("Returning grammar check response from checkGrammar", {latency, errorCount: errors.length});
+    // 7. Performance monitoring and tracing
+    logger.log("Returning grammar check response from checkGrammar", {
+      latency, 
+      errorCount: errors.length,
+      isChunkedRequest,
+      chunkId: isChunkedRequest ? chunkMetadata.chunkId : null,
+      cacheKey: cacheKey.substring(0, 50) + '...' // Truncated for logging
+    });
+    
+    // Add simple performance tracing
+    if (latency > 3000) {
+      logger.warn("Slow grammar check detected", {
+        latency,
+        textLength: text.length,
+        isChunkedRequest,
+        chunkId: isChunkedRequest ? chunkMetadata.chunkId : null
+      });
+    }
+    
     return result;
 
   } catch (error) {
-    logger.error("Error in checkGrammar function", {error: error.message, documentId});
+    logger.error("Error in checkGrammar function", {
+      error: error.message, 
+      documentId,
+      isChunkedRequest,
+      chunkId: isChunkedRequest ? chunkMetadata.chunkId : null
+    });
     throw new HttpsError("internal", "An unexpected error occurred while checking grammar.");
   }
 });

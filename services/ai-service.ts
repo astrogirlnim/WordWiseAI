@@ -2,12 +2,23 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../lib/firebase';
 import type { GrammarError } from '@/types/grammar';
 import type { WritingGoals } from '@/types/writing-goals';
+import type { TextChunk } from '@/utils/text-chunker';
 
 const functions = getFunctions(app, 'us-central1');
 
 interface GrammarCheckResult {
   errors: GrammarError[];
   latency: number;
+}
+
+/**
+ * Result from chunk-based grammar checking
+ */
+interface ChunkGrammarCheckResult {
+  errors: GrammarError[];
+  latency: number;
+  chunkId: string;
+  chunkIndex: number;
 }
 
 export class AIService {
@@ -58,6 +69,52 @@ export class AIService {
     } catch (error) {
       console.error("Error calling checkGrammar function: ", error);
       throw new Error("Failed to check grammar.");
+    }
+  }
+
+  /**
+   * Checks grammar for a specific text chunk with metadata
+   * Used for chunked processing of large documents
+   */
+  static async checkGrammarChunk(documentId: string, chunk: TextChunk): Promise<GrammarError[]> {
+    console.log(`[AIService] Checking grammar for chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} of document ${documentId}, text length: ${chunk.text.length}`);
+    
+    const checkGrammarCallable = httpsCallable<
+      { 
+        documentId: string; 
+        text: string;
+        chunkMetadata: {
+          chunkId: string;
+          chunkIndex: number;
+          totalChunks: number;
+          originalStart: number;
+          originalEnd: number;
+        }
+      }, 
+      ChunkGrammarCheckResult
+    >(functions, 'checkGrammar');
+
+    try {
+      console.log(`[AIService] Calling Firebase Function checkGrammar for chunk ${chunk.chunkId}`);
+      const result = await checkGrammarCallable({ 
+        documentId, 
+        text: chunk.text,
+        chunkMetadata: {
+          chunkId: chunk.chunkId,
+          chunkIndex: chunk.chunkIndex,
+          totalChunks: chunk.totalChunks,
+          originalStart: chunk.originalStart,
+          originalEnd: chunk.originalEnd
+        }
+      });
+      const grammarResult = result.data;
+      
+      console.log(`[AIService] Received ${grammarResult.errors.length} grammar errors from chunk ${chunk.chunkId} in ${grammarResult.latency}ms.`);
+      return grammarResult.errors;
+
+    } catch (error) {
+      console.error(`Error calling checkGrammar function for chunk ${chunk.chunkId}: `, error);
+      throw new Error(`Failed to check grammar for chunk ${chunk.chunkId}.`);
     }
   }
 
