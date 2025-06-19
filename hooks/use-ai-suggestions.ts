@@ -312,16 +312,23 @@ export function useAISuggestions({
     }))
   
   // Wrapper functions to match expected signatures
-  const applySuggestionWrapper = useCallback((suggestionId: string, type: 'style' | 'funnel') => {
+  const applySuggestionWrapper = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
     const suggestion = suggestions.find(s => s.id === suggestionId)
     if (suggestion) {
-      applySuggestion(suggestion)
+      await applySuggestion(suggestion)
     }
   }, [suggestions, applySuggestion])
 
-  const dismissSuggestionWrapper = useCallback((suggestionId: string, type: 'style' | 'funnel') => {
-    dismissSuggestion(suggestionId)
-  }, [dismissSuggestion])
+  const dismissSuggestionWrapper = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
+    const suggestion = suggestions.find(s => s.id === suggestionId)
+    if (suggestion) {
+      // Pass the type so SuggestionService can use the correct collection
+      await SuggestionService.dismissSuggestion(suggestion.documentId, suggestionId, suggestion.type)
+    } else {
+      // fallback for legacy
+      await dismissSuggestion(suggestionId)
+    }
+  }, [suggestions, dismissSuggestion])
 
   const suggestionCount = suggestions.length
   const totalSuggestionsCount = suggestions.length

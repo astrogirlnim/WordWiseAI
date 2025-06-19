@@ -555,7 +555,7 @@ export function DocumentEditor({
   }, [fullPlainText])
 
   // Handle paste event to trigger grammar check and save
-  const handlePaste = useCallback((_event: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
     console.log('[DocumentEditor] handlePaste: Paste event detected')
     console.log('[DocumentEditor] handlePaste: Current document state - fullContentHtml length:', fullContentHtml.length)
     console.log('[DocumentEditor] handlePaste: Current page offset:', pageOffset, 'Page content length:', pageContent.length)
@@ -640,8 +640,6 @@ export function DocumentEditor({
     }
   }, [aiSuggestionHandlers])
 
-  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
-
   // **MARKDOWN PREVIEW FUNCTIONALITY**
   // Get plain text content from editor for markdown preview
   const [editorPlainText, setEditorPlainText] = useState('')
@@ -658,7 +656,6 @@ export function DocumentEditor({
   console.log('[DocumentEditor] Initializing markdown preview with plain text length:', editorPlainText.length)
   const {
     isPreviewOpen,
-    setIsPreviewOpen,
     previewContent,
     isMarkdownDetected,
     togglePreview,
