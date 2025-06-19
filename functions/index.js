@@ -731,3 +731,79 @@ Never use hyphens in your suggestions. Use em dashes (—) or other punctuation 
     throw new HttpsError("internal", "Failed to generate funnel suggestions.");
   }
 });
+
+exports.acceptInvite = onCall(async (request) => {
+  const { token } = request.data;
+  const userId = request.auth?.uid;
+  const userEmail = request.auth?.token.email;
+
+  if (!userId || !userEmail) {
+    throw new HttpsError("unauthenticated", "You must be logged in to accept an invitation.");
+  }
+  if (!token) {
+    throw new HttpsError("invalid-argument", "An invitation token must be provided.");
+  }
+
+  logger.log(`Accepting invitation for user ${userEmail} with token ${token}`);
+
+  const db = admin.firestore();
+  const invitationsRef = db.collection("invitations");
+  const q = invitationsRef.where("token", "==", token).limit(1);
+  
+  const snapshot = await q.get();
+
+  if (snapshot.empty) {
+    logger.error(`No invitation found for token: ${token}`);
+    throw new HttpsError("not-found", "This invitation is invalid or has expired.");
+  }
+
+  const invitationDoc = snapshot.docs[0];
+  const invitation = invitationDoc.data();
+
+  if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
+    logger.warn(`User ${userEmail} tried to accept an invitation for ${invitation.email}`);
+    throw new HttpsError("permission-denied", "This invitation is not for you.");
+  }
+
+  if (invitation.status !== "pending") {
+    logger.warn(`Invitation ${invitationDoc.id} has already been accepted.`);
+    throw new HttpsError("already-exists", "This invitation has already been used.");
+  }
+
+  const documentRef = db.collection("documents").doc(invitation.documentId);
+  const documentSnap = await documentRef.get();
+  if(!documentSnap.exists){
+    logger.error(`Document ${invitation.documentId} not found for invitation ${invitationDoc.id}`);
+    throw new HttpsError("not-found", "The document associated with this invitation no longer exists.");
+  }
+
+  const documentOwner = documentSnap.data().ownerId;
+
+  const newAccess = {
+    userId: userId,
+    email: userEmail,
+    role: invitation.role,
+    addedAt: admin.firestore.FieldValue.serverTimestamp(),
+    addedBy: invitation.invitedBy,
+  };
+
+  const batch = db.batch();
+
+  // Add user to the document's access list
+  batch.update(documentRef, {
+    sharedWith: admin.firestore.FieldValue.arrayUnion(newAccess),
+    sharedWithIds: admin.firestore.FieldValue.arrayUnion(userId),
+  });
+
+  // Mark the invitation as accepted
+  batch.update(invitationDoc.ref, {
+    status: "accepted",
+    acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  await batch.commit();
+
+  logger.log(`User ${userEmail} successfully accepted invitation to document ${invitation.documentId}`);
+
+  return { success: true, documentId: invitation.documentId };
+});
