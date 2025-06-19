@@ -58,10 +58,11 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - UI must show active collaborators (avatars/names/colors)
 
 ### Steps
-- [ ] Subscribe to presence updates for the active document
-- [ ] Add UI to display active users in the editor (e.g., avatar group)
-- [ ] Show user color/name in cursor or sidebar
-- [ ] Ensure presence is updated on join/leave
+- [x] Subscribe to presence updates for the active document
+- [x] Add UI to display active users in the editor (e.g., avatar group)
+- [x] Show user color/name in cursor or sidebar
+- [x] Ensure presence is updated on join/leave
+- [x] Enhanced version tracking with user information
 
 ---
 
@@ -127,7 +128,11 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - [ ] Suggestion generation triggers on creation/goals change
 
 ### Phase 2: Real-Time Collaboration & Presence
-- [ ] Presence UI shows active collaborators
+- [x] Presence UI shows active collaborators
+- [x] User colors and avatar generation
+- [x] Real-time presence subscription
+- [x] Join/leave session management
+- [x] Enhanced version history with user tracking
 
 ### Phase 3: Team Review & Commenting
 - [ ] Commenting UI for feedback and discussion

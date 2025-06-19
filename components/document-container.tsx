@@ -18,6 +18,8 @@ import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AuditService, AuditEvent } from '@/services/audit-service'
+import { CollaborationService } from '@/services/collaboration-service'
+import { CollaborationPresence } from './collaboration-presence'
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
@@ -62,6 +64,55 @@ export function DocumentContainer() {
       setActiveDocumentId(documents[0].id)
     }
   }, [documents, activeDocumentId])
+
+  // Join collaboration session when active document changes
+  useEffect(() => {
+    if (!activeDocumentId || !user?.uid) {
+      console.log('[DocumentContainer] No active document or user, skipping collaboration join')
+      return
+    }
+
+    console.log('[DocumentContainer] Joining collaboration session for document:', activeDocumentId)
+
+    const joinSession = async () => {
+      try {
+        // Generate user color and prepare user data for collaboration
+        const collaborationUser = {
+          id: user.uid,
+          name: user.displayName || user.email || 'Unknown User',
+          email: user.email || '',
+          color: '#3B82F6', // Will be generated consistently in the service
+        }
+
+        console.log('[DocumentContainer] Joining with user data:', collaborationUser)
+        await CollaborationService.joinDocumentSession(activeDocumentId, collaborationUser)
+        
+        console.log('[DocumentContainer] Successfully joined collaboration session')
+      } catch (error) {
+        console.error('[DocumentContainer] Failed to join collaboration session:', error)
+        // Don't show error to user unless it's a critical permission issue
+        if (error instanceof Error && error.message.includes('Access denied')) {
+          toast({
+            title: 'Access Denied',
+            description: 'You do not have permission to collaborate on this document.',
+            variant: 'destructive',
+          })
+        }
+      }
+    }
+
+    joinSession()
+
+    // Cleanup function to leave session when document changes or component unmounts
+    return () => {
+      if (user?.uid) {
+        console.log('[DocumentContainer] Leaving collaboration session for document:', activeDocumentId)
+        CollaborationService.leaveDocumentSession(activeDocumentId, user.uid).catch((error) => {
+          console.error('[DocumentContainer] Error leaving collaboration session:', error)
+        })
+      }
+    }
+  }, [activeDocumentId, user, toast])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -410,6 +461,30 @@ export function DocumentContainer() {
           onVersionHistoryClick={handleToggleVersionHistory}
           onDeleteDocument={handleDeleteDocument}
         />
+      )}
+
+      {/* Collaboration Presence Bar */}
+      {!isDistractionFree && activeDocumentId && (
+        <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm px-8 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-muted-foreground">
+                Collaborators:
+              </span>
+              <CollaborationPresence
+                documentId={activeDocumentId}
+                currentUserId={user?.uid || null}
+                maxVisibleUsers={5}
+                showUserList={true}
+              />
+            </div>
+            
+            {/* Optional: Show document sharing status */}
+            <div className="text-xs text-muted-foreground">
+              {activeDocument?.isPublic ? 'Public Document' : 'Private Document'}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Main Content Area */}
