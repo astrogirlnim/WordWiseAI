@@ -58,7 +58,7 @@ export function NavigationBar({
 
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
-    console.log(`User action: ${action}`)
+    console.log(`[NavigationBar] User action: ${action}`)
 
     if (action === 'settings') {
       router.push('/settings')
@@ -66,21 +66,28 @@ export function NavigationBar({
   }
 
   const handleSignOut = async () => {
+    console.log('[NavigationBar] User signing out')
     await logout()
     router.push('/sign-in')
   }
 
   return (
-    <div className="relative z-50 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="relative z-50 flex h-16 items-center justify-between border-b border-retro-accent/20 bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       {/* Left Section */}
-      <div className="flex items-center gap-4">
-        {/* Logo/Brand */}
-        <Link href="/" className="flex items-center gap-2">
-          <PenTool className="h-5 w-5 text-primary" />
-          <span className="text-lg font-semibold">WordWise AI</span>
+      <div className="flex items-center gap-6">
+        {/* Logo/Brand with retro tech styling */}
+        <Link 
+          href="/" 
+          className="group flex items-center gap-3 transition-all duration-300 hover:text-retro-accent"
+        >
+          <PenTool className="h-6 w-6 text-retro-accent transition-all duration-300 group-hover:text-glow-soft" />
+          <div className="flex flex-col">
+            <span className="text-xl font-bold font-terminal tracking-tight">WordWise</span>
+            <span className="text-xs text-muted-foreground font-terminal uppercase tracking-widest">AI Assistant</span>
+          </div>
         </Link>
 
-        <Separator orientation="vertical" className="hidden h-4 lg:block" />
+        <Separator orientation="vertical" className="hidden h-6 bg-retro-accent/30 lg:block" />
 
         {/* Document List */}
         <div className="hidden lg:block">
@@ -93,7 +100,7 @@ export function NavigationBar({
           />
         </div>
 
-        <Separator orientation="vertical" className="hidden h-4 lg:block" />
+        <Separator orientation="vertical" className="hidden h-6 bg-retro-accent/30 lg:block" />
 
         {/* Writing Goals */}
         {displayMode === 'editor' && (
@@ -107,7 +114,7 @@ export function NavigationBar({
       </div>
 
       {/* Right Section */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {/* Mobile Document List */}
         <div className="lg:hidden">
           <EnhancedDocumentList
@@ -129,7 +136,7 @@ export function NavigationBar({
           </div>
         )}
 
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-6 bg-retro-accent/30" />}
 
         {/* AI Sidebar Toggle */}
         {displayMode === 'editor' && (
@@ -140,12 +147,16 @@ export function NavigationBar({
           />
         )}
 
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-6 bg-retro-accent/30" />}
 
-        {/* Theme Toggle */}
-        {displayMode === 'editor' && <ThemeToggle />}
+        {/* Theme Toggle with enhanced styling */}
+        {displayMode === 'editor' && (
+          <div className="relative">
+            <ThemeToggle />
+          </div>
+        )}
 
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-6 bg-retro-accent/30" />}
 
         {/* Distraction Free Toggle */}
         {displayMode === 'editor' && (
@@ -155,13 +166,13 @@ export function NavigationBar({
           />
         )}
 
-        {displayMode === 'editor' && <Separator orientation="vertical" className="h-4" />}
+        {displayMode === 'editor' && <Separator orientation="vertical" className="h-6 bg-retro-accent/30" />}
         
         {displayMode === 'editor' && (
           <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
         )}
 
-        <Separator orientation="vertical" className="h-4" />
+        <Separator orientation="vertical" className="h-6 bg-retro-accent/30" />
 
         {/* User Menu */}
         <UserMenu
@@ -170,6 +181,9 @@ export function NavigationBar({
           onSignOut={handleSignOut}
         />
       </div>
+      
+      {/* Subtle retro tech glow line at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-retro-accent/50 to-transparent"></div>
     </div>
   )
 }

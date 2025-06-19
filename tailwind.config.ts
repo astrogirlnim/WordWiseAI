@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import tailwindcssAnimate from 'tailwindcss-animate'
 
 const config: Config = {
   darkMode: ['class'],
@@ -61,6 +62,17 @@ const config: Config = {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        // Professional Retro Tech Colors
+        'retro-accent': 'hsl(var(--retro-accent))',
+        'retro-amber': 'hsl(var(--retro-amber))',
+        'retro-green': 'hsl(var(--retro-green))',
+        'retro-blue': 'hsl(var(--retro-blue))',
+        'retro-purple': 'hsl(var(--retro-purple))',
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace'],
+        terminal: ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace'],
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -84,13 +96,79 @@ const config: Config = {
             height: '0',
           },
         },
+        'retro-pulse': {
+          '0%, 100%': {
+            textShadow: '0 0 5px currentColor',
+          },
+          '50%': {
+            textShadow: '0 0 10px currentColor, 0 0 15px currentColor',
+          },
+        },
+        'retro-glow': {
+          '0%': {
+            boxShadow: '0 0 5px hsl(var(--retro-accent))',
+          },
+          '50%': {
+            boxShadow: '0 0 10px hsl(var(--retro-accent)), 0 0 15px hsl(var(--retro-accent))',
+          },
+          '100%': {
+            boxShadow: '0 0 5px hsl(var(--retro-accent))',
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'retro-pulse': 'retro-pulse 2s ease-in-out infinite',
+        'retro-glow': 'retro-glow 2s ease-in-out infinite',
+      },
+      textShadow: {
+        'retro-glow': '0 0 10px currentColor',
+        'retro-glow-soft': '0 0 5px currentColor',
+      },
+      boxShadow: {
+        'retro-border': '0 0 8px hsl(var(--retro-accent))',
+        'retro-card': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px hsl(var(--border))',
+        'retro-glow-sm': '0 0 10px hsl(var(--retro-accent))',
+        'retro-glow-md': '0 0 15px hsl(var(--retro-accent))',
+        'retro-glow-lg': '0 0 20px hsl(var(--retro-accent))',
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    tailwindcssAnimate,
+    // Add custom plugin for retro tech utilities
+    function({ addUtilities }: { addUtilities: any }) {
+      const newUtilities = {
+        '.text-glow': {
+          textShadow: '0 0 10px currentColor',
+        },
+        '.text-glow-soft': {
+          textShadow: '0 0 5px currentColor',
+        },
+        '.border-glow': {
+          boxShadow: '0 0 8px hsl(var(--retro-accent))',
+        },
+        '.retro-card': {
+          background: 'hsl(var(--card))',
+          border: '1px solid hsl(var(--border))',
+          borderRadius: 'calc(var(--radius) - 2px)',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px hsl(var(--border))',
+        },
+        '.retro-button': {
+          background: 'hsl(var(--primary))',
+          color: 'hsl(var(--primary-foreground))',
+          border: '1px solid hsl(var(--retro-accent))',
+          borderRadius: 'calc(var(--radius) - 2px)',
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            boxShadow: '0 0 10px hsl(var(--retro-accent))',
+            borderColor: 'hsl(var(--retro-accent))',
+          },
+        },
+      }
+      addUtilities(newUtilities)
+    }
+  ],
 }
 export default config
