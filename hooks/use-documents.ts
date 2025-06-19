@@ -127,12 +127,13 @@ export function useDocuments() {
           console.log('[updateDocument] Current content preview:', JSON.stringify(currentContentTrimmed.substring(0, 50)))
           console.log('[updateDocument] New content preview:', JSON.stringify(newContent.substring(0, 50)))
           
-          // Only create version if content actually changed and we have meaningful previous content
+          // Enhanced version creation logic to handle fresh documents
           const hasContentChanged = newContent !== currentContentTrimmed
           const hasPreviousContent = currentContentTrimmed.length > 0
           const hasNewContent = newContent.length > 0
+          const isFreshDocument = currentContentTrimmed.length === 0 && hasNewContent
           
-          console.log('[updateDocument] Version creation criteria - Changed:', hasContentChanged, 'Has previous:', hasPreviousContent, 'Has new:', hasNewContent)
+          console.log('[updateDocument] Version creation criteria - Changed:', hasContentChanged, 'Has previous:', hasPreviousContent, 'Has new:', hasNewContent, 'Is fresh:', isFreshDocument)
           
           // DEBUG: Log content comparison and versioning criteria
           console.log('[updateDocument] --- Versioning Debug ---')
@@ -141,29 +142,36 @@ export function useDocuments() {
           console.log('[updateDocument] hasContentChanged:', hasContentChanged)
           console.log('[updateDocument] hasPreviousContent:', hasPreviousContent)
           console.log('[updateDocument] hasNewContent:', hasNewContent)
+          console.log('[updateDocument] isFreshDocument:', isFreshDocument)
           console.log('[updateDocument] --- End Debug ---')
           
-          if (hasContentChanged && hasPreviousContent && hasNewContent) {
-            console.log('[updateDocument] Creating version with PREVIOUS content before document update')
+          // Create version in two scenarios:
+          // 1. Normal case: content changed and there's previous content to preserve
+          // 2. Fresh document case: create baseline empty version when first content is added
+          if (hasContentChanged && (hasPreviousContent || isFreshDocument) && hasNewContent) {
+            const versionContent = hasPreviousContent ? currentContentTrimmed : '' // For fresh docs, version the empty state
+            const versionDescription = isFreshDocument ? 'Initial empty state (baseline version)' : 'Previous content before update'
+            
+            console.log(`[updateDocument] Creating version: ${versionDescription}`)
+            console.log(`[updateDocument] Version content length: ${versionContent.length}`)
+            
             try {
-              // Add this log:
-              console.log('[updateDocument] Calling VersionService.createVersion with content length:', currentContentTrimmed.length, 'Document ID:', documentId)
-              const versionId = await VersionService.createVersion(documentId, currentContentTrimmed, {
+              const versionId = await VersionService.createVersion(documentId, versionContent, {
                 id: user.uid,
                 name: user.displayName || 'Unknown User',
               })
               console.log('[updateDocument] Version created successfully with ID:', versionId)
-              console.log('[updateDocument] Version contains previous content of length:', currentContentTrimmed.length)
+              console.log(`[updateDocument] Version type: ${isFreshDocument ? 'baseline (empty)' : 'previous content'}`)
             } catch (versionError) {
-              console.error('[updateDocument] Failed to create version with previous content:', versionError)
+              console.error('[updateDocument] Failed to create version:', versionError)
               // Don't block the document update if version creation fails
             }
           } else if (!hasContentChanged) {
             console.log('[updateDocument] Content unchanged, skipping version creation')
-          } else if (!hasPreviousContent) {
-            console.log('[updateDocument] No previous content to version (likely new document), skipping version creation')
           } else if (!hasNewContent) {
             console.log('[updateDocument] New content is empty, skipping version creation')
+          } else {
+            console.log('[updateDocument] Conditions not met for version creation')
           }
         }
 
