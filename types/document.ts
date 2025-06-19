@@ -2,6 +2,15 @@ import { FieldValue, Timestamp } from 'firebase/firestore'
 
 export type FirestoreTimestamp = Timestamp | FieldValue | number
 
+// Access control types
+export interface DocumentAccess {
+  userId: string
+  email: string
+  role: 'owner' | 'editor' | 'commenter' | 'viewer'
+  addedAt: FirestoreTimestamp
+  addedBy: string
+}
+
 export interface Document {
   id: string
   title: string
@@ -10,6 +19,28 @@ export interface Document {
   orgId: string
   goalId?: string
   status: 'draft' | 'review' | 'final' | 'archived'
+  // Access control list
+  sharedWith: DocumentAccess[]
+  // Sharing settings
+  isPublic: boolean
+  publicViewMode: 'view' | 'comment' | 'disabled'
+  shareableLink?: string
+  // Collaboration metadata
+  lastEditedBy?: string
+  lastEditedAt?: FirestoreTimestamp
+  // Workflow
+  workflowState: {
+    currentStatus: 'draft' | 'review' | 'final' | 'archived'
+    submittedForReview?: boolean
+    submittedAt?: FirestoreTimestamp
+    submittedBy?: string
+    reviewedBy?: string[]
+    approvedBy?: string
+    approvedAt?: FirestoreTimestamp
+    rejectedBy?: string
+    rejectedAt?: FirestoreTimestamp
+    rejectionReason?: string
+  }
   analysisSummary: {
     overallScore: number
     brandAlignmentScore: number

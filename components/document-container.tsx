@@ -454,7 +454,12 @@ export function DocumentContainer() {
 
         {/* AI Sidebar */}
         {isAISidebarOpen && !isDistractionFree && (
-          <AISidebar isOpen={isAISidebarOpen} />
+          <AISidebar 
+            isOpen={isAISidebarOpen} 
+            documentId={activeDocumentId}
+            writingGoals={writingGoals}
+            currentContent={activeDocument?.content}
+          />
         )}
       </main>
 

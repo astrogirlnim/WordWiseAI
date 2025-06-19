@@ -570,3 +570,165 @@ exports.analyzeTone = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
 //     logger.error("Error processing glossary file:", error);
 //   }
 // });
+
+exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
+  const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
+  if (!openai) {
+    logger.error("OpenAI client not initialized for generateFunnelSuggestions. Check API key configuration.");
+    throw new HttpsError("internal", "Server configuration error.");
+  }
+  
+  logger.log("generateFunnelSuggestions called", {uid: request.auth?.uid});
+  const userId = request.auth?.uid;
+  if (!userId) {
+    logger.error("User not authenticated for generateFunnelSuggestions");
+    throw new HttpsError("unauthenticated", "You must be logged in to use this feature.");
+  }
+
+  // Apply rate limiting
+  const now = Date.now();
+  const userEntry = userCalls.get(userId) || {count: 0, startTime: now};
+
+  if (now - userEntry.startTime > rateLimit.timeframe) {
+    userEntry.startTime = now;
+    userEntry.count = 0;
+  }
+
+  userEntry.count++;
+  userCalls.set(userId, userEntry);
+
+  if (userEntry.count > rateLimit.maxCalls) {
+    logger.warn("Rate limit exceeded for generateFunnelSuggestions", {userId, count: userEntry.count});
+    throw new HttpsError(
+      "resource-exhausted",
+      "Rate limit exceeded. Please try again later."
+    );
+  }
+
+  const {documentId, goals, currentDraft} = request.data;
+  if (!documentId || !goals) {
+    logger.error("Invalid arguments for generateFunnelSuggestions", {documentId, goals});
+    throw new HttpsError(
+      "invalid-argument",
+      "The function must be called with 'documentId' and 'goals'."
+    );
+  }
+
+  // Build comprehensive prompt for funnel copy suggestions
+  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your task is to analyze the user's writing goals and current draft, then provide 4 specific types of funnel copy suggestions.
+
+You MUST return a valid JSON object with the exact structure below. Never use hyphens in any text fields.
+
+Required JSON structure:
+{
+  "suggestions": [
+    {
+      "type": "headline",
+      "title": "Compelling Headline",
+      "description": "Brief explanation of why this headline works",
+      "suggestedText": "Your headline text here",
+      "confidence": 85
+    },
+    {
+      "type": "subheadline", 
+      "title": "Supporting Subheadline",
+      "description": "How this supports the main headline",
+      "suggestedText": "Your subheadline text here",
+      "confidence": 80
+    },
+    {
+      "type": "cta",
+      "title": "Call to Action",
+      "description": "Why this CTA drives conversions",
+      "suggestedText": "Your CTA text here",
+      "confidence": 90
+    },
+    {
+      "type": "outline",
+      "title": "Content Structure",
+      "description": "Strategic outline for funnel flow",
+      "suggestedText": "Detailed outline structure here",
+      "confidence": 75
+    }
+  ],
+  "generatedAt": ${Date.now()},
+  "basedOnGoals": true
+}
+
+Writing Goals Context:
+- Target Audience: ${goals.audience}
+- Formality Level: ${goals.formality}
+- Marketing Domain: ${goals.domain}
+- Primary Intent: ${goals.intent}
+
+Focus on:
+1. Headlines that grab attention and match the audience
+2. Subheadlines that clarify value proposition
+3. CTAs that drive the intended action
+4. Outlines that structure content for maximum impact
+
+Never use hyphens in your suggestions. Use em dashes (—) or other punctuation where appropriate.`;
+
+  if (currentDraft && currentDraft.trim()) {
+    systemPrompt += `\n\nCurrent Draft Context:\n${currentDraft.substring(0, 1000)}${currentDraft.length > 1000 ? '...' : ''}`;
+  }
+
+  try {
+    logger.log("Calling OpenAI API for funnel suggestions", {
+      userId, 
+      documentId, 
+      goals,
+      draftLength: currentDraft ? currentDraft.length : 0
+    });
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {role: "system", content: systemPrompt},
+        {role: "user", content: `Generate funnel copy suggestions for a ${goals.domain} piece targeting ${goals.audience} with ${goals.formality} tone to ${goals.intent}.`}
+      ],
+      response_format: {type: "json_object"},
+    });
+
+    const responseContent = completion.choices[0].message.content;
+    logger.log("OpenAI funnel suggestions generated", {userId, documentId, responseContent});
+
+    const parsedResponse = JSON.parse(responseContent);
+    const suggestions = parsedResponse.suggestions || [];
+
+    // Enhance suggestions with additional metadata
+    const enhancedSuggestions = suggestions.map((suggestion, index) => ({
+      ...suggestion,
+      id: `funnel_${documentId}_${Date.now()}_${index}`,
+      documentId,
+      userId,
+      status: "pending",
+      createdAt: Date.now(),
+      targetAudience: goals.audience,
+      intent: goals.intent,
+      domain: goals.domain
+    }));
+
+    // Store suggestions in Firestore
+    const batch = admin.firestore().batch();
+    const suggestionsCollection = admin.firestore().collection(`documents/${documentId}/funnelSuggestions`);
+
+    enhancedSuggestions.forEach((suggestion) => {
+      const suggestionRef = suggestionsCollection.doc(suggestion.id);
+      batch.set(suggestionRef, suggestion);
+    });
+
+    await batch.commit();
+    logger.log(`Stored ${enhancedSuggestions.length} funnel suggestions in Firestore`, {userId, documentId});
+
+    return {
+      suggestions: enhancedSuggestions,
+      generatedAt: Date.now(),
+      basedOnGoals: true
+    };
+
+  } catch (error) {
+    logger.error("Error in generateFunnelSuggestions function:", error, {userId, documentId});
+    throw new HttpsError("internal", "Failed to generate funnel suggestions.");
+  }
+});

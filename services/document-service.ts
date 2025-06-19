@@ -41,6 +41,14 @@ export class DocumentService {
         ownerId,
         orgId: '', // Default empty for MVP
         status: 'draft',
+        sharedWith: [],
+        isPublic: false,
+        publicViewMode: 'view',
+        workflowState: {
+          currentStatus: 'draft',
+          submittedForReview: false,
+          reviewedBy: [],
+        },
         analysisSummary: {
           overallScore: 0,
           brandAlignmentScore: 0,
