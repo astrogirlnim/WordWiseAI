@@ -1,15 +1,9 @@
-import { getFunctions, httpsCallable, type Functions } from 'firebase/functions';
-import app, { auth } from '../lib/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from '../lib/firebase';
 import type { GrammarError } from '@/types/grammar';
-import type { AISuggestion } from '@/types/ai-features';
 import type { WritingGoals } from '@/types/writing-goals';
 
 const functions = getFunctions(app, 'us-central1');
-
-interface GrammarCheckPayload {
-  documentId: string;
-  text: string;
-}
 
 interface GrammarCheckResult {
   errors: GrammarError[];
