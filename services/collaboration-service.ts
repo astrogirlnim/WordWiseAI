@@ -9,7 +9,7 @@ const auth = getAuth(app);
 
 export class CollaborationService {
   /**
-   * Join a document collaboration session with ownership verification
+   * Join a document collaboration session with access verification (ownership or shared access)
    * @param docId - Document ID to join
    * @param user - User information for presence tracking
    */
@@ -17,7 +17,7 @@ export class CollaborationService {
     console.log('[CollaborationService] Attempting to join document session:', docId, 'as user:', user.id);
     
     try {
-      // First, verify the user owns this document by checking Firestore
+      // First, verify the user has access to this document by checking Firestore
       const firestoreDocRef = doc(firestore, 'documents', docId);
       const firestoreDocSnap = await getDoc(firestoreDocRef);
       
@@ -27,22 +27,44 @@ export class CollaborationService {
       }
       
       const documentData = firestoreDocSnap.data();
-      if (documentData.ownerId !== user.id) {
-        console.error('[CollaborationService] User', user.id, 'does not own document', docId, 'Owner is:', documentData.ownerId);
-        throw new Error('Access denied: You do not own this document');
+      console.log('[CollaborationService] Document data:', {
+        ownerId: documentData.ownerId,
+        sharedWithIds: documentData.sharedWithIds || [],
+        isPublic: documentData.isPublic,
+        publicViewMode: documentData.publicViewMode
+      });
+      
+      // Check if user has access (owner, shared user, or public document)
+      const isOwner = documentData.ownerId === user.id;
+      const isSharedUser = documentData.sharedWithIds && documentData.sharedWithIds.includes(user.id);
+      const isPublicDocument = documentData.isPublic && documentData.publicViewMode !== 'disabled';
+      
+      if (!isOwner && !isSharedUser && !isPublicDocument) {
+        console.error('[CollaborationService] User', user.id, 'does not have access to document', docId);
+        console.error('[CollaborationService] Access check failed:', { isOwner, isSharedUser, isPublicDocument });
+        throw new Error('Access denied: You do not have permission to access this document');
       }
       
-      console.log('[CollaborationService] Document ownership verified for user:', user.id);
+      console.log('[CollaborationService] Document access verified for user:', user.id, 'Access type:', { isOwner, isSharedUser, isPublicDocument });
+      
+      // Prepare shared user IDs object for database rules
+      const sharedUserIds: Record<string, boolean> = {};
+      if (documentData.sharedWithIds) {
+        documentData.sharedWithIds.forEach((userId: string) => {
+          sharedUserIds[userId] = true;
+        });
+      }
       
       // Set document metadata in Realtime Database for security rules
       const metadataRef = ref(db, `/documents/${docId}/metadata`);
       await set(metadataRef, {
-        ownerId: user.id,
+        ownerId: documentData.ownerId,
         title: documentData.title || 'Untitled Document',
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        sharedUserIds: sharedUserIds // This allows database rules to check shared access
       });
       
-      console.log('[CollaborationService] Document metadata set in Realtime Database');
+      console.log('[CollaborationService] Document metadata set in Realtime Database with shared users:', Object.keys(sharedUserIds));
       
       // Now set up presence tracking
       const userStatusDatabaseRef = ref(db, `/documents/${docId}/presence/${user.id}`);
@@ -118,6 +140,10 @@ export class CollaborationService {
       const presenceData = snapshot.val() || {};
       console.log('[CollaborationService] Presence update for document', docId, ':', Object.keys(presenceData));
       callback(presenceData);
+    }, (error) => {
+      console.error('[CollaborationService] Error subscribing to presence:', error);
+      // Call callback with empty data on error to prevent UI issues
+      callback({});
     });
     
     return unsubscribe;

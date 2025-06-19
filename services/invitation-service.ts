@@ -25,6 +25,15 @@ export interface CreateInvitationsResult {
   alreadyMember: string[]
 }
 
+/**
+ * Normalizes an email address for consistent comparison
+ * @param email - The email to normalize
+ * @returns Normalized email (lowercase, trimmed)
+ */
+function normalizeEmail(email: string): string {
+  return email.toLowerCase().trim();
+}
+
 export class InvitationService {
   /**
    * Creates one or more invitations for a document and returns the generated links.
@@ -40,6 +49,13 @@ export class InvitationService {
     role: 'editor' | 'commenter' | 'viewer',
     invitedBy: string
   ): Promise<CreateInvitationsResult> {
+    console.log('[InvitationService.createInvitations] Starting invitation creation', {
+      documentId,
+      emails,
+      role,
+      invitedBy
+    });
+
     const result: CreateInvitationsResult = {
       newlyInvited: [],
       alreadyInvited: [],
@@ -51,16 +67,31 @@ export class InvitationService {
     const documentSnap = await getDoc(documentRef);
 
     if (!documentSnap.exists()) {
+      console.error('[InvitationService.createInvitations] Document not found:', documentId);
       throw new Error("Document not found.");
     }
 
     const documentData = documentSnap.data() as Document;
+    console.log('[InvitationService.createInvitations] Document data loaded', {
+      documentId,
+      title: documentData.title,
+      sharedWithCount: documentData.sharedWith?.length || 0
+    });
 
     for (const email of emails) {
-      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedEmail = normalizeEmail(email);
+      console.log('[InvitationService.createInvitations] Processing email', {
+        originalEmail: email,
+        normalizedEmail
+      });
 
       // Check if user is already a member
-      if (documentData.sharedWith.some(member => member.email.toLowerCase() === normalizedEmail)) {
+      const isAlreadyMember = documentData.sharedWith?.some(
+        member => normalizeEmail(member.email) === normalizedEmail
+      );
+
+      if (isAlreadyMember) {
+        console.log('[InvitationService.createInvitations] User already a member:', normalizedEmail);
         result.alreadyMember.push(email);
         continue;
       }
@@ -75,6 +106,7 @@ export class InvitationService {
       const existingInvites = await getDocs(q);
 
       if (!existingInvites.empty) {
+        console.log('[InvitationService.createInvitations] Pending invitation already exists:', normalizedEmail);
         result.alreadyInvited.push(email);
         continue; // Skip creating a new invitation
       }
@@ -83,7 +115,7 @@ export class InvitationService {
       const token = uuidv4();
       const invitationData: Omit<Invitation, 'id'> = {
         documentId,
-        email: normalizedEmail,
+        email: normalizedEmail, // Store normalized email
         role,
         status: 'pending',
         token,
@@ -91,11 +123,28 @@ export class InvitationService {
         invitedBy,
       };
 
+      console.log('[InvitationService.createInvitations] Creating invitation', {
+        email: normalizedEmail,
+        role,
+        token
+      });
+
       await addDoc(invitationsCollection, invitationData);
       
       const invitationLink = `${window.location.origin}/doc/${documentId}?inviteToken=${token}`;
       result.newlyInvited.push({ email, link: invitationLink });
+      
+      console.log('[InvitationService.createInvitations] Invitation created successfully', {
+        email: normalizedEmail,
+        link: invitationLink
+      });
     }
+
+    console.log('[InvitationService.createInvitations] Invitation creation completed', {
+      newlyInvited: result.newlyInvited.length,
+      alreadyInvited: result.alreadyInvited.length,
+      alreadyMember: result.alreadyMember.length
+    });
 
     return result;
   }
@@ -106,6 +155,8 @@ export class InvitationService {
    * @returns A promise that resolves with an array of pending Invitation objects.
    */
   static async getPendingInvitations(documentId: string): Promise<Invitation[]> {
+    console.log('[InvitationService.getPendingInvitations] Fetching pending invitations for document:', documentId);
+    
     const invitationsCollection = collection(firestore, 'invitations');
     const q = query(
       invitationsCollection,
@@ -113,7 +164,10 @@ export class InvitationService {
       where('status', '==', 'pending')
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invitation));
+    const invitations = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invitation));
+    
+    console.log('[InvitationService.getPendingInvitations] Found invitations:', invitations.length);
+    return invitations;
   }
 
   /**
@@ -121,7 +175,11 @@ export class InvitationService {
    * @param invitationId The ID of the invitation to delete.
    */
   static async revokeInvitation(invitationId: string): Promise<void> {
+    console.log('[InvitationService.revokeInvitation] Revoking invitation:', invitationId);
+    
     const invitationRef = doc(firestore, 'invitations', invitationId);
     await deleteDoc(invitationRef);
+    
+    console.log('[InvitationService.revokeInvitation] Invitation revoked successfully');
   }
 } 

@@ -164,12 +164,13 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
 
     // Cleanup function to leave session when document changes or component unmounts
     return () => {
-      if (user?.uid) {
-        console.log('[DocumentContainer] Leaving collaboration session for document:', activeDocumentId)
-        CollaborationService.leaveDocumentSession(activeDocumentId, user.uid).catch((error) => {
-          console.error('[DocumentContainer] Error leaving collaboration session:', error)
-        })
-      }
+      // This is now handled by the logout function in AuthContext to avoid race conditions
+      // if (user?.uid) {
+      //   console.log('[DocumentContainer] Leaving collaboration session for document:', activeDocumentId)
+      //   CollaborationService.leaveDocumentSession(activeDocumentId, user.uid).catch((error) => {
+      //     console.error('[DocumentContainer] Error leaving collaboration session:', error)
+      //   })
+      // }
     }
   }, [activeDocumentId, user, toast])
 
