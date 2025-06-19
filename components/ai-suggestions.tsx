@@ -33,10 +33,14 @@ export function AISuggestions({
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case 'engagement':
         return <Zap className="h-4 w-4 text-purple-500" />
+      case 'readability':
+        return <CheckCircle className="h-4 w-4 text-orange-500" />
+      default:
+        return <Lightbulb className="h-4 w-4 text-gray-500" />
     }
   }
 
-  const getSuggestionColor = (type: AISuggestion['type']) => {
+  const getSuggestionColor = (type: AISuggestion['type']): "default" | "secondary" | "destructive" | "outline" => {
     switch (type) {
       case 'grammar':
         return 'destructive'
@@ -46,6 +50,10 @@ export function AISuggestions({
         return 'secondary'
       case 'engagement':
         return 'outline'
+      case 'readability':
+        return 'secondary'
+      default:
+        return 'default'
     }
   }
 

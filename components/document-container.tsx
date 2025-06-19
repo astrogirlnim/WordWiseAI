@@ -18,6 +18,8 @@ import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AuditService, AuditEvent } from '@/services/audit-service'
+import { useAISuggestions } from '@/hooks/use-ai-suggestions'
+import type { AISuggestion } from '@/types/ai-features'
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
@@ -55,6 +57,27 @@ export function DocumentContainer() {
     status: 'saved'
   })
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
+
+  // AI Suggestions state management
+  const {
+    suggestions: aiSuggestions,
+    loading: aiSuggestionsLoading,
+    error: aiSuggestionsError,
+    applySuggestion: applyAISuggestion,
+    dismissSuggestion: dismissAISuggestion,
+    reloadSuggestions: reloadAISuggestions,
+    suggestionCount: aiSuggestionCount
+  } = useAISuggestions({
+    documentId: activeDocumentId,
+    autoSubscribe: true
+  })
+
+  console.log('[DocumentContainer] AI Suggestions state:', {
+    suggestionCount: aiSuggestionCount,
+    loading: aiSuggestionsLoading,
+    error: !!aiSuggestionsError,
+    activeDocumentId
+  })
 
   // Set active document when documents load
   useEffect(() => {
@@ -378,6 +401,32 @@ export function DocumentContainer() {
     [activeDocumentId, deleteVersion, toast, user?.uid],
   )
 
+  // AI Suggestion handlers
+  const handleApplyAISuggestion = useCallback(async (suggestion: AISuggestion) => {
+    console.log('[DocumentContainer] Applying AI suggestion:', suggestion.id)
+    try {
+      await applyAISuggestion(suggestion)
+      console.log('[DocumentContainer] Successfully applied AI suggestion:', suggestion.id)
+    } catch (error) {
+      console.error('[DocumentContainer] Error applying AI suggestion:', error)
+    }
+  }, [applyAISuggestion])
+
+  const handleDismissAISuggestion = useCallback(async (suggestionId: string) => {
+    console.log('[DocumentContainer] Dismissing AI suggestion:', suggestionId)
+    try {
+      await dismissAISuggestion(suggestionId)
+      console.log('[DocumentContainer] Successfully dismissed AI suggestion:', suggestionId)
+    } catch (error) {
+      console.error('[DocumentContainer] Error dismissing AI suggestion:', error)
+    }
+  }, [dismissAISuggestion])
+
+  const handleReloadAISuggestions = useCallback(() => {
+    console.log('[DocumentContainer] Reloading AI suggestions')
+    reloadAISuggestions()
+  }, [reloadAISuggestions])
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -398,7 +447,7 @@ export function DocumentContainer() {
           documents={documents}
           activeDocumentId={activeDocumentId || ''}
           isAISidebarOpen={isAISidebarOpen}
-          aiSuggestionCount={0}
+          aiSuggestionCount={aiSuggestionCount}
           writingGoals={writingGoals}
           isDistractionFree={isDistractionFree}
           onDocumentSelect={handleDocumentSelect}
@@ -432,6 +481,11 @@ export function DocumentContainer() {
               initialDocument={initialDocument}
               onSave={handleSave}
               saveStatus={saveStatus}
+              onAISuggestionsChange={(suggestions) => {
+                console.log('[DocumentContainer] AI suggestions changed in editor:', suggestions.length)
+                // The suggestions are already managed by the useAISuggestions hook
+                // This callback can be used for additional side effects if needed
+              }}
             />
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -452,9 +506,17 @@ export function DocumentContainer() {
           )}
         </div>
 
-        {/* AI Sidebar */}
+        {/* AI Sidebar - Enhanced with suggestions */}
         {isAISidebarOpen && !isDistractionFree && (
-          <AISidebar isOpen={isAISidebarOpen} />
+          <AISidebar 
+            isOpen={isAISidebarOpen}
+            suggestions={aiSuggestions}
+            loading={aiSuggestionsLoading}
+            error={aiSuggestionsError}
+            onApplySuggestion={handleApplyAISuggestion}
+            onDismissSuggestion={handleDismissAISuggestion}
+            onReloadSuggestions={handleReloadAISuggestions}
+          />
         )}
       </main>
 
