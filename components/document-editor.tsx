@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -10,6 +10,7 @@ import { DocumentStatusBar } from './document-status-bar'
 import type { Document, AutoSaveStatus } from '@/types/document'
 import { useGrammarChecker } from '@/hooks/use-grammar-checker'
 import { GrammarExtension } from './tiptap-grammar-extension'
+import { PasteExtension } from './tiptap-paste-extension'
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu'
 import {
   ContextMenuContent,
@@ -116,6 +117,9 @@ export function DocumentEditor({
     }
   }
 
+  // Create a ref for the paste callback to avoid circular dependencies
+  const pasteCallbackRef = useRef<((content: string) => void) | null>(null)
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -126,11 +130,19 @@ export function DocumentEditor({
         placeholder: 'Start writing...',
       }),
       GrammarExtension,
+      PasteExtension.configure({
+        onPaste: (content: string) => {
+          console.log('[DocumentEditor] Paste extension callback triggered')
+          if (pasteCallbackRef.current) {
+            pasteCallbackRef.current(content)
+          }
+        },
+      }),
     ],
     content: pageContent, // Use paginated content
     onUpdate: ({ editor }) => {
       const newPageHtml = editor.getHTML();
-      setFullContentHtml(prevFullContentHtml => {
+      setFullContentHtml((prevFullContentHtml: string) => {
         const oldPageEndIndex = pageOffset + pageContent.length;
         const updatedFullContent =
           prevFullContentHtml.substring(0, pageOffset) +
@@ -151,6 +163,41 @@ export function DocumentEditor({
       }
     },
   })
+
+  // Handle paste events through TipTap extension - defined after editor
+  const handlePasteCallback = useCallback((newContent: string): void => {
+    console.log('[DocumentEditor] handlePasteCallback: Paste detected via TipTap extension')
+    
+    if (!editor) return
+    
+    // Get the current HTML content from the editor
+    const newPageHtml = editor.getHTML()
+    
+    // Use the same logic as onUpdate to reconstruct the full document
+    setFullContentHtml((prevFullContentHtml: string) => {
+      const oldPageEndIndex = pageOffset + pageContent.length
+      const updatedFullContent =
+        prevFullContentHtml.substring(0, pageOffset) +
+        newPageHtml +
+        prevFullContentHtml.substring(oldPageEndIndex)
+        
+      console.log('[DocumentEditor] handlePasteCallback: Full content updated. Length:', updatedFullContent.length)
+      
+      // Trigger save and content change callbacks
+      if (onContentChange) onContentChange(updatedFullContent)
+      if (onSave) onSave(updatedFullContent, title)
+      
+      // Trigger grammar check immediately
+      checkGrammarImmediately(updatedFullContent)
+      
+      return updatedFullContent
+    })
+  }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately])
+
+  // Update the ref with the current callback
+  useEffect(() => {
+    pasteCallbackRef.current = handlePasteCallback
+  }, [handlePasteCallback])
 
   // Phase 6: Page change handler
   const handlePageChange = useCallback((newPage: number) => {
@@ -457,29 +504,6 @@ export function DocumentEditor({
     setCharacterCount(getCharacterCount(fullPlainText))
   }, [fullPlainText])
 
-  // Handle paste event to trigger grammar check and save
-  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
-    // Let the paste happen, then trigger grammar check and save after a short delay
-    setTimeout(() => {
-      if (!editor) return;
-      const newPageHtml = editor.getHTML();
-      // Use the same logic as onUpdate to reconstruct the full document
-      setFullContentHtml(prevFullContentHtml => {
-        const oldPageEndIndex = pageOffset + pageContent.length;
-        const updatedFullContent =
-          prevFullContentHtml.substring(0, pageOffset) +
-          newPageHtml +
-          prevFullContentHtml.substring(oldPageEndIndex);
-        console.log('[DocumentEditor] handlePaste: updatedFullContent.length:', updatedFullContent.length);
-        if (onContentChange) onContentChange(updatedFullContent);
-        if (onSave) onSave(updatedFullContent, title);
-        // Trigger grammar check immediately
-        checkGrammarImmediately(updatedFullContent);
-        return updatedFullContent;
-      });
-    }, 10); // 10ms delay to let the paste finish
-  }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately]);
-
   if (!editor) {
     return null
   }
@@ -557,7 +581,6 @@ export function DocumentEditor({
             className="prose prose-sm dark:prose-invert max-w-none flex-grow overflow-y-auto p-8 focus:outline-none"
             onClick={() => editor.chain().focus().run()}
             onContextMenuCapture={handleContextMenuCapture}
-            onPaste={handlePaste}
           >
             <EditorContent editor={editor} />
           </div>
