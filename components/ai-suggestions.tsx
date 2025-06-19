@@ -54,7 +54,16 @@ export function AISuggestions({
     loading
   })
 
-  const totalSuggestions = styleSuggestions.length + funnelSuggestions.length
+  // Filter out applied suggestions
+  const pendingStyleSuggestions = styleSuggestions.filter(s => s.status === 'pending')
+  const pendingFunnelSuggestions = funnelSuggestions.filter(s => s.status === 'pending')
+  
+  console.log('[AISuggestions] Pending suggestions after filtering:', {
+    pendingStyleCount: pendingStyleSuggestions.length,
+    pendingFunnelCount: pendingFunnelSuggestions.length
+  })
+
+  const totalSuggestions = pendingStyleSuggestions.length + pendingFunnelSuggestions.length
 
   if (loading) {
     return (
@@ -85,72 +94,66 @@ export function AISuggestions({
     <ScrollArea className="h-full">
       <div className="space-y-6 p-4">
         {/* Funnel Suggestions Section */}
-        {funnelSuggestions.length > 0 && (
+        {pendingFunnelSuggestions.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Megaphone className="h-4 w-4 text-primary" />
               <h3 className="font-semibold text-sm">Funnel Copy Suggestions</h3>
               <Badge variant="secondary" className="text-xs">
-                {funnelSuggestions.length}
+                {pendingFunnelSuggestions.length}
               </Badge>
             </div>
             
             <div className="space-y-3">
-              {funnelSuggestions.map((suggestion) => {
-                if (suggestion.status === 'applied') {
-                  console.log('[AISuggestions] Skipping applied funnel suggestion', suggestion);
-                  return null;
-                }
-                return (
-                  <FunnelSuggestionCard
-                    key={suggestion.id}
-                    suggestion={suggestion}
-                    onApply={() => {
-                      console.log('[AISuggestions] Apply clicked', { id: suggestion.id, type: 'funnel', suggestion });
-                      onApply(suggestion.id, 'funnel');
-                    }}
-                    onDismiss={() => onDismiss(suggestion.id, 'funnel')}
-                  />
-                );
-              })}
+              {pendingFunnelSuggestions.map((suggestion) => (
+                <FunnelSuggestionCard
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  onApply={() => {
+                    console.log('[AISuggestions] Funnel Apply clicked', { id: suggestion.id, type: 'funnel', suggestion });
+                    onApply(suggestion.id, 'funnel');
+                  }}
+                  onDismiss={() => {
+                    console.log('[AISuggestions] Funnel Dismiss clicked', { id: suggestion.id, type: 'funnel' });
+                    onDismiss(suggestion.id, 'funnel');
+                  }}
+                />
+              ))}
             </div>
           </div>
         )}
 
         {/* Separator if both types exist */}
-        {funnelSuggestions.length > 0 && styleSuggestions.length > 0 && (
+        {pendingFunnelSuggestions.length > 0 && pendingStyleSuggestions.length > 0 && (
           <Separator />
         )}
 
         {/* Style Suggestions Section */}
-        {styleSuggestions.length > 0 && (
+        {pendingStyleSuggestions.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" />
               <h3 className="font-semibold text-sm">Style Suggestions</h3>
               <Badge variant="secondary" className="text-xs">
-                {styleSuggestions.length}
+                {pendingStyleSuggestions.length}
               </Badge>
             </div>
             
             <div className="space-y-3">
-              {styleSuggestions.map((suggestion) => {
-                if (suggestion.status === 'applied') {
-                  console.log('[AISuggestions] Skipping applied style suggestion', suggestion);
-                  return null;
-                }
-                return (
-                  <StyleSuggestionCard
-                    key={suggestion.id}
-                    suggestion={suggestion}
-                    onApply={() => {
-                      console.log('[AISuggestions] Apply clicked', { id: suggestion.id, type: 'style', suggestion });
-                      onApply(suggestion.id, 'style');
-                    }}
-                    onDismiss={() => onDismiss(suggestion.id, 'style')}
-                  />
-                );
-              })}
+              {pendingStyleSuggestions.map((suggestion) => (
+                <StyleSuggestionCard
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  onApply={() => {
+                    console.log('[AISuggestions] Style Apply clicked', { id: suggestion.id, type: 'style', suggestion });
+                    onApply(suggestion.id, 'style');
+                  }}
+                  onDismiss={() => {
+                    console.log('[AISuggestions] Style Dismiss clicked', { id: suggestion.id, type: 'style' });
+                    onDismiss(suggestion.id, 'style');
+                  }}
+                />
+              ))}
             </div>
           </div>
         )}
