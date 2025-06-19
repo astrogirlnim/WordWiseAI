@@ -224,18 +224,18 @@
 - [x] Ensure error decorations only apply to the visible page
 
 #### **Subfeature 2: Rate Limit and Queue Management**
-- [ ] Guarantee only one chunk-processing session per document at a time
-- [ ] Add logs to confirm only one chunk queue runs at a time
-- [ ] Prevent overlapping chunk-processing sessions on rapid edits or page changes
+- [x] Guarantee only one chunk-processing session per document at a time
+- [x] Add logs to confirm only one chunk queue runs at a time
+- [x] Prevent overlapping chunk-processing sessions on rapid edits or page changes
 
 #### **Subfeature 3: Reliable Error-to-Editor Sync**
-- [ ] Add a `useEffect` in `DocumentEditor` to dispatch grammar errors to the editor on every `errors` state change
-- [ ] Ensure `GrammarExtension` always receives the latest errors
-- [ ] Add debug logs to trace the flow of errors from state to decorations
+- [x] Add a `useEffect` in `DocumentEditor` to dispatch grammar errors to the editor on every `errors` state change
+- [x] Ensure `GrammarExtension` always receives the latest errors
+- [x] Add debug logs to trace the flow of errors from state to decorations
 
 #### **Subfeature 4: (Optional) Full Document Check**
-- [ ] Add a "Full Document Check" button for power users, with a warning about rate limits
-- [ ] Ensure this feature is throttled and does not interfere with per-page checks
+- [x] Add a "Full Document Check" button for power users, with a warning about rate limits
+- [x] Ensure this feature is throttled and does not interfere with per-page checks
 
 ---
 

@@ -279,7 +279,7 @@ export function DocumentContainer() {
   const handleSave = useAutoSave(
     async (content: string, title: string) => {
       if (!activeDocumentId) return
-      console.log('[DocumentContainer] Starting save process for', activeDocumentId, 'with title:', title)
+      console.log('[DocumentContainer] handleSave called. Content length:', content.length, 'Title:', title)
       setSaveStatus({ status: 'saving' })
       try {
         await updateDocument(activeDocumentId, {

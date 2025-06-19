@@ -399,5 +399,90 @@ export function useGrammarChecker(
     };
   }, [checkGrammar]);
 
-  return { errors, isChecking, chunkProgress, removeError, ignoreError, checkGrammarImmediately };
+  /**
+   * Phase 6.1: Full document check that bypasses pagination
+   * Used for power users who want to check the entire document
+   */
+  const checkFullDocument = useCallback(async (fullText: string) => {
+    console.log(`[useGrammarChecker] Phase 6.1: Starting full document check for ${fullText.length} characters`);
+    
+    if (fullText.length < MIN_TEXT_LENGTH) {
+      console.log('[useGrammarChecker] Phase 6.1: Full document text too short, clearing errors');
+      setErrors([]);
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastRequestTime.current < THROTTLE_INTERVAL) {
+      console.log('[useGrammarChecker] Phase 6.1: Full document check throttled');
+      return;
+    }
+
+    // Phase 6.1: Cancel any ongoing processing session
+    const sessionId = `FULL-DOC-${documentId}-${Date.now()}`;
+    console.log(`[useGrammarChecker] Phase 6.1: Starting full document processing session: ${sessionId}`);
+    activeProcessingSession.current = sessionId;
+    
+    // Cancel any ongoing requests
+    if (abortController.current) {
+      console.log('[useGrammarChecker] Phase 6.1: Cancelling previous request for full document check');
+      abortController.current.abort();
+    }
+    abortController.current = new AbortController();
+
+    setIsChecking(true);
+    lastRequestTime.current = now;
+    
+    try {
+      if (fullText.length <= CHUNK_THRESHOLD) {
+        console.log(`[useGrammarChecker] Phase 6.1: Full document length (${fullText.length}) below chunk threshold, using single request`);
+        const grammarErrors = await AIService.checkGrammar(documentId, fullText);
+        
+        // Phase 6.1: Check if session is still active before setting errors
+        if (activeProcessingSession.current === sessionId) {
+          const errorsWithTimestamp = grammarErrors.map(error => ({
+            ...error,
+            shownAt: Date.now()
+          }));
+          
+          setErrors(errorsWithTimestamp);
+          setChunkProgress({
+            totalChunks: 1,
+            completedChunks: 1,
+            processingChunks: 0,
+            isProcessing: false
+          });
+          console.log(`[useGrammarChecker] Phase 6.1: Full document single request completed for session ${sessionId} with ${errorsWithTimestamp.length} errors`);
+        } else {
+          console.log(`[useGrammarChecker] Phase 6.1: Full document single request completed but session ${sessionId} was cancelled, discarding results`);
+        }
+      } else {
+        // Phase 6.1: Chunk the full document without pagination limits
+        console.log(`[useGrammarChecker] Phase 6.1: Full document length (${fullText.length}) above chunk threshold, chunking entire document`);
+        const allChunks = textChunker.current.chunkText(fullText);
+        
+        console.log(`[useGrammarChecker] Phase 6.1: Created ${allChunks.length} chunks for full document (session ${sessionId})`);
+        
+        const allErrors = await processChunksInParallel(allChunks, documentId, sessionId);
+        
+        // Phase 6.1: Only set errors if session is still active
+        if (activeProcessingSession.current === sessionId) {
+          setErrors(allErrors);
+          console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed for session ${sessionId} with ${allErrors.length} total errors`);
+        } else {
+          console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed but session ${sessionId} was cancelled, discarding results`);
+        }
+      }
+    } catch (error: any) {
+      console.error(`[useGrammarChecker] Phase 6.1: Failed to check full document for session ${sessionId}:`, error);
+      setChunkProgress(prev => ({
+        ...prev,
+        isProcessing: false
+      }));
+    } finally {
+      setIsChecking(false);
+    }
+  }, [documentId, processChunksInParallel]);
+
+  return { errors, isChecking, chunkProgress, removeError, ignoreError, checkGrammarImmediately, checkFullDocument };
 } 
