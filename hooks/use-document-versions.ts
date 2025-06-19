@@ -23,6 +23,7 @@ export function useDocumentVersions(documentId: string | null) {
       setLoading(true)
       const docVersions = await VersionService.getVersions(documentId)
       console.log('[useDocumentVersions] Received versions:', docVersions.length)
+      console.log('[useDocumentVersions] Version objects:', docVersions)
       setVersions(docVersions)
       setError(null)
     } catch (err) {

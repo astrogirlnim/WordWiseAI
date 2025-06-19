@@ -4,17 +4,30 @@ import type { AutoSaveStatus } from '@/types/document'
 import { formatLastSaved } from '@/utils/document-utils'
 import { Loader2, Check, AlertCircle } from 'lucide-react'
 import { Timestamp } from 'firebase/firestore'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination'
 
 interface DocumentStatusBarProps {
   saveStatus: AutoSaveStatus
   wordCount: number
   characterCount: number
+  currentPage?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
 }
 
 export function DocumentStatusBar({
   saveStatus,
   wordCount,
   characterCount,
+  currentPage,
+  totalPages,
+  onPageChange,
 }: DocumentStatusBarProps) {
   const getSaveStatusIcon = () => {
     switch (saveStatus.status) {
@@ -53,6 +66,49 @@ export function DocumentStatusBar({
         {getSaveStatusIcon()}
         <span>{getSaveStatusText()}</span>
       </div>
+
+      {totalPages && totalPages > 1 && currentPage && onPageChange && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (currentPage > 1) {
+                    onPageChange(currentPage - 1)
+                  }
+                }}
+                className={
+                  currentPage === 1 ? 'pointer-events-none opacity-50' : ''
+                }
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <span className="px-4 py-2">
+                Page {currentPage} of {totalPages}
+              </span>
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (currentPage < totalPages) {
+                    onPageChange(currentPage + 1)
+                  }
+                }}
+                className={
+                  currentPage === totalPages
+                    ? 'pointer-events-none opacity-50'
+                    : ''
+                }
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
       <div className="flex items-center gap-4">
         <span>{wordCount} words</span>
         <span>{characterCount} characters</span>

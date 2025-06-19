@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -17,9 +17,23 @@ import {
   ContextMenuSeparator,
   ContextMenuLabel,
 } from '@/components/ui/context-menu'
+import { Button } from '@/components/ui/button'
+import { AlertTriangle, Search } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import type { GrammarError } from '@/types/grammar'
 import { useAuth } from '@/lib/auth-context'
 import { AuditService, AuditEvent } from '@/services/audit-service'
+
+// Phase 6: Document Pagination
+const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
 
 interface DocumentEditorProps {
   documentId: string
@@ -38,10 +52,46 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
-  const [plainText, setPlainText] = useState('')
+
+  // Phase 6: Pagination State
+  const [fullContentHtml, setFullContentHtml] = useState(initialDocument.content || '')
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // Phase 6.1: Full Document Check State
+  const [isFullDocCheckDialogOpen, setIsFullDocCheckDialogOpen] = useState(false)
+  const [isFullDocumentChecking, setIsFullDocumentChecking] = useState(false)
+
+  const { totalPages, pageContent, pageOffset } = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(fullContentHtml.length / PAGE_SIZE_CHARS))
+    const safeCurrentPage = Math.min(currentPage, totalPages)
+    const start = (safeCurrentPage - 1) * PAGE_SIZE_CHARS
+    const end = Math.min(start + PAGE_SIZE_CHARS, fullContentHtml.length)
+    const pageContent = fullContentHtml.substring(start, end)
+    return { totalPages, pageContent, pageOffset: start }
+  }, [fullContentHtml, currentPage])
+  
+  // We need plain text of the full document for the grammar checker
+  const fullPlainText = useMemo(() => {
+      if (typeof window === 'undefined') return ''
+      // This is a bit of a hack to get plain text without a visible editor instance.
+      // It's not ideal for performance but necessary for the grammar checker.
+      const div = document.createElement('div')
+      div.innerHTML = fullContentHtml
+      return div.textContent || ''
+  }, [fullContentHtml])
+
+  const visibleRange = useMemo(() => ({
+    start: pageOffset,
+    end: pageOffset + pageContent.length,
+  }), [pageOffset, pageContent]);
 
   const { user } = useAuth()
-  const { errors, isChecking, removeError, checkGrammarImmediately } = useGrammarChecker(documentId, plainText)
+  // Phase 6: Pass visibleRange to the grammar checker hook
+  const { errors, removeError, checkGrammarImmediately, checkFullDocument } = useGrammarChecker(
+    documentId, 
+    fullPlainText,
+    visibleRange
+  )
 
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
@@ -77,27 +127,91 @@ export function DocumentEditor({
       }),
       GrammarExtension,
     ],
-    content: initialDocument.content || '',
+    content: pageContent, // Use paginated content
     onUpdate: ({ editor }) => {
-      const html = editor.getHTML()
-      const text = editor.getText()
-      setPlainText(text)
-      onContentChange?.(html)
-      onSave?.(html, title)
+      const newPageHtml = editor.getHTML();
+      setFullContentHtml(prevFullContentHtml => {
+        const oldPageEndIndex = pageOffset + pageContent.length;
+        const updatedFullContent =
+          prevFullContentHtml.substring(0, pageOffset) +
+          newPageHtml +
+          prevFullContentHtml.substring(oldPageEndIndex);
+
+        console.log('[DocumentEditor] onUpdate (fixed): updatedFullContent.length:', updatedFullContent.length);
+        if (onContentChange) onContentChange(updatedFullContent);
+        if (onSave) onSave(updatedFullContent, title);
+        return updatedFullContent;
+      });
     },
     onCreate: ({ editor }) => {
       const text = editor.getText()
-      setPlainText(text)
+      // Initial grammar check for the first page
       if (text) {
-        checkGrammarImmediately(text);
+        checkGrammarImmediately(fullPlainText); // Still check full text, but triggered by page load
       }
     },
   })
 
+  // Phase 6: Page change handler
+  const handlePageChange = useCallback((newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+    }
+  }, [totalPages])
+
+  // **PHASE 6.1 SUBFEATURE 4: Full Document Check**
+  const handleFullDocumentCheck = useCallback(async () => {
+    console.log('[DocumentEditor] Phase 6.1: Starting full document grammar check');
+    setIsFullDocumentChecking(true);
+    setIsFullDocCheckDialogOpen(false);
+    
+    try {
+      // Use the specialized full document check function
+      await checkFullDocument(fullPlainText);
+      console.log('[DocumentEditor] Phase 6.1: Full document check completed');
+    } catch (error) {
+      console.error('[DocumentEditor] Phase 6.1: Full document check failed:', error);
+    } finally {
+      setIsFullDocumentChecking(false);
+      // After full document check, return to page-scoped checking
+      setTimeout(() => {
+        console.log('[DocumentEditor] Phase 6.1: Returning to page-scoped checking');
+        checkGrammarImmediately(fullPlainText);
+      }, 1000);
+    }
+  }, [fullPlainText, checkFullDocument, checkGrammarImmediately]);
+
+  const handleFullDocumentCheckConfirm = useCallback(() => {
+    handleFullDocumentCheck();
+  }, [handleFullDocumentCheck]);
+
+  // Effect to update editor content when page changes
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+        const currentEditorContent = editor.getHTML()
+        if (currentEditorContent !== pageContent) {
+            console.log(`[DocumentEditor] Page changed to ${currentPage}. Updating editor content.`)
+            editor.commands.setContent(pageContent, false) // `false` to avoid triggering onUpdate
+        }
+    }
+  }, [pageContent, editor, currentPage])
+
   const handleApplySuggestion = useCallback(
     (error: GrammarError, suggestion: string) => {
       if (!editor || !user) return
-      let replacementRange = { from: error.start, to: error.end }
+
+      // Adjust error positions to be relative to the current page
+      const relativeStart = error.start - pageOffset
+      const relativeEnd = error.end - pageOffset
+
+      // Check if the error is on the current page
+      if (relativeStart < 0 || relativeEnd > editor.state.doc.content.size) {
+          console.warn(`[DocumentEditor] Attempted to apply suggestion for an error not on the current page. Error ID: ${error.id}`)
+          // Future enhancement: automatically switch to the page with the error.
+          return
+      }
+
+      let replacementRange = { from: relativeStart, to: relativeEnd }
 
       const textInDoc = editor.state.doc.textBetween(
         replacementRange.from,
@@ -157,7 +271,9 @@ export function DocumentEditor({
         .run()
 
       if (editor) {
-        checkGrammarImmediately(editor.getText())
+        // After applying suggestion, the content is updated, onUpdate will trigger a full re-check
+        // We pass the full plain text to ensure context is always up-to-date
+        checkGrammarImmediately(fullPlainText)
       }
 
       AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
@@ -171,7 +287,7 @@ export function DocumentEditor({
       removeError(error.id)
       setContextMenu(null)
     },
-    [editor, user, documentId, removeError, checkGrammarImmediately],
+    [editor, user, documentId, removeError, pageOffset, checkGrammarImmediately, fullPlainText],
   )
 
   const handleIgnoreError = useCallback(
@@ -215,168 +331,220 @@ export function DocumentEditor({
   }, [documentId, initialDocument.title]) // Include initialDocument.title to satisfy linter but effect behavior unchanged since documentId changes trigger this
 
   // **PHASE 8.2: CRITICAL FIX** - Synchronize editor content with external changes (version restore)
+  // **ADAPTED FOR PHASE 6 (PAGINATION)**
   useEffect(() => {
     console.log('[DocumentEditor] Phase 8.2: Checking for content synchronization')
-    console.log('[DocumentEditor] Current editor content length:', editor?.getHTML()?.length || 0)
-    console.log('[DocumentEditor] New initialDocument content length:', initialDocument.content?.length || 0)
+    
+    const newContent = initialDocument.content || ''
+
+    if (fullContentHtml === newContent) {
+        console.log('[DocumentEditor] Full content unchanged, skipping sync')
+        return
+    }
+
+    console.log('[DocumentEditor] New initialDocument content detected. Updating full content state.')
+    setFullContentHtml(newContent)
+    setCurrentPage(1) // Reset to first page on document change
+
+  }, [initialDocument.content, documentId]) // BUGFIX: Removed fullContentHtml from dependency array to prevent editor content from resetting on every user keystroke. This effect should only run when the document is changed externally (e.g., version restore, document switch).
+
+
+  // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
+  // Enhanced error synchronization with comprehensive debug logging
+  useEffect(() => {
+    console.log(`[DocumentEditor] Phase 6.1: Error sync triggered. Total errors: ${errors.length}, Page offset: ${pageOffset}`);
     
     if (!editor || editor.isDestroyed) {
-      console.log('[DocumentEditor] Editor not ready for content sync')
-      return
+      console.warn('[DocumentEditor] Phase 6.1: Editor not available or destroyed, skipping error sync');
+      return;
     }
 
-    // Get current editor content for comparison
-    const currentContent = editor.getHTML()
-    const newContent = initialDocument.content || ''
+    console.log(`[DocumentEditor] Phase 6.1: Editor available, document size: ${editor.state.doc.content.size}`);
     
-    // Skip update if content is the same (prevent unnecessary operations)
-    if (currentContent === newContent) {
-      console.log('[DocumentEditor] Content unchanged, skipping sync')
-      return
-    }
+    const relativeErrors = errors
+        .map((error, index) => {
+            const start = error.start - pageOffset;
+            const end = error.end - pageOffset;
 
-    // Check if user is actively typing (prevent interrupting user input)
-    const isUserTyping = editor.isFocused && Date.now() - (editor.state.selection.from || 0) < 1000
-    if (isUserTyping) {
-      console.log('[DocumentEditor] User is actively typing, delaying content sync')
-      // Retry after a short delay to avoid interrupting user
-      const timeoutId = setTimeout(() => {
-        if (editor && !editor.isDestroyed && editor.getHTML() !== newContent) {
-          console.log('[DocumentEditor] Retrying content sync after typing delay')
-          editor.commands.setContent(newContent, false) // false = don't emit update events
-          
-          // Update plainText state for grammar checking
-          const newPlainText = editor.getText()
-          setPlainText(newPlainText)
-          if (newPlainText) {
-            checkGrammarImmediately(newPlainText)
-          }
-        }
-      }, 500)
-      return () => clearTimeout(timeoutId)
-    }
+            console.log(`[DocumentEditor] Phase 6.1: Processing error ${index + 1}/${errors.length} - ID: ${error.id}, Original pos: ${error.start}-${error.end}, Relative pos: ${start}-${end}`);
 
-    // Apply content synchronization
-    console.log('[DocumentEditor] Applying content synchronization')
-    console.log('[DocumentEditor] Before sync - Editor content:', currentContent.substring(0, 100) + (currentContent.length > 100 ? '...' : ''))
-    console.log('[DocumentEditor] Before sync - New content:', newContent.substring(0, 100) + (newContent.length > 100 ? '...' : ''))
+            // Only include errors that are on the current page and within the page's content bounds
+            if (start >= 0 && end <= editor.state.doc.content.size && start < end) {
+                // We need to pass the original error in the data-error-json for context menu actions
+                const pageRelativeError = { 
+                    ...error, 
+                    start, 
+                    end,
+                };
+                console.log(`[DocumentEditor] Phase 6.1: Including error ${error.id} on current page`);
+                return pageRelativeError
+            } else {
+                console.log(`[DocumentEditor] Phase 6.1: Excluding error ${error.id} - not on current page or invalid range`);
+                return null;
+            }
+        })
+        .filter((e): e is GrammarError => e !== null);
+
+    console.log(`[DocumentEditor] Phase 6.1: Filtered ${relativeErrors.length} page-relative errors from ${errors.length} total errors`);
+
+    // **PHASE 6.1: Always dispatch errors to ensure GrammarExtension receives updates**
+    const { tr } = editor.state;
+    tr.setMeta('grammarErrors', relativeErrors);
+    
+    console.log(`[DocumentEditor] Phase 6.1: Dispatching ${relativeErrors.length} errors to GrammarExtension`);
     
     try {
-      // Preserve cursor position if possible
-      const currentSelection = editor.state.selection
-      
-      // Update editor content (false = don't trigger update events to prevent auto-save conflicts)
-      editor.commands.setContent(newContent, false)
-      
-      // Try to restore cursor position (best effort)
-      if (currentSelection && currentSelection.from <= editor.state.doc.content.size) {
-        editor.commands.setTextSelection(Math.min(currentSelection.from, editor.state.doc.content.size))
-      }
-      
-      // Update plainText state for grammar checking
-      const newPlainText = editor.getText()
-      setPlainText(newPlainText)
-      
-      // Trigger grammar check on restored content
-      if (newPlainText) {
-        console.log('[DocumentEditor] Triggering grammar check on restored content')
-        checkGrammarImmediately(newPlainText)
-      }
-      
-      console.log('[DocumentEditor] Content synchronization completed successfully')
-      console.log('[DocumentEditor] After sync - Editor content length:', editor.getHTML().length)
-      
-    } catch (error) {
-      console.error('[DocumentEditor] Error during content synchronization:', error)
-      // Fallback: try setting content without preserving selection
-      try {
-        editor.commands.setContent(newContent, false)
-        console.log('[DocumentEditor] Fallback content sync successful')
-      } catch (fallbackError) {
-        console.error('[DocumentEditor] Fallback content sync also failed:', fallbackError)
-      }
-    }
-  }, [editor, initialDocument.content, checkGrammarImmediately]) // Watch for content changes
-
-  useEffect(() => {
-    if (editor && !editor.isDestroyed) {
-      const { tr } = editor.state;
-      console.log('[DocumentEditor] Setting grammarErrors meta:', errors);
-      tr.setMeta('grammarErrors', errors);
       editor.view.dispatch(tr);
+      console.log('[DocumentEditor] Phase 6.1: Successfully dispatched errors to editor');
+    } catch (error) {
+      console.error('[DocumentEditor] Phase 6.1: Failed to dispatch errors to editor:', error);
     }
-  }, [errors, editor]);
+  }, [errors, editor, pageOffset])
+
+  const [wordCount, setWordCount] = useState(0)
+  const [characterCount, setCharacterCount] = useState(0)
 
   useEffect(() => {
-    if (!editor) return;
+    setWordCount(getWordCount(fullPlainText))
+    setCharacterCount(getCharacterCount(fullPlainText))
+  }, [fullPlainText])
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === '.') {
-            const { from } = editor.state.selection;
-            const errorAtCursor = errors.find(e => from >= e.start && from <= e.end);
-            if (errorAtCursor) {
-                event.preventDefault();
-                setContextMenu({ error: errorAtCursor });
-            }
-        }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [editor, errors]);
-
+  // Handle paste event to trigger grammar check and save
+  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    // Let the paste happen, then trigger grammar check and save after a short delay
+    setTimeout(() => {
+      if (!editor) return;
+      const newPageHtml = editor.getHTML();
+      // Use the same logic as onUpdate to reconstruct the full document
+      setFullContentHtml(prevFullContentHtml => {
+        const oldPageEndIndex = pageOffset + pageContent.length;
+        const updatedFullContent =
+          prevFullContentHtml.substring(0, pageOffset) +
+          newPageHtml +
+          prevFullContentHtml.substring(oldPageEndIndex);
+        console.log('[DocumentEditor] handlePaste: updatedFullContent.length:', updatedFullContent.length);
+        if (onContentChange) onContentChange(updatedFullContent);
+        if (onSave) onSave(updatedFullContent, title);
+        // Trigger grammar check immediately
+        checkGrammarImmediately(updatedFullContent);
+        return updatedFullContent;
+      });
+    }, 10); // 10ms delay to let the paste finish
+  }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately]);
 
   if (!editor) {
-    return null;
+    return null
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => {
-          console.log('[DocumentEditor] Title changed by user:', e.target.value)
-          setTitle(e.target.value)
-        }}
-        onBlur={() => {
-          console.log('[DocumentEditor] Title input blurred. Saving title:', title)
-          onSave?.(editor?.getHTML() || '', title)
-        }}
-        className="text-2xl font-bold p-2 bg-transparent border-b border-gray-200 dark:border-gray-700 focus:outline-none"
-        aria-label="Document Title"
-      />
-      <div onContextMenu={handleContextMenuCapture} className="flex-grow">
-        <ContextMenuPrimitive.Root onOpenChange={(open) => !open && setContextMenu(null)}>
-          <ContextMenuPrimitive.Trigger asChild>
-            <EditorContent editor={editor} className="flex-grow overflow-y-auto p-4 h-full" />
-          </ContextMenuPrimitive.Trigger>
-          {contextMenu?.error && (
-            <ContextMenuContent>
-              <ContextMenuLabel className="text-gray-500">{contextMenu.error.explanation}</ContextMenuLabel>
-              <ContextMenuSeparator />
-              {contextMenu.error.suggestions?.map((suggestion, index) => (
-                <ContextMenuItem key={index} onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}>
-                  {suggestion}
-                </ContextMenuItem>
-              ))}
-              {contextMenu.error.suggestions?.length === 0 && (
-                  <ContextMenuItem disabled>No suggestions available</ContextMenuItem>
-              )}
-              <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => handleIgnoreError(contextMenu.error)}>Ignore</ContextMenuItem>
-              <ContextMenuItem onSelect={() => handleAddToDictionary(contextMenu.error)}>
-                Add to Dictionary
-              </ContextMenuItem>
-            </ContextMenuContent>
-          )}
-        </ContextMenuPrimitive.Root>
+    <div className="flex h-full flex-col">
+      <div className="flex-shrink-0 border-b p-4">
+        <div className="flex items-center justify-between">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => onSave?.(fullContentHtml, title)}
+            className="flex-1 bg-transparent text-3xl font-bold focus:outline-none"
+            placeholder="Untitled Document"
+          />
+          
+          {/* Phase 6.1: Full Document Check Button */}
+          <div className="ml-4">
+            <Dialog open={isFullDocCheckDialogOpen} onOpenChange={setIsFullDocCheckDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  disabled={isFullDocumentChecking}
+                  className="flex items-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  {isFullDocumentChecking ? 'Checking...' : 'Full Document Check'}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    Full Document Grammar Check
+                  </DialogTitle>
+                  <DialogDescription className="space-y-2">
+                                         <p>
+                       You&apos;re about to perform a grammar check on the entire document ({Math.ceil(fullPlainText.length / 1000)}k characters).
+                     </p>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-medium text-amber-800 dark:text-amber-200">Rate Limit Warning</p>
+                          <p className="text-amber-700 dark:text-amber-300 mt-1">
+                            This may trigger rate limits and could take several minutes. 
+                            Consider checking smaller sections instead.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      After completion, the system will return to checking only the visible page.
+                    </p>
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsFullDocCheckDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleFullDocumentCheckConfirm}>
+                    Check Full Document
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
       </div>
+      <ContextMenuPrimitive.Root>
+        <ContextMenuPrimitive.Trigger>
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none flex-grow overflow-y-auto p-8 focus:outline-none"
+            onClick={() => editor.chain().focus().run()}
+            onContextMenuCapture={handleContextMenuCapture}
+            onPaste={handlePaste}
+          >
+            <EditorContent editor={editor} />
+          </div>
+        </ContextMenuPrimitive.Trigger>
+        {contextMenu && (
+          <ContextMenuContent>
+            <ContextMenuLabel>
+              Spelling: &quot;{contextMenu.error.error}&quot;
+            </ContextMenuLabel>
+            {contextMenu.error.suggestions.map((suggestion, index) => (
+              <ContextMenuItem
+                key={index}
+                onSelect={() => handleApplySuggestion(contextMenu.error, suggestion)}
+              >
+                Accept: &quot;{suggestion}&quot;
+              </ContextMenuItem>
+            ))}
+            {contextMenu.error.suggestions.length > 0 && <ContextMenuSeparator />}
+            <ContextMenuItem onSelect={() => handleIgnoreError(contextMenu.error)}>
+              Ignore
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => handleAddToDictionary(contextMenu.error)}>
+              Add to Dictionary
+            </ContextMenuItem>
+          </ContextMenuContent>
+        )}
+      </ContextMenuPrimitive.Root>
+
       <DocumentStatusBar
-        wordCount={getWordCount(editor.getText())}
-        characterCount={getCharacterCount(editor.getText())}
-        saveStatus={isChecking ? { status: 'checking' } : saveStatus}
+        saveStatus={saveStatus}
+        wordCount={wordCount}
+        characterCount={characterCount}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
       />
     </div>
   )

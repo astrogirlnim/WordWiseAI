@@ -20,55 +20,76 @@ export const GrammarExtension = Extension.create({
         key: new PluginKey('grammar'),
         state: {
           init: (): { decorations: DecorationSet } => {
+            console.log('[GrammarExtension] Phase 6.1: Plugin state initialized with empty decorations');
             return { decorations: DecorationSet.empty };
           },
           apply: (tr: Transaction, pluginState: { decorations: DecorationSet }, oldState: EditorState, newState: EditorState) => {
             const newErrors = tr.getMeta('grammarErrors') as GrammarError[] | undefined;
-            console.log('[GrammarExtension] apply called. Document size:', newState.doc.content.size, 'newErrors:', newErrors);
+            console.log('[GrammarExtension] Phase 6.1: Apply called. Document size:', newState.doc.content.size, 'newErrors received:', newErrors ? newErrors.length : 'undefined');
             
             // If a transaction isn't related to grammar, we map existing decorations through the transaction
             if (newErrors === undefined) {
-              return { decorations: pluginState.decorations.map(tr.mapping, tr.doc) };
+              const mappedDecorations = pluginState.decorations.map(tr.mapping, tr.doc);
+              console.log('[GrammarExtension] Phase 6.1: No new errors, mapping existing decorations through transaction');
+              return { decorations: mappedDecorations };
             }
 
             if (!Array.isArray(newErrors)) {
-              console.warn('[GrammarExtension] newErrors is not a valid array. Clearing decorations. Value:', newErrors);
+              console.warn('[GrammarExtension] Phase 6.1: newErrors is not a valid array. Clearing decorations. Value:', newErrors);
               return { decorations: DecorationSet.empty };
             }
 
-            for (const error of newErrors) {
+            console.log(`[GrammarExtension] Phase 6.1: Processing ${newErrors.length} errors for decoration`);
+
+            // Validate each error before creating decorations
+            for (let i = 0; i < newErrors.length; i++) {
+              const error = newErrors[i];
+              console.log(`[GrammarExtension] Phase 6.1: Validating error ${i + 1}/${newErrors.length} - ID: ${error?.id}, pos: ${error?.start}-${error?.end}`);
+              
               if (
                 !error ||
                 typeof error.start !== 'number' ||
                 typeof error.end !== 'number' ||
                 error.start >= error.end ||
-                error.end > newState.doc.content.size
+                error.end > newState.doc.content.size ||
+                error.start < 0
               ) {
-                console.warn('[GrammarExtension] Invalid error detected. Skipping all decorations. Error:', error, 'Document size:', newState.doc.content.size);
+                console.warn(`[GrammarExtension] Phase 6.1: Invalid error detected at index ${i}. Skipping all decorations. Error:`, error, 'Document size:', newState.doc.content.size);
                 return { decorations: DecorationSet.empty };
               }
             }
 
-            const decorations = DecorationSet.create(newState.doc, newErrors.flatMap((error: GrammarError) => {
+            console.log('[GrammarExtension] Phase 6.1: All errors validated, creating decorations');
+
+            const decorations = DecorationSet.create(newState.doc, newErrors.flatMap((error: GrammarError, index: number) => {
               const suggestions = error.suggestions || [];
+              console.log(`[GrammarExtension] Phase 6.1: Creating decoration ${index + 1}/${newErrors.length} for error ${error.id} at ${error.start}-${error.end}`);
+              
               return Decoration.inline(error.start, error.end, {
                 class: `grammar-error ${error.type}`,
                 'data-error-id': error.id,
                 'data-error-json': JSON.stringify(error),
-                'aria-label': `Potential ${error.type} error: “${error.error}”. Suggestion: “${suggestions[0] || ''}”.`,
+                'aria-label': `Potential ${error.type} error: "${error.error}". Suggestion: "${suggestions[0] || ''}".`,
               });
             }));
-            console.log('[GrammarExtension] Created decorations:', decorations.find());
+            
+            const decorationCount = decorations.find().length;
+            console.log(`[GrammarExtension] Phase 6.1: Successfully created ${decorationCount} decorations from ${newErrors.length} errors`);
+            
             return { decorations };
           },
         },
         props: {
           decorations(state) {
             if (isComposing(state)) {
+              console.log('[GrammarExtension] Phase 6.1: Composing mode detected, hiding decorations');
               return DecorationSet.empty;
             }
             const pluginState = this.getState(state);
-            return pluginState ? pluginState.decorations : DecorationSet.empty;
+            const decorations = pluginState ? pluginState.decorations : DecorationSet.empty;
+            const decorationCount = decorations.find().length;
+            console.log(`[GrammarExtension] Phase 6.1: Returning ${decorationCount} decorations to editor`);
+            return decorations;
           },
         },
       }),

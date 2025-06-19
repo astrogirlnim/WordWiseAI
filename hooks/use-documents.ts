@@ -134,11 +134,20 @@ export function useDocuments() {
           
           console.log('[updateDocument] Version creation criteria - Changed:', hasContentChanged, 'Has previous:', hasPreviousContent, 'Has new:', hasNewContent)
           
+          // DEBUG: Log content comparison and versioning criteria
+          console.log('[updateDocument] --- Versioning Debug ---')
+          console.log('[updateDocument] currentContentTrimmed:', JSON.stringify(currentContentTrimmed))
+          console.log('[updateDocument] newContent:', JSON.stringify(newContent))
+          console.log('[updateDocument] hasContentChanged:', hasContentChanged)
+          console.log('[updateDocument] hasPreviousContent:', hasPreviousContent)
+          console.log('[updateDocument] hasNewContent:', hasNewContent)
+          console.log('[updateDocument] --- End Debug ---')
+          
           if (hasContentChanged && hasPreviousContent && hasNewContent) {
             console.log('[updateDocument] Creating version with PREVIOUS content before document update')
-            
             try {
-              // Create version with the CURRENT (previous) content before updating
+              // Add this log:
+              console.log('[updateDocument] Calling VersionService.createVersion with content length:', currentContentTrimmed.length, 'Document ID:', documentId)
               const versionId = await VersionService.createVersion(documentId, currentContentTrimmed, {
                 id: user.uid,
                 name: user.displayName || 'Unknown User',
