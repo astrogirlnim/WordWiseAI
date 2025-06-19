@@ -184,26 +184,26 @@
 ### **Phase 6: Document Pagination & Virtualization**
 *Target: Enable scalable editing and grammar checking for very large documents by only rendering and checking the visible portion.*
 
-- [ ] **Editor Slicing**  
-  - [ ] Implement logic to split document into pages (by word/char/paragraph count)
-  - [ ] Only render the current page in the editor
+- [x] **Editor Slicing**  
+  - [x] Implement logic to split document into pages (by word/char/paragraph count)
+  - [x] Only render the current page in the editor
 
-- [ ] **Page Navigation UI**  
-  - [ ] Add next/prev page controls
-  - [ ] Show current page/total pages
+- [x] **Page Navigation UI**  
+  - [x] Add next/prev page controls
+  - [x] Show current page/total pages
   - [ ] (Optional) Allow jump to page
 
-- [ ] **Page Size Configuration**  
-  - [ ] Set default page size (e.g., 1000 words or 5000 chars)
+- [x] **Page Size Configuration**  
+  - [x] Set default page size (e.g., 1000 words or 5000 chars)
   - [ ] Allow user to configure page size
 
-- [ ] **Grammar Checking Per Page**  
-  - [ ] Only check grammar for the visible page
-  - [ ] Trigger grammar check on page change
+- [x] **Grammar Checking Per Page**  
+  - [x] Only check grammar for the visible page
+  - [x] Trigger grammar check on page change
 
-- [ ] **State Management**  
-  - [ ] Keep full document in memory, sync edits from page to full doc
-  - [ ] Handle merging/splitting content across pages
+- [x] **State Management**  
+  - [x] Keep full document in memory, sync edits from page to full doc
+  - [x] Handle merging/splitting content across pages
 
 - [ ] **Cursor/Selection Handling**  
   - [ ] Preserve cursor position on page change
