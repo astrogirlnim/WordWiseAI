@@ -43,6 +43,8 @@ export function DocumentContainer() {
     useState<WritingGoals>(defaultWritingGoals)
   const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false)
   const [showGoalsOnNewDocument, setShowGoalsOnNewDocument] = useState(true)
+  const [isCreatingNewDocument, setIsCreatingNewDocument] = useState(false)
+  const [newDocumentTitle, setNewDocumentTitle] = useState('Untitled Document')
   const [isDistractionFree, setIsDistractionFree] = useState(false)
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
   const [diffContent, setDiffContent] = useState<{
@@ -177,12 +179,21 @@ export function DocumentContainer() {
   const handleNewDocument = useCallback(async () => {
     if (!user?.uid) return
 
-    const newDocId = await createDocument('Untitled Document')
-    if (newDocId) {
-      setActiveDocumentId(newDocId)
-
-      if (showGoalsOnNewDocument) {
-        setIsGoalsModalOpen(true)
+    console.log('[DocumentContainer] Starting new document creation flow')
+    
+    if (showGoalsOnNewDocument) {
+      // Set up new document creation state and open modal to collect title + goals
+      console.log('[DocumentContainer] Opening goals modal for new document title and goals')
+      setIsCreatingNewDocument(true)
+      setNewDocumentTitle('Untitled Document')
+      setIsGoalsModalOpen(true)
+    } else {
+      // Create document directly without modal (user has disabled goals on new document)
+      console.log('[DocumentContainer] Creating document directly without goals modal')
+      const newDocId = await createDocument('Untitled Document')
+      if (newDocId) {
+        setActiveDocumentId(newDocId)
+        console.log('[DocumentContainer] New document created with ID:', newDocId)
       }
     }
   }, [user?.uid, createDocument, showGoalsOnNewDocument])
@@ -252,9 +263,41 @@ export function DocumentContainer() {
     setIsGoalsModalOpen(true)
   }, [])
 
-  const handleSaveWritingGoals = useCallback((newGoals: WritingGoals) => {
+  const handleSaveWritingGoals = useCallback(async (newGoals: WritingGoals, title?: string) => {
+    console.log('[DocumentContainer] Saving writing goals:', { 
+      newGoals, 
+      title, 
+      isCreatingNewDocument 
+    })
+
+    // Always save the goals
     setWritingGoals(newGoals)
-  }, [])
+
+    // If we're creating a new document, create it with the provided title
+    if (isCreatingNewDocument && title && user?.uid) {
+      console.log('[DocumentContainer] Creating new document with title:', title)
+      try {
+        const newDocId = await createDocument(title.trim() || 'Untitled Document')
+        if (newDocId) {
+          setActiveDocumentId(newDocId)
+          console.log('[DocumentContainer] New document created successfully with ID:', newDocId, 'and title:', title)
+        }
+      } catch (error) {
+        console.error('[DocumentContainer] Failed to create new document:', error)
+        toast({
+          title: 'Error Creating Document',
+          description: 'Failed to create the new document. Please try again.',
+          variant: 'destructive',
+        })
+      } finally {
+        // Reset new document creation state
+        setIsCreatingNewDocument(false)
+        setNewDocumentTitle('Untitled Document')
+      }
+    } else {
+      console.log('[DocumentContainer] Just updating goals for existing workflow')
+    }
+  }, [isCreatingNewDocument, createDocument, user?.uid, toast])
 
   const activeDocument =
     documents.find((doc) => doc.id === activeDocumentId) || null
@@ -440,10 +483,20 @@ export function DocumentContainer() {
       <WritingGoalsModal
         isOpen={isGoalsModalOpen}
         currentGoals={writingGoals}
-        onClose={() => setIsGoalsModalOpen(false)}
+        onClose={() => {
+          console.log('[DocumentContainer] Goals modal closing, resetting new document state')
+          setIsGoalsModalOpen(false)
+          // Reset new document creation state if user cancels
+          if (isCreatingNewDocument) {
+            setIsCreatingNewDocument(false)
+            setNewDocumentTitle('Untitled Document')
+          }
+        }}
         onSave={handleSaveWritingGoals}
         showOnNewDocument={showGoalsOnNewDocument}
         onShowOnNewDocumentChange={setShowGoalsOnNewDocument}
+        isNewDocument={isCreatingNewDocument}
+        initialTitle={newDocumentTitle}
       />
     </div>
   )
