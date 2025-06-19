@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useAuth } from '@/lib/auth-context'
-import type { Document, DocumentAccess } from '@/types/document'
+import type { Document } from '@/types/document'
 import { X, Copy } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -89,9 +89,9 @@ export function ShareDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Share "{document.title}"</DialogTitle>
+          <DialogTitle>Share &quot;{document.title}&quot;</DialogTitle>
           <DialogDescription>
-            Share and collaborate with others.
+            Share this document with others. They&apos;ll receive access based on the role you assign.
           </DialogDescription>
         </DialogHeader>
         <div className="flex space-x-2 pt-4">
