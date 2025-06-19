@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { SuggestionService } from '@/services/suggestion-service'
+import { AIService } from '@/services/ai-service'
 import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
 import { useToast } from './use-toast'
 
@@ -64,21 +65,43 @@ export function useAISuggestions({
     setLoading(true)
     setError(null)
 
-    const unsubscribe = SuggestionService.subscribeToSuggestions(
+    // Subscribe to style suggestions
+    const unsubscribeStyle = SuggestionService.subscribeToSuggestions(
       documentId,
       user.uid,
-      (newSuggestions) => {
-        console.log('[useAISuggestions] Received suggestions update:', newSuggestions.length)
-        setSuggestions(newSuggestions)
+      (newStyleSuggestions) => {
+        console.log('[useAISuggestions] Received style suggestions update:', newStyleSuggestions.length)
+        setSuggestions(prev => {
+          // Remove old style suggestions, keep funnel
+          const funnel = prev.filter(s => s.type === 'headline' || s.type === 'subheadline' || s.type === 'cta' || s.type === 'outline')
+          return [...funnel, ...newStyleSuggestions]
+        })
         setLoading(false)
         setError(null)
       }
     )
 
+    // Subscribe to funnel suggestions
+    const unsubscribeFunnel = SuggestionService.subscribeToFunnelSuggestions ? SuggestionService.subscribeToFunnelSuggestions(
+      documentId,
+      user.uid,
+      (newFunnelSuggestions) => {
+        console.log('[useAISuggestions] Received funnel suggestions update:', newFunnelSuggestions.length)
+        setSuggestions(prev => {
+          // Remove old funnel suggestions, keep style
+          const style = prev.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')
+          return [...style, ...newFunnelSuggestions]
+        })
+        setLoading(false)
+        setError(null)
+      }
+    ) : () => {};
+
     // Cleanup subscription on unmount or dependency change
     return () => {
-      console.log('[useAISuggestions] Cleaning up subscription for document:', documentId)
-      unsubscribe()
+      console.log('[useAISuggestions] Cleaning up subscriptions for document:', documentId)
+      unsubscribeStyle()
+      unsubscribeFunnel()
     }
   }, [documentId, user?.uid, autoSubscribe])
 
@@ -235,28 +258,31 @@ export function useAISuggestions({
    * Generate funnel suggestions based on writing goals
    */
   const generateFunnelSuggestions = useCallback(async (goals: any, content: string) => {
-    console.log('[useAISuggestions] Generating funnel suggestions with goals:', goals)
+    if (!documentId || !user?.uid) {
+      console.error('[useAISuggestions] Cannot generate funnel suggestions - missing documentId or userId')
+      toast({
+        title: 'Error',
+        description: 'Missing document or user information.',
+        variant: 'destructive',
+      })
+      return
+    }
+    console.log('[useAISuggestions] Generating funnel suggestions with goals:', goals, 'content length:', content.length)
     setGeneratingFunnelSuggestions(true)
     setError(null)
 
     try {
-      // In a real implementation, this would call an AI service to generate suggestions
-      // For now, we'll just simulate the process
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      console.log('[useAISuggestions] Successfully generated funnel suggestions')
-      
+      const result = await AIService.generateFunnelSuggestions(documentId, goals, content)
+      console.log('[useAISuggestions] Funnel suggestions generated:', result)
       toast({
         title: 'Funnel Suggestions Generated',
-        description: 'New funnel copy suggestions are available.',
+        description: `Added ${result?.suggestions?.length || 0} funnel suggestions.`,
       })
-      
+      // Real-time subscription will update suggestions automatically
     } catch (error) {
       console.error('[useAISuggestions] Error generating funnel suggestions:', error)
-      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setError(`Failed to generate funnel suggestions: ${errorMessage}`)
-      
       toast({
         title: 'Error Generating Suggestions',
         description: errorMessage,
@@ -265,7 +291,7 @@ export function useAISuggestions({
     } finally {
       setGeneratingFunnelSuggestions(false)
     }
-  }, [toast])
+  }, [documentId, user?.uid, toast])
 
   // Separate suggestions by type
   const styleSuggestions = suggestions.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')

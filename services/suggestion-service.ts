@@ -17,6 +17,7 @@ import {
 import { firestore } from '../lib/firebase'
 import type { AISuggestion } from '@/types/ai-features'
 
+
 export class SuggestionService {
   /**
    * Subscribe to AI suggestions for a specific document
@@ -213,5 +214,60 @@ export class SuggestionService {
       console.error('[SuggestionService] Error batch dismissing suggestions:', error)
       throw new Error(`Failed to batch dismiss suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+
+
+  /**
+   * Subscribe to funnel suggestions for a specific document
+   * @param documentId - The document ID to fetch funnel suggestions for
+   * @param userId - The user ID for security filtering
+   * @param onUpdate - Callback function to handle funnel suggestions updates
+   * @returns Unsubscribe function
+   */
+  static subscribeToFunnelSuggestions(
+    documentId: string,
+    userId: string,
+    onUpdate: (suggestions: AISuggestion[]) => void
+  ): () => void {
+    console.log('[SuggestionService] Setting up funnel subscription for document:', documentId, 'user:', userId)
+    const suggestionsRef = collection(firestore, `documents/${documentId}/funnelSuggestions`)
+    const q = query(
+      suggestionsRef,
+      where('userId', '==', userId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    )
+    return onSnapshot(q,
+      (snapshot: QuerySnapshot<DocumentData>) => {
+        console.log('[SuggestionService] Received funnel suggestions update. Count:', snapshot.size)
+        const suggestions: AISuggestion[] = []
+        snapshot.forEach((doc) => {
+          const data = doc.data()
+          const suggestion: AISuggestion = {
+            id: doc.id,
+            documentId: data.documentId || documentId,
+            userId: data.userId || userId,
+            type: data.type || 'headline',
+            title: data.title || 'Untitled Suggestion',
+            description: data.description || '',
+            originalText: data.originalText || '',
+            suggestedText: data.suggestedText || '',
+            position: data.position || { start: 0, end: 0 },
+            confidence: data.confidence || 90,
+            status: data.status || 'pending',
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
+            appliedAt: data.appliedAt instanceof Timestamp ? data.appliedAt.toMillis() : undefined
+          }
+          suggestions.push(suggestion)
+        })
+        console.log('[SuggestionService] Processed funnel suggestions:', suggestions.length)
+        onUpdate(suggestions)
+      },
+      (error: FirestoreError) => {
+        console.error('[SuggestionService] Error subscribing to funnel suggestions:', error)
+        onUpdate([])
+      }
+    )
   }
 }
