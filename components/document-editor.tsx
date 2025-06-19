@@ -526,14 +526,26 @@ export function DocumentEditor({
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
 
   // **MARKDOWN PREVIEW FUNCTIONALITY**
-  console.log('[DocumentEditor] Initializing markdown preview with content length:', fullContentHtml.length)
+  // Get plain text content from editor for markdown preview
+  const [editorPlainText, setEditorPlainText] = useState('')
+  
+  // Update plain text when editor content changes
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      const plainText = editor.getText()
+      console.log('[DocumentEditor] Updating editor plain text, length:', plainText.length)
+      setEditorPlainText(plainText)
+    }
+  }, [editor, fullContentHtml]) // Update when HTML content changes
+
+  console.log('[DocumentEditor] Initializing markdown preview with plain text length:', editorPlainText.length)
   const {
     isPreviewOpen,
     setIsPreviewOpen,
     previewContent,
     isMarkdownDetected,
     togglePreview,
-  } = useMarkdownPreview(fullContentHtml)
+  } = useMarkdownPreview(editorPlainText) // Use plain text instead of HTML
 
   console.log('[DocumentEditor] Markdown preview state:', {
     isPreviewOpen,

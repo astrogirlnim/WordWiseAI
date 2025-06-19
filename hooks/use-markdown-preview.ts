@@ -6,11 +6,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
  * Hook for managing markdown preview functionality
  * Detects markdown syntax and provides preview state management
  */
-export function useMarkdownPreview(content: string) {
-  console.log('[useMarkdownPreview] Hook initialized with content length:', content.length)
+export function useMarkdownPreview(plainTextContent: string) {
+  console.log('[useMarkdownPreview] Hook initialized with plain text length:', plainTextContent.length)
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [previewContent, setPreviewContent] = useState('')
   const [isMarkdownDetected, setIsMarkdownDetected] = useState(false)
 
   // Comprehensive markdown detection patterns
@@ -71,40 +70,11 @@ export function useMarkdownPreview(content: string) {
     return hasMarkdown
   }, [markdownPatterns])
 
-  // Convert HTML content to markdown-like text for preview
-  const convertHtmlToMarkdownText = useCallback((htmlContent: string): string => {
-    console.log('[useMarkdownPreview] Converting HTML to markdown text, length:', htmlContent.length)
-    
-    if (!htmlContent.trim()) {
-      console.log('[useMarkdownPreview] Empty HTML content')
-      return ''
-    }
-
-    // Create a temporary div to parse HTML
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = htmlContent
-
-    // Convert HTML to plain text while preserving some structure
-    let result = tempDiv.textContent || tempDiv.innerText || ''
-    
-    // If the content looks like it might be markdown, preserve it
-    if (detectMarkdown(result)) {
-      console.log('[useMarkdownPreview] Content appears to be markdown, preserving structure')
-      return result
-    }
-
-    // Otherwise, return the plain text
-    console.log('[useMarkdownPreview] Content converted to plain text')
-    return result
-  }, [detectMarkdown])
-
-  // Update preview content when main content changes
+  // Update markdown detection when content changes
   useEffect(() => {
-    console.log('[useMarkdownPreview] Content changed, updating preview')
-    const markdownText = convertHtmlToMarkdownText(content)
-    setPreviewContent(markdownText)
-    setIsMarkdownDetected(detectMarkdown(markdownText))
-  }, [content, convertHtmlToMarkdownText, detectMarkdown])
+    console.log('[useMarkdownPreview] Content changed, updating markdown detection')
+    setIsMarkdownDetected(detectMarkdown(plainTextContent))
+  }, [plainTextContent, detectMarkdown])
 
   // Toggle preview visibility
   const togglePreview = useCallback(() => {
@@ -124,13 +94,13 @@ export function useMarkdownPreview(content: string) {
   console.log('[useMarkdownPreview] Hook state:', {
     isPreviewOpen,
     isMarkdownDetected,
-    previewContentLength: previewContent.length
+    previewContentLength: plainTextContent.length
   })
 
   return {
     isPreviewOpen,
     setIsPreviewOpen,
-    previewContent,
+    previewContent: plainTextContent, // Return the plain text directly for markdown rendering
     isMarkdownDetected,
     togglePreview,
   }
