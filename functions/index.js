@@ -152,7 +152,7 @@ exports.generateStyleSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (
 
 You MUST return a valid JSON object. This object must have a single key, "suggestions", which contains an array of 1 to 5 suggestion objects. If the text is perfect and no suggestions are applicable, return an empty array for the "suggestions" key.
 
-Each object in the "suggestions" array MUST have the following structure: { "type": "style" | "readability", "title": string, "description": string, "originalText": string, "suggestedText": string }.
+Each object in the "suggestions" array MUST have the following structure: { "type": "style" | "readability" | "urgency" | "trust", "title": string, "description": string, "originalText": string, "suggestedText": string }.
 
 VERY IMPORTANT: NEVER use hyphens in any of your response text, including the "title" and "description" fields. You may use an em dash (—) or other punctuation where appropriate.
 
@@ -162,6 +162,8 @@ Your analysis should focus exclusively on the following aspects:
 - Word choice, phrasing, and vocabulary.
 - The structure and variety of sentences.
 - Overall readability and flow.
+- Urgency cues that encourage immediate action (e.g. limited-time offers, scarcity language).
+- Trust-building language that reduces friction (e.g. social proof, guarantees, authoritative wording).
 
 You MUST NOT suggest any grammatical or spelling corrections. Your focus is entirely on style and readability improvements.`;
 
