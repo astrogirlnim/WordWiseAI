@@ -93,14 +93,19 @@ service cloud.firestore {
 
         // UPDATE:
         // 1. Comment author can update the content of their own comment.
-        // 2. Owners/editors can resolve/re-open any comment.
+        // 2. Comment author can resolve/reopen their own comment.
+        // 3. Owners/editors can resolve/re-open any comment.
         allow update: if request.auth != null &&
                          (
-                           ( // Author can edit content
+                           ( // Author can edit content of their own comment
                              request.auth.uid == resource.data.authorId &&
                              request.resource.data.content != resource.data.content
                            ) ||
-                           ( // Editors can change status (resolve/reopen)
+                           ( // Author can change status of their own comment
+                             request.auth.uid == resource.data.authorId &&
+                             request.resource.data.status != resource.data.status
+                           ) ||
+                           ( // Editors/owners can change status of any comment
                              canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data) &&
                              request.resource.data.status != resource.data.status
                            )
