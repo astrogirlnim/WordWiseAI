@@ -19,6 +19,7 @@ import { CollaborationService } from '@/services/collaboration-service'
 import { useComments } from '@/hooks/use-comments'
 import { CommentsSidebar } from './comments-sidebar'
 import type { UserProfile } from '@/types/user'
+import { DistractionFreeToggle } from './distraction-free-toggle'
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
@@ -455,6 +456,16 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
           onCommentsToggle={() => setIsCommentsSidebarOpen(!isCommentsSidebarOpen)}
           onDeleteDocument={handleDeleteDocument}
         />
+      )}
+
+      {/* Distraction-free exit button - Always visible when in distraction-free mode */}
+      {isDistractionFree && (
+        <div className="fixed right-4 top-4 z-[100] bg-background/95 rounded-lg shadow-lg p-1 backdrop-blur-sm border border-border">
+          <DistractionFreeToggle
+            isDistractionFree={isDistractionFree}
+            onToggle={() => setIsDistractionFree(!isDistractionFree)}
+          />
+        </div>
       )}
 
       <div className="flex flex-1 overflow-hidden">
