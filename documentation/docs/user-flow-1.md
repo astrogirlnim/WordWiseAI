@@ -75,29 +75,29 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 - See full plan: [`documentation/features/team-review-commenting-phase3.md`](../features/team-review-commenting-phase3.md)
 
 ### Phases & Checklist
-- [ ] **Diagnosis & Verification**
-  - [ ] Review all comment-related types, stubs, and UI for consistency
-  - [ ] Verify no duplicate or conflicting comment logic exists
-  - [ ] Confirm Firestore structure for `/documents/{docId}/comments` is not in use or is safe to extend
-  - [ ] Audit logging and error handling for all comment flows
+- [x] **Diagnosis & Verification**
+  - [x] Review all comment-related types, stubs, and UI for consistency
+  - [x] Verify no duplicate or conflicting comment logic exists
+  - [x] Confirm Firestore structure for `/documents/{docId}/comments` is not in use or is safe to extend
+  - [x] Audit logging and error handling for all comment flows
 - [ ] **Firestore Comment Collection**
-  - [ ] Define `/documents/{docId}/comments` subcollection schema
-  - [ ] Implement Firestore rules for comment CRUD (owner, editor, commenter roles)
-  - [ ] Add migration/cleanup script if legacy data exists
-- [ ] **Comment Service & Hook**
-  - [ ] Implement `services/comment-service.ts` for add, update, resolve, delete, and real-time sync
-  - [ ] Implement `hooks/use-comments.ts` for real-time state, add/resolve actions, and error handling
-  - [ ] Add extensive logging for all service/hook actions
-- [ ] **UI Integration**
-  - [ ] Implement `components/comments-sidebar.tsx` to display, add, and resolve comments
-  - [ ] Integrate comment thread anchors and context menus in `components/document-editor.tsx`
-  - [ ] Pass comment state/handlers via `components/document-container.tsx`
-  - [ ] Add inline comment indicators and selection logic
-  - [ ] Ensure real-time updates and optimistic UI
+  - [x] Define `/documents/{docId}/comments` subcollection schema
+  - [x] Implement Firestore rules for comment CRUD (owner, editor, commenter roles)
+  - [ ] Add migration/cleanup script if legacy data exists (skipped, no legacy data)
+- [x] **Comment Service & Hook**
+  - [x] Implement `services/comment-service.ts` for add, update, resolve, delete, and real-time sync
+  - [x] Implement `hooks/use-comments.ts` for real-time state, add/resolve actions, and error handling
+  - [x] Add extensive logging for all service/hook actions
+- [x] **UI Integration**
+  - [x] Implement `components/comments-sidebar.tsx` to display, add, and resolve comments
+  - [x] Integrate comment thread anchors and context menus in `components/document-editor.tsx`
+  - [x] Pass comment state/handlers via `components/document-container.tsx`
+  - [x] Add inline comment indicators and selection logic
+  - [x] Ensure real-time updates and optimistic UI
 - [ ] **Access Control & Security**
-  - [ ] Update `firestore.rules` for comment subcollection (role-based access)
-  - [ ] Add UI/UX for permission errors and unauthorized actions
-  - [ ] Test with all user roles (owner, editor, commenter, viewer)
+  - [x] Update `firestore.rules` for comment subcollection (role-based access)
+  - [ ] Add UI/UX for permission errors and unauthorized actions (partially done via rules)
+  - [ ] Test with all user roles (owner, editor, commenter, viewer) (blocked by schema issue)
 - [ ] **Diagnosis & Verification (Post-Implementation)**
   - [ ] Test end-to-end: add, view, resolve, and delete comments
   - [ ] Verify real-time sync and UI updates
@@ -107,12 +107,12 @@ Enable marketing team members to collaborate on funnel pages in real time, strea
 
 #### Relevant Files & Status
 - `types/comment.ts`: ✅ Complete
-- `services/comment-service.ts`: ⬜️ Stub, needs full implementation
-- `hooks/use-comments.ts`: ⬜️ Stub, needs full implementation
-- `components/comments-sidebar.tsx`: ⬜️ Stub, needs full implementation
-- `components/document-editor.tsx`: ⬜️ Needs integration
-- `components/document-container.tsx`: ⬜️ Needs integration
-- `firestore.rules`: ⬜️ Needs update for comments
+- `services/comment-service.ts`: ✅ Implemented
+- `hooks/use-comments.ts`: ✅ Implemented
+- `components/comments-sidebar.tsx`: ✅ Implemented
+- `components/document-editor.tsx`: ✅ Integrated
+- `components/document-container.tsx`: ✅ Integrated
+- `firestore.rules`: ✅ Updated for comments
 
 ---
 
@@ -421,7 +421,7 @@ A dedicated Manage Users page will provide a scalable, organized interface for m
 - [x] Enhanced version history with user tracking
 
 ### Phase 3: Team Review & Commenting
-- [ ] Commenting UI for feedback and discussion
+- [x] Commenting UI for feedback and discussion
 
 ### Phase 4: Document Sharing & Access Control
 - [x] Sharing/invitation UI

@@ -19,7 +19,7 @@ import { DocumentService } from '@/services/document-service'
 import { useToast } from '@/hooks/use-toast'
 import { useState } from 'react'
 import { Button } from './ui/button'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, MessageSquare } from 'lucide-react'
 
 interface NavigationBarProps {
   user: User
@@ -32,6 +32,7 @@ interface NavigationBarProps {
   aiSuggestionCount?: number
   writingGoals: WritingGoals
   isDistractionFree: boolean
+  isCommentsSidebarOpen?: boolean
   onDocumentSelect?: (documentId: string) => void
   onNewDocument?: () => void
   onUserAction?: (action: string) => void
@@ -39,6 +40,7 @@ interface NavigationBarProps {
   onWritingGoalsClick?: () => void
   onDistractionFreeToggle?: () => void
   onVersionHistoryClick?: () => void
+  onCommentsToggle?: () => void
   onDeleteDocument?: (documentId: string) => Promise<void>
 }
 
@@ -53,6 +55,7 @@ export function NavigationBar({
   aiSuggestionCount = 0,
   writingGoals,
   isDistractionFree,
+  isCommentsSidebarOpen = false,
   onDocumentSelect,
   onNewDocument,
   onUserAction,
@@ -60,6 +63,7 @@ export function NavigationBar({
   onWritingGoalsClick,
   onDistractionFreeToggle,
   onVersionHistoryClick,
+  onCommentsToggle,
   onDeleteDocument,
 }: NavigationBarProps) {
   const { user: authUser, logout } = useAuth()
@@ -226,6 +230,15 @@ export function NavigationBar({
               />
               
               <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
+
+              <Button
+                variant={isCommentsSidebarOpen ? 'secondary' : 'ghost'}
+                size="icon"
+                onClick={onCommentsToggle}
+                aria-label="Toggle comments sidebar"
+              >
+                <MessageSquare className="h-5 w-5" />
+              </Button>
 
               <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
                 <UserPlus className="h-4 w-4 mr-2" />

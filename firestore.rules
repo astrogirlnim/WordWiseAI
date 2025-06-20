@@ -15,14 +15,19 @@ service cloud.firestore {
     }
 
     function hasRole(docData, targetRole) {
-      return request.auth != null && 
-             'sharedWith' in docData &&
-             docData.sharedWith != null &&
-             docData.sharedWith.hasAny([{'userId': request.auth.uid, 'role': targetRole}]);
+      return request.auth != null &&
+             'sharedRoles' in docData &&
+             docData.sharedRoles != null &&
+             request.auth.uid in docData.sharedRoles &&
+             docData.sharedRoles[request.auth.uid] == targetRole;
     }
 
     function canEdit(docData) {
       return isOwner(docData) || hasRole(docData, 'editor');
+    }
+
+    function canComment(docData) {
+      return canEdit(docData) || hasRole(docData, 'commenter');
     }
 
     function isPublic(docData) {
@@ -73,6 +78,40 @@ service cloud.firestore {
       match /funnelSuggestions/{suggestionId} {
         allow read: if request.auth != null && canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
         allow write, create, delete: if request.auth != null && canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data);
+      }
+
+      // Rules for the 'comments' subcollection (PHASE 3)
+      match /comments/{commentId} {
+        // READ: Anyone who can view the document can read comments.
+        allow list, get: if canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+
+        // CREATE: Owners, editors, and commenters can create comments.
+        // User must be the author of the comment being created.
+        allow create: if request.auth != null &&
+                       canComment(get(/databases/$(database)/documents/documents/$(documentId)).data) &&
+                       request.auth.uid == request.resource.data.authorId;
+
+        // UPDATE:
+        // 1. Comment author can update the content of their own comment.
+        // 2. Owners/editors can resolve/re-open any comment.
+        allow update: if request.auth != null &&
+                         (
+                           ( // Author can edit content
+                             request.auth.uid == resource.data.authorId &&
+                             request.resource.data.content != resource.data.content
+                           ) ||
+                           ( // Editors can change status (resolve/reopen)
+                             canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data) &&
+                             request.resource.data.status != resource.data.status
+                           )
+                         );
+
+        // DELETE: Only the author of the comment or document owner can delete it.
+        allow delete: if request.auth != null && 
+                         (
+                           ('authorId' in resource.data && request.auth.uid == resource.data.authorId) ||
+                           isOwner(get(/databases/$(database)/documents/documents/$(documentId)).data)
+                         );
       }
     }
 

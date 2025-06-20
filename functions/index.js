@@ -827,10 +827,12 @@ exports.acceptInvite = onCall(async (request) => {
 
   const batch = db.batch();
 
-  // Add user to the document's access list
+  // Add user to the document's access list and role map
+  const fieldPath = `sharedRoles.${userId}`;
   batch.update(documentRef, {
     sharedWith: FieldValue.arrayUnion(newAccess),
     sharedWithIds: FieldValue.arrayUnion(userId),
+    [fieldPath]: invitation.role,
   });
 
   // Mark the invitation as accepted

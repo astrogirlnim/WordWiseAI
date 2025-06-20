@@ -16,6 +16,9 @@ import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { CollaborationService } from '@/services/collaboration-service'
+import { useComments } from '@/hooks/use-comments'
+import { CommentsSidebar } from './comments-sidebar'
+import type { UserProfile } from '@/types/user'
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
@@ -34,6 +37,7 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
   } = useDocuments()
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(initialDocumentId || null)
   const { versions, loading: versionsLoading, error: versionsError, reloadVersions, deleteVersion } = useDocumentVersions(activeDocumentId || null)
+  const { comments, loading: commentsLoading, error: commentsError, addComment, updateComment, deleteComment, resolveComment, reactivateComment } = useComments(activeDocumentId)
   const { toast } = useToast()
 
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
@@ -45,6 +49,8 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
   const [newDocumentTitle, setNewDocumentTitle] = useState('Untitled Document')
   const [isDistractionFree, setIsDistractionFree] = useState(false)
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
+  const [isCommentsSidebarOpen, setIsCommentsSidebarOpen] = useState(false)
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<{
     oldContent: string
     newContent: string
@@ -328,8 +334,6 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     [deleteDocument, toast],
   )
 
-
-
   const handleSaveWritingGoals = useCallback(async (newGoals: WritingGoals, title?: string) => {
     console.log('[DocumentContainer] Saving writing goals:', { 
       newGoals, 
@@ -365,8 +369,6 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
       console.log('[DocumentContainer] Just updating goals for existing workflow')
     }
   }, [isCreatingNewDocument, createDocument, user?.uid, toast])
-
-
 
   const handleContentChange = useAutoSave(
     (content: string) => {
@@ -450,6 +452,8 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
           isAISidebarOpen={isAISidebarOpen}
           onAISidebarToggle={() => setIsAISidebarOpen(!isAISidebarOpen)}
           onVersionHistoryClick={handleToggleVersionHistory}
+          isCommentsSidebarOpen={isCommentsSidebarOpen}
+          onCommentsToggle={() => setIsCommentsSidebarOpen(!isCommentsSidebarOpen)}
           onDeleteDocument={handleDeleteDocument}
         />
       )}
@@ -464,6 +468,9 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
               onContentChange={handleContentChange}
               saveStatus={saveStatus}
               isEditable={canEdit}
+              comments={comments}
+              addComment={addComment}
+              setActiveCommentId={setActiveCommentId}
             />
           ) : documents.length > 0 ? (
             <div className="flex-1 flex items-center justify-center text-gray-500">
@@ -503,6 +510,34 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
             documentId={activeDocumentId}
             writingGoals={writingGoals}
             currentContent={activeDocument?.content}
+          />
+        )}
+
+        {isCommentsSidebarOpen && !isDistractionFree && user && (
+          <CommentsSidebar
+            isOpen={isCommentsSidebarOpen}
+            onClose={() => setIsCommentsSidebarOpen(false)}
+            comments={comments}
+            currentUser={{
+              id: user.uid,
+              name: user.displayName || 'User',
+              email: user.email || '',
+              // Dummy data for non-optional fields
+              orgId: '',
+              role: '',
+              preferences: {} as any,
+              acceptedSuggestions: [],
+              rejectedSuggestions: [],
+              createdAt: 0,
+              updatedAt: 0,
+            }}
+            onAddComment={addComment}
+            onResolveComment={resolveComment}
+            onDeleteComment={deleteComment}
+            onReactivateComment={reactivateComment}
+            activeCommentId={activeCommentId}
+            setActiveCommentId={setActiveCommentId}
+            isDocumentOwner={activeDocument?.ownerId === user.uid}
           />
         )}
       </div>

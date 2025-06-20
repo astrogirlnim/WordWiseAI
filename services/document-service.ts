@@ -14,6 +14,8 @@ import {
   arrayUnion,
   arrayRemove,
   writeBatch,
+  FieldValue,
+  deleteField,
 } from 'firebase/firestore'
 import { firestore } from '../lib/firebase'
 import type {
@@ -48,6 +50,7 @@ export class DocumentService {
         status: 'draft',
         sharedWith: [],
         sharedWithIds: [],
+        sharedRoles: {},
         isPublic: false,
         publicViewMode: 'view',
         workflowState: {
@@ -269,7 +272,11 @@ export class DocumentService {
       return access
     })
 
-    await updateDoc(docRef, { sharedWith })
+    const fieldPath = `sharedRoles.${userId}`
+    await updateDoc(docRef, { 
+      sharedWith,
+      [fieldPath]: newRole,
+    })
   }
 
   static async removeUserAccess(
@@ -286,9 +293,11 @@ export class DocumentService {
     )
 
     if (accessToRemove) {
+      const fieldPath = `sharedRoles.${userId}`
       await updateDoc(docRef, {
         sharedWith: arrayRemove(accessToRemove),
         sharedWithIds: arrayRemove(userId),
+        [fieldPath]: deleteField(),
       })
     }
   }
