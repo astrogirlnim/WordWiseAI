@@ -12,7 +12,6 @@ import {
   Target, 
   Lightbulb, 
   Megaphone, 
-  MessageSquare,
   List,
   Loader2,
   RefreshCw
@@ -34,12 +33,7 @@ export function AISidebar({
   writingGoals,
   currentContent = ''
 }: AISidebarProps) {
-  console.log('[AISidebar] Rendering with props:', {
-    isOpen,
-    documentId,
-    hasWritingGoals: !!writingGoals,
-    contentLength: currentContent.length
-  })
+  console.log('[AISidebar] Rendering sidebar')
 
   const [activeTab, setActiveTab] = useState('suggestions')
 

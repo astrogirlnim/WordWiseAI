@@ -1,4 +1,3 @@
-/* eslint-disable max-len, indent, comma-dangle */
 /**
  * Import function triggers from their respective submodules:
  *
@@ -15,6 +14,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onRequest} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 const {OpenAI} = require("openai");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const path = require("path");
@@ -72,7 +72,7 @@ exports.generateSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (reque
 
   if (userEntry.count > rateLimit.maxCalls) {
     logger.warn("Rate limit exceeded", {userId, count: userEntry.count});
-    // eslint-disable-next-line max-len
+     
     throw new HttpsError(
       "resource-exhausted",
       "Rate limit exceeded. Please try again later."
@@ -731,4 +731,125 @@ Never use hyphens in your suggestions. Use em dashes (—) or other punctuation 
     logger.error("Error in generateFunnelSuggestions function:", error, {userId, documentId});
     throw new HttpsError("internal", "Failed to generate funnel suggestions.");
   }
+});
+
+exports.acceptInvite = onCall(async (request) => {
+  const { token } = request.data;
+  const userId = request.auth?.uid;
+  const userEmail = request.auth?.token.email;
+
+  if (!userId || !userEmail) {
+    throw new HttpsError("unauthenticated", "You must be logged in to accept an invitation.");
+  }
+  if (!token) {
+    throw new HttpsError("invalid-argument", "An invitation token must be provided.");
+  }
+
+  logger.log(`[acceptInvite] Starting invitation acceptance process`, {
+    userId,
+    userEmail,
+    token,
+    authToken: request.auth?.token
+  });
+
+  const db = admin.firestore();
+  const invitationsRef = db.collection("invitations");
+  const q = invitationsRef.where("token", "==", token).limit(1);
+  
+  const snapshot = await q.get();
+
+  if (snapshot.empty) {
+    logger.error(`[acceptInvite] No invitation found for token: ${token}`);
+    throw new HttpsError("not-found", "This invitation is invalid or has expired.");
+  }
+
+  const invitationDoc = snapshot.docs[0];
+  const invitation = invitationDoc.data();
+
+  logger.log(`[acceptInvite] Found invitation`, {
+    invitationId: invitationDoc.id,
+    invitationEmail: invitation.email,
+    userEmail: userEmail,
+    invitationStatus: invitation.status,
+    invitationRole: invitation.role,
+    documentId: invitation.documentId
+  });
+
+  // Normalize both emails for comparison
+  const normalizedInvitationEmail = invitation.email.toLowerCase().trim();
+  const normalizedUserEmail = userEmail.toLowerCase().trim();
+
+  logger.log(`[acceptInvite] Email comparison details`, {
+    originalInvitationEmail: invitation.email,
+    normalizedInvitationEmail,
+    originalUserEmail: userEmail,
+    normalizedUserEmail,
+    emailsMatch: normalizedInvitationEmail === normalizedUserEmail
+  });
+
+  if (normalizedInvitationEmail !== normalizedUserEmail) {
+    logger.warn(`[acceptInvite] Email mismatch - User ${userEmail} tried to accept invitation for ${invitation.email}`);
+    logger.warn(`[acceptInvite] Normalized comparison: ${normalizedUserEmail} !== ${normalizedInvitationEmail}`);
+    throw new HttpsError("permission-denied", `This invitation is not for you. The invitation was sent to ${invitation.email}, but you are signed in as ${userEmail}.`);
+  }
+
+  if (invitation.status !== "pending") {
+    logger.warn(`[acceptInvite] Invitation ${invitationDoc.id} status is ${invitation.status}, not pending`);
+    throw new HttpsError("already-exists", "This invitation has already been used.");
+  }
+
+  const documentRef = db.collection("documents").doc(invitation.documentId);
+  const documentSnap = await documentRef.get();
+  if(!documentSnap.exists){
+    logger.error(`[acceptInvite] Document ${invitation.documentId} not found for invitation ${invitationDoc.id}`);
+    throw new HttpsError("not-found", "The document associated with this invitation no longer exists.");
+  }
+
+  const documentData = documentSnap.data();
+  const documentOwner = documentData.ownerId;
+
+  logger.log(`[acceptInvite] Document details`, {
+    documentId: invitation.documentId,
+    documentTitle: documentData.title,
+    documentOwner,
+    documentExists: true
+  });
+
+  const newAccess = {
+    userId: userId,
+    email: normalizedUserEmail, // Use normalized email for consistency
+    role: invitation.role,
+    addedAt: Date.now(), // Use a plain timestamp, not FieldValue.serverTimestamp()
+    addedBy: invitation.invitedBy,
+  };
+
+  logger.log(`[acceptInvite] Creating access entry`, newAccess);
+
+  const batch = db.batch();
+
+  // Add user to the document's access list and role map
+  const fieldPath = `sharedRoles.${userId}`;
+  batch.update(documentRef, {
+    sharedWith: FieldValue.arrayUnion(newAccess),
+    sharedWithIds: FieldValue.arrayUnion(userId),
+    [fieldPath]: invitation.role,
+  });
+
+  // Mark the invitation as accepted
+  batch.update(invitationDoc.ref, {
+    status: "accepted",
+    acceptedAt: FieldValue.serverTimestamp(),
+    acceptedBy: userId
+  });
+
+  await batch.commit();
+
+  logger.log(`[acceptInvite] Successfully completed invitation acceptance`, {
+    userId,
+    userEmail: normalizedUserEmail,
+    documentId: invitation.documentId,
+    role: invitation.role
+  });
+
+  return { success: true, documentId: invitation.documentId };
 });

@@ -6,11 +6,20 @@ import { useAuth } from '@/lib/auth-context'
 import { useDocuments } from '@/hooks/use-documents'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import type { Document } from '@/types/document'
+
+// Force dynamic rendering for this page since it uses Firebase hooks
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default function SettingsPage() {
+  console.log('[SettingsPage] Rendering settings page')
   const { user, loading: authLoading } = useAuth()
-  const { documents, loading: docsLoading } = useDocuments()
+  const { 
+    ownedDocuments, 
+    sharedDocuments, 
+    publicDocuments, 
+    loading: docsLoading 
+  } = useDocuments()
   const router = useRouter()
   const [activeDocumentId, setActiveDocumentId] = useState<string | undefined>(undefined)
 
@@ -50,7 +59,9 @@ export default function SettingsPage() {
           avatar: user.photoURL || '',
           plan: 'free', // Assuming a default plan
         }}
-        documents={documents}
+        myDocuments={ownedDocuments}
+        sharedDocuments={sharedDocuments}
+        publicDocuments={publicDocuments}
         activeDocumentId={activeDocumentId}
         onDocumentSelect={handleDocumentSelect}
         onNewDocument={handleNewDocument}

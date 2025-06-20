@@ -11,13 +11,20 @@ import {
   deleteDoc,
   serverTimestamp,
   Timestamp,
+  arrayUnion,
+  arrayRemove,
+  writeBatch,
+  FieldValue,
+  deleteField,
 } from 'firebase/firestore'
 import { firestore } from '../lib/firebase'
 import type {
   Document as DocumentType,
+  DocumentAccess,
   FirestoreTimestamp,
 } from '@/types/document'
 import type { WritingGoals } from '@/types/writing-goals'
+import { userService } from './user-service'
 
 const getMillis = (timestamp: FirestoreTimestamp | undefined): number => {
   if (timestamp instanceof Timestamp) {
@@ -42,6 +49,8 @@ export class DocumentService {
         orgId: '', // Default empty for MVP
         status: 'draft',
         sharedWith: [],
+        sharedWithIds: [],
+        sharedRoles: {},
         isPublic: false,
         publicViewMode: 'view',
         workflowState: {
@@ -104,7 +113,7 @@ export class DocumentService {
     }
   }
 
-  static async getUserDocuments(ownerId: string): Promise<DocumentType[]> {
+  static async getOwnedDocuments(ownerId: string): Promise<DocumentType[]> {
     try {
       const q = query(
         collection(firestore, 'documents'),
@@ -123,6 +132,50 @@ export class DocumentService {
       return documents
     } catch (error) {
       console.error('Error getting user documents:', error)
+      return []
+    }
+  }
+
+  static async getSharedDocuments(userId: string): Promise<DocumentType[]> {
+    try {
+      const q = query(
+        collection(firestore, 'documents'),
+        where('sharedWithIds', 'array-contains', userId),
+      )
+      const querySnapshot = await getDocs(q)
+      const documents = querySnapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as DocumentType),
+      )
+      documents.sort((a, b) => {
+        const timeA = getMillis(a.updatedAt)
+        const timeB = getMillis(b.updatedAt)
+        return timeB - timeA
+      })
+      return documents
+    } catch (error) {
+      console.error('Error getting shared documents:', error)
+      return []
+    }
+  }
+
+  static async getPublicDocuments(): Promise<DocumentType[]> {
+    try {
+      const q = query(
+        collection(firestore, 'documents'),
+        where('isPublic', '==', true),
+      )
+      const querySnapshot = await getDocs(q)
+      const documents = querySnapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as DocumentType),
+      )
+      documents.sort((a, b) => {
+        const timeA = getMillis(a.updatedAt)
+        const timeB = getMillis(b.updatedAt)
+        return timeB - timeA
+      })
+      return documents
+    } catch (error) {
+      console.error('Error getting public documents:', error)
       return []
     }
   }
@@ -149,6 +202,106 @@ export class DocumentService {
     } catch (error) {
       console.error('Error deleting document:', error)
       throw new Error('Failed to delete document')
+    }
+  }
+
+  static async shareDocument(
+    documentId: string,
+    emails: string[],
+    role: DocumentAccess['role'],
+    sharedBy: string,
+  ): Promise<void> {
+    const docRef = doc(firestore, 'documents', documentId)
+    const batch = writeBatch(firestore)
+
+    for (const email of emails) {
+      const userToShareWith = await userService.findUserByEmail(email)
+      if (!userToShareWith) {
+        throw new Error(`User with email ${email} not found.`)
+      }
+
+      const newAccess: DocumentAccess = {
+        userId: userToShareWith.id,
+        email: userToShareWith.email,
+        role,
+        addedAt: serverTimestamp(),
+        addedBy: sharedBy,
+      }
+
+      // Update both the sharedWith array and the sharedRoles map
+      const fieldPath = `sharedRoles.${userToShareWith.id}`
+      batch.update(docRef, {
+        sharedWith: arrayUnion(newAccess),
+        sharedWithIds: arrayUnion(userToShareWith.id),
+        [fieldPath]: role,
+      })
+    }
+
+    await batch.commit()
+  }
+
+  static async updatePublicAccess(
+    documentId: string,
+    isPublic: boolean,
+    publicViewMode: DocumentType['publicViewMode'],
+  ): Promise<void> {
+    try {
+      const docRef = doc(firestore, 'documents', documentId)
+      await updateDoc(docRef, {
+        isPublic,
+        publicViewMode,
+        updatedAt: serverTimestamp(),
+      })
+    } catch (error) {
+      console.error('Error updating public access:', error)
+      throw new Error('Failed to update public access settings.')
+    }
+  }
+
+  static async updateUserRole(
+    documentId: string,
+    userId: string,
+    newRole: DocumentAccess['role'],
+  ): Promise<void> {
+    const docRef = doc(firestore, 'documents', documentId)
+    const docSnap = await getDoc(docRef)
+    if (!docSnap.exists()) throw new Error('Document not found')
+
+    const document = docSnap.data() as DocumentType
+    const sharedWith = document.sharedWith.map((access) => {
+      if (access.userId === userId) {
+        return { ...access, role: newRole }
+      }
+      return access
+    })
+
+    const fieldPath = `sharedRoles.${userId}`
+    await updateDoc(docRef, { 
+      sharedWith,
+      [fieldPath]: newRole,
+    })
+  }
+
+  static async removeUserAccess(
+    documentId: string,
+    userId: string,
+  ): Promise<void> {
+    const docRef = doc(firestore, 'documents', documentId)
+    const docSnap = await getDoc(docRef)
+    if (!docSnap.exists()) throw new Error('Document not found')
+
+    const document = docSnap.data() as DocumentType
+    const accessToRemove = document.sharedWith.find(
+      (access) => access.userId === userId,
+    )
+
+    if (accessToRemove) {
+      const fieldPath = `sharedRoles.${userId}`
+      await updateDoc(docRef, {
+        sharedWith: arrayRemove(accessToRemove),
+        sharedWithIds: arrayRemove(userId),
+        [fieldPath]: deleteField(),
+      })
     }
   }
 }

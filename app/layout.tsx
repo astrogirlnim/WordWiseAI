@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   keywords: ['AI writing', 'professional writing', 'content creation', 'writing assistant', 'retro tech'],
 }
 
+// Force dynamic rendering for the entire app
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function RootLayout({
   children,
 }: Readonly<{

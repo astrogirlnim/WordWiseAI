@@ -1,39 +1,141 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isOwner(docData) {
+      return request.auth != null && request.auth.uid == docData.ownerId;
+    }
+
+    function isSharedWith(docData) {
+      return request.auth != null && 
+             'sharedWithIds' in docData && 
+             docData.sharedWithIds != null &&
+             request.auth.uid in docData.sharedWithIds;
+    }
+
+    function hasRole(docData, targetRole) {
+      return request.auth != null &&
+             'sharedRoles' in docData &&
+             docData.sharedRoles != null &&
+             request.auth.uid in docData.sharedRoles &&
+             docData.sharedRoles[request.auth.uid] == targetRole;
+    }
+
+    function canEdit(docData) {
+      return isOwner(docData) || hasRole(docData, 'editor');
+    }
+
+    function canComment(docData) {
+      return canEdit(docData) || hasRole(docData, 'commenter');
+    }
+
+    function isPublic(docData) {
+      return 'isPublic' in docData && docData.isPublic == true &&
+             'publicViewMode' in docData && docData.publicViewMode != 'disabled';
+    }
+
+    function canView(docData) {
+      return isPublic(docData) || (request.auth != null && (isOwner(docData) || isSharedWith(docData)));
+    }
+
     // Users can only read and write their own data.
     match /users/{userId} {
       allow read, update, delete: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Example for a 'documents' collection where documents have an 'ownerId'.
+    // Rules for the 'documents' collection
     match /documents/{documentId} {
-      allow get, read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // READ access: Owner, shared users, or public
+      allow get: if canView(resource.data);
       allow list: if request.auth != null;
 
-      // Allow the document owner to read/write versions sub-collection
+      // WRITE access:
+      // CREATE: User must be the owner of the new document.
+      allow create: if request.auth != null && isOwner(request.resource.data);
+
+      // UPDATE: Owner or editors can update.
+      allow update: if request.auth != null && canEdit(resource.data);
+
+      // DELETE: Only the owner can delete.
+      allow delete: if request.auth != null && isOwner(resource.data);
+
+      // Sub-collections
       match /versions/{versionId} {
-        allow read, list: if request.auth != null;
-        allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        // Allow read if user has access to the parent document
+        allow read, list: if request.auth != null && canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+        // Only owners can create/update/delete versions
+        allow create, update, delete: if request.auth != null && isOwner(get(/databases/$(database)/documents/documents/$(documentId)).data);
       }
 
-      // Allow the document owner to manage style suggestions
+      // Allow users with document access to manage suggestions
       match /styleSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read: if request.auth != null && canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+        allow write, create, delete: if request.auth != null && canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data);
       }
 
-      // Allow the document owner to manage funnel suggestions
       match /funnelSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read: if request.auth != null && canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+        allow write, create, delete: if request.auth != null && canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data);
+      }
+
+      // Rules for the 'comments' subcollection (PHASE 3)
+      match /comments/{commentId} {
+        // READ: Anyone who can view the document can read comments.
+        allow list, get: if canView(get(/databases/$(database)/documents/documents/$(documentId)).data);
+
+        // CREATE: Owners, editors, and commenters can create comments.
+        // User must be the author of the comment being created.
+        allow create: if request.auth != null &&
+                       canComment(get(/databases/$(database)/documents/documents/$(documentId)).data) &&
+                       request.auth.uid == request.resource.data.authorId;
+
+        // UPDATE:
+        // 1. Comment author can update the content of their own comment.
+        // 2. Comment author can resolve/reopen their own comment.
+        // 3. Owners/editors can resolve/re-open any comment.
+        allow update: if request.auth != null &&
+                         (
+                           ( // Author can edit content of their own comment
+                             request.auth.uid == resource.data.authorId &&
+                             request.resource.data.content != resource.data.content
+                           ) ||
+                           ( // Author can change status of their own comment
+                             request.auth.uid == resource.data.authorId &&
+                             request.resource.data.status != resource.data.status
+                           ) ||
+                           ( // Editors/owners can change status of any comment
+                             canEdit(get(/databases/$(database)/documents/documents/$(documentId)).data) &&
+                             request.resource.data.status != resource.data.status
+                           )
+                         );
+
+        // DELETE: Only the author of the comment or document owner can delete it.
+        allow delete: if request.auth != null && 
+                         (
+                           ('authorId' in resource.data && request.auth.uid == resource.data.authorId) ||
+                           isOwner(get(/databases/$(database)/documents/documents/$(documentId)).data)
+                         );
       }
     }
 
     // Allow authenticated users to write to the audit log
     match /auditLogs/{logId} {
       allow create: if request.auth != null;
+    }
+
+    // Rules for invitations
+    match /invitations/{invitationId} {
+      // Allow the document owner to read and delete pending invitations.
+      allow read, delete: if request.auth != null &&
+                             isOwner(get(/databases/$(database)/documents/documents/$(resource.data.documentId)).data);
+
+      // Allow the document owner to create invitations.
+      // The `invitedBy` field in the new invitation must match the user's ID.
+      allow create: if request.auth != null &&
+                       isOwner(get(/databases/$(database)/documents/documents/$(request.resource.data.documentId)).data) &&
+                       request.auth.uid == request.resource.data.invitedBy;
     }
 
     // Add other collections here with similar rules.
