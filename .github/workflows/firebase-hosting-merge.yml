@@ -44,6 +44,8 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_WORDWISE_AI_MVP }}'
           channelId: live
-          projectId: wordwise-ai-mvp
+          projectId: '${{ secrets.FIREBASE_PROJECT_ID }}'
+          entryPoint: './'
+          firebaseToolsVersion: 'latest'
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
