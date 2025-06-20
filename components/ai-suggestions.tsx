@@ -284,11 +284,11 @@ function FunnelSuggestionCard({ suggestion, onApply, onDismiss }: FunnelSuggesti
           </div>
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <Button size="sm" onClick={onApply} className="flex-1">
+            <Button size="sm" onClick={() => onApply()} className="flex-1">
               <Check className="mr-1 h-3 w-3" />
               Apply
             </Button>
-            <Button size="sm" variant="outline" onClick={onDismiss}>
+            <Button size="sm" variant="outline" onClick={() => onDismiss()}>
               <X className="h-3 w-3" />
             </Button>
           </div>
@@ -347,11 +347,11 @@ function StyleSuggestionCard({ suggestion, onApply, onDismiss }: StyleSuggestion
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <Button size="sm" onClick={onApply} className="flex-1">
+            <Button size="sm" onClick={() => onApply()} className="flex-1">
               <Check className="mr-1 h-3 w-3" />
               Apply
             </Button>
-            <Button size="sm" variant="outline" onClick={onDismiss}>
+            <Button size="sm" variant="outline" onClick={() => onDismiss()}>
               <X className="h-3 w-3" />
             </Button>
           </div>
