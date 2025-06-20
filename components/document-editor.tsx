@@ -282,72 +282,90 @@ export function DocumentEditor({
         console.log('[DocumentEditor] Processing funnel suggestion');
         
         // Check if this type of suggestion already exists in the document to prevent duplicates
-        const existingMarkers = {
+        // Only check for funnel types that have specific markers
+        type FunnelSuggestionType = 'headline' | 'subheadline' | 'cta' | 'outline';
+        
+        const existingMarkers: Record<FunnelSuggestionType, RegExp> = {
           headline: /^#\s+.+$/m,
           subheadline: /^##\s+.+$/m,
           cta: /\*\*[^*]+\*\*\s*$/m,
           outline: /^\d+\.\s+.+:/m
         };
         
-        const existingMarker = existingMarkers[suggestionType];
-        if (existingMarker && existingMarker.test(fullContentHtml)) {
-          console.log(`[DocumentEditor] ${suggestionType} already exists, replacing instead of adding`);
-          
-          // Replace existing content of same type
-          if (suggestionType === 'headline') {
-            updatedContent = fullContentHtml.replace(/^#\s+.+$/m, `# ${suggestedText}`);
-          } else if (suggestionType === 'subheadline') {
-            updatedContent = fullContentHtml.replace(/^##\s+.+$/m, `## ${suggestedText}`);
-          } else if (suggestionType === 'cta') {
-            updatedContent = fullContentHtml.replace(/\*\*[^*]+\*\*\s*$/m, `**${suggestedText}**`);
-          } else if (suggestionType === 'outline') {
-            // Replace existing outline
-            const outlineRegex = /^\d+\.\s+.+$/gm;
-            updatedContent = fullContentHtml.replace(outlineRegex, '').trim() + '\n\n' + suggestedText;
+        // Only check for existing markers if this is a funnel suggestion type
+        const isFunnelType = (type: string): type is FunnelSuggestionType => {
+          return ['headline', 'subheadline', 'cta', 'outline'].includes(type);
+        };
+        
+        if (isFunnelType(suggestionType)) {
+          const existingMarker = existingMarkers[suggestionType];
+          if (existingMarker && existingMarker.test(fullContentHtml)) {
+            console.log(`[DocumentEditor] ${suggestionType} already exists, replacing instead of adding`);
+            
+            // Replace existing content of same type
+            if (suggestionType === 'headline') {
+              updatedContent = fullContentHtml.replace(/^#\s+.+$/m, `# ${suggestedText}`);
+            } else if (suggestionType === 'subheadline') {
+              updatedContent = fullContentHtml.replace(/^##\s+.+$/m, `## ${suggestedText}`);
+            } else if (suggestionType === 'cta') {
+              updatedContent = fullContentHtml.replace(/\*\*[^*]+\*\*\s*$/m, `**${suggestedText}**`);
+            } else if (suggestionType === 'outline') {
+              // Replace existing outline
+              const outlineRegex = /^\d+\.\s+.+$/gm;
+              updatedContent = fullContentHtml.replace(outlineRegex, '').trim() + '\n\n' + suggestedText;
+            }
+            textReplaced = true;
+          } else {
+            // Insert new content at appropriate position
+            textReplaced = insertFunnelSuggestionContent(suggestionType, suggestedText, fullContentHtml);
           }
-          textReplaced = true;
         } else {
-          // Insert new content at appropriate position
+          // For non-funnel suggestions, just insert the content
+          textReplaced = insertFunnelSuggestionContent(suggestionType as FunnelSuggestionType, suggestedText, fullContentHtml);
+        }
+        
+        // Helper function to insert funnel suggestion content
+        function insertFunnelSuggestionContent(type: string, text: string, content: string): boolean {
           let insertPosition = 0;
-          let insertText = suggestedText;
+          let insertText = text;
           
-          if (suggestionType === 'headline') {
+          if (type === 'headline') {
             // Headlines go at the very beginning
             insertPosition = 0;
-            insertText = `# ${suggestedText}\n\n`;
-            updatedContent = insertText + fullContentHtml;
-          } else if (suggestionType === 'subheadline') {
+            insertText = `# ${text}\n\n`;
+            updatedContent = insertText + content;
+          } else if (type === 'subheadline') {
             // Subheadlines go after any existing headline
-            const headlineMatch = fullContentHtml.match(/^#\s+.+?\n/m);
+            const headlineMatch = content.match(/^#\s+.+?\n/m);
             if (headlineMatch) {
               insertPosition = headlineMatch.index! + headlineMatch[0].length;
-              insertText = `## ${suggestedText}\n\n`;
-              updatedContent = fullContentHtml.slice(0, insertPosition) + insertText + fullContentHtml.slice(insertPosition);
+              insertText = `## ${text}\n\n`;
+              updatedContent = content.slice(0, insertPosition) + insertText + content.slice(insertPosition);
             } else {
               insertPosition = 0;
-              insertText = `## ${suggestedText}\n\n`;
-              updatedContent = insertText + fullContentHtml;
+              insertText = `## ${text}\n\n`;
+              updatedContent = insertText + content;
             }
-          } else if (suggestionType === 'cta') {
+          } else if (type === 'cta') {
             // CTAs go at the end of the document
-            insertText = `\n\n**${suggestedText}**`;
-            updatedContent = fullContentHtml + insertText;
-          } else if (suggestionType === 'outline') {
+            insertText = `\n\n**${text}**`;
+            updatedContent = content + insertText;
+          } else if (type === 'outline') {
             // Outlines go after headlines/subheadlines but before main content
-            const headerEndMatch = fullContentHtml.match(/^#{1,6}\s+.+?\n+/gm);
+            const headerEndMatch = content.match(/^#{1,6}\s+.+?\n+/gm);
             if (headerEndMatch && headerEndMatch.length > 0) {
               const lastHeader = headerEndMatch[headerEndMatch.length - 1];
-              const lastHeaderIndex = fullContentHtml.lastIndexOf(lastHeader);
+              const lastHeaderIndex = content.lastIndexOf(lastHeader);
               insertPosition = lastHeaderIndex + lastHeader.length;
-              insertText = `${suggestedText}\n\n`;
-              updatedContent = fullContentHtml.slice(0, insertPosition) + insertText + fullContentHtml.slice(insertPosition);
+              insertText = `${text}\n\n`;
+              updatedContent = content.slice(0, insertPosition) + insertText + content.slice(insertPosition);
             } else {
               insertPosition = 0;
-              insertText = `${suggestedText}\n\n`;
-              updatedContent = insertText + fullContentHtml;
+              insertText = `${text}\n\n`;
+              updatedContent = insertText + content;
             }
           }
-          textReplaced = true;
+          return true;
         }
         
         console.log('[DocumentEditor] Applied funnel suggestion:', {
@@ -741,7 +759,8 @@ export function DocumentEditor({
   }, [fullPlainText])
 
   // Handle paste event to trigger grammar check and save
-  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handlePaste = useCallback((_event: React.ClipboardEvent<HTMLDivElement>) => {
     console.log('[DocumentEditor] handlePaste: Paste event detected')
     console.log('[DocumentEditor] handlePaste: Current document state - fullContentHtml length:', fullContentHtml.length)
     console.log('[DocumentEditor] handlePaste: Current page offset:', pageOffset, 'Page content length:', pageContent.length)
