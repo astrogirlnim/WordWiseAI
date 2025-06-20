@@ -1,249 +1,382 @@
-/**
- * Custom hook for managing AI suggestions including style and funnel suggestions
- * Provides real-time synchronization with Firestore and handles suggestion operations
- */
-
 import { useState, useEffect, useCallback } from 'react'
-import { collection, doc, onSnapshot, query, orderBy, where, Timestamp } from 'firebase/firestore'
-import { firestore } from '@/lib/firebase'
+import { useAuth } from '@/lib/auth-context'
+import { SuggestionService } from '@/services/suggestion-service'
 import { AIService } from '@/services/ai-service'
 import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
-import type { WritingGoals } from '@/types/writing-goals'
+import { useToast } from './use-toast'
 
-// Type alias for style suggestions (subset of AISuggestion)
-export type StyleSuggestion = AISuggestion & {
-  type: 'grammar' | 'style' | 'clarity' | 'engagement' | 'readability'
+interface UseAISuggestionsOptions {
+  documentId: string | null
+  autoSubscribe?: boolean
 }
 
-export interface UseAISuggestionsReturn {
-  // Suggestions data
-  styleSuggestions: StyleSuggestion[]
+interface UseAISuggestionsReturn {
+  suggestions: AISuggestion[]
+  styleSuggestions: AISuggestion[]
   funnelSuggestions: FunnelSuggestion[]
   totalSuggestionsCount: number
-  
-  // Loading states
+  loading: boolean
   loadingStyleSuggestions: boolean
   loadingFunnelSuggestions: boolean
   generatingFunnelSuggestions: boolean
-  
-  // Actions
-  generateFunnelSuggestions: (goals: WritingGoals, content: string) => Promise<void>
-  applySuggestion: (suggestionId: string, type: 'style' | 'funnel') => Promise<void>
-  dismissSuggestion: (suggestionId: string, type: 'style' | 'funnel') => Promise<void>
-  refreshSuggestions: () => Promise<void>
+  error: string | null
+  applySuggestion: (suggestionId: string, type: 'style' | 'funnel') => void
+  dismissSuggestion: (suggestionId: string, type: 'style' | 'funnel') => void
+  batchDismissSuggestions: (suggestionIds: string[]) => Promise<void>
+  reloadSuggestions: () => void
+  refreshSuggestions: () => void
+  generateFunnelSuggestions: (goals: any, content: string) => Promise<void>
+  suggestionCount: number
 }
 
 /**
- * Hook for managing AI suggestions with real-time Firestore synchronization
+ * Hook for managing AI suggestions with real-time subscriptions
+ * @param options - Configuration options for the hook
+ * @returns Object containing suggestions state and actions
  */
-export function useAISuggestions(documentId?: string | null): UseAISuggestionsReturn {
-  console.log('[useAISuggestions] Hook initialized with documentId:', documentId)
+export function useAISuggestions({ 
+  documentId, 
+  autoSubscribe = true 
+}: UseAISuggestionsOptions): UseAISuggestionsReturn {
+  const { user } = useAuth()
+  const { toast } = useToast()
   
-  // State management
-  const [styleSuggestions, setStyleSuggestions] = useState<StyleSuggestion[]>([])
-  const [funnelSuggestions, setFunnelSuggestions] = useState<FunnelSuggestion[]>([])
-  const [loadingStyleSuggestions, setLoadingStyleSuggestions] = useState(false)
-  const [loadingFunnelSuggestions, setLoadingFunnelSuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
+  const [loading, setLoading] = useState(false)
   const [generatingFunnelSuggestions, setGeneratingFunnelSuggestions] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Calculate total suggestions count
-  const totalSuggestionsCount = styleSuggestions.length + funnelSuggestions.length
+  console.log('[useAISuggestions] Hook initialized with documentId:', documentId, 'user:', user?.uid)
 
-  console.log('[useAISuggestions] Current state:', {
-    styleSuggestionsCount: styleSuggestions.length,
-    funnelSuggestionsCount: funnelSuggestions.length,
-    totalSuggestionsCount,
-    loadingStyleSuggestions,
-    loadingFunnelSuggestions,
-    generatingFunnelSuggestions
-  })
-
-  // Real-time subscription to style suggestions
+  // Real-time subscription to suggestions
   useEffect(() => {
-    if (!documentId) {
-      console.log('[useAISuggestions] No documentId provided, skipping style suggestions subscription')
+    if (!documentId || !user?.uid || !autoSubscribe) {
+      console.log('[useAISuggestions] Not subscribing - missing requirements:', {
+        documentId: !!documentId,
+        userId: !!user?.uid,
+        autoSubscribe
+      })
+      setSuggestions([])
+      setError(null)
       return
     }
 
-    console.log('[useAISuggestions] Setting up style suggestions subscription for document:', documentId)
-    setLoadingStyleSuggestions(true)
+    console.log('[useAISuggestions] Setting up real-time subscription for document:', documentId)
+    setLoading(true)
+    setError(null)
 
-    const styleSuggestionsRef = collection(firestore, 'documents', documentId, 'styleSuggestions')
-    const styleSuggestionsQuery = query(
-      styleSuggestionsRef,
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
-    )
-
-    const unsubscribe = onSnapshot(
-      styleSuggestionsQuery,
-      (snapshot) => {
-        console.log('[useAISuggestions] Style suggestions snapshot received:', snapshot.size, 'documents')
-        
-        const suggestions: StyleSuggestion[] = []
-        snapshot.forEach((doc) => {
-          const data = doc.data()
-          suggestions.push({
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
-          } as unknown as StyleSuggestion)
-        })
-
-        console.log('[useAISuggestions] Processed style suggestions:', suggestions.length)
-        setStyleSuggestions(suggestions)
-        setLoadingStyleSuggestions(false)
-      },
-      (error) => {
-        console.error('[useAISuggestions] Error in style suggestions subscription:', error)
-        setLoadingStyleSuggestions(false)
-      }
-    )
-
-    return unsubscribe
-  }, [documentId])
-
-  // Real-time subscription to funnel suggestions
-  useEffect(() => {
-    if (!documentId) {
-      console.log('[useAISuggestions] No documentId provided, skipping funnel suggestions subscription')
-      return
-    }
-
-    console.log('[useAISuggestions] Setting up funnel suggestions subscription for document:', documentId)
-    setLoadingFunnelSuggestions(true)
-
-    const funnelSuggestionsRef = collection(firestore, 'documents', documentId, 'funnelSuggestions')
-    const funnelSuggestionsQuery = query(
-      funnelSuggestionsRef,
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
-    )
-
-    const unsubscribe = onSnapshot(
-      funnelSuggestionsQuery,
-      (snapshot) => {
-        console.log('[useAISuggestions] Funnel suggestions snapshot received:', snapshot.size, 'documents')
-        
-        const suggestions: FunnelSuggestion[] = []
-        snapshot.forEach((doc) => {
-          const data = doc.data()
-          suggestions.push({
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
-          } as unknown as FunnelSuggestion)
-        })
-
-        console.log('[useAISuggestions] Processed funnel suggestions:', suggestions.length)
-        setFunnelSuggestions(suggestions)
-        setLoadingFunnelSuggestions(false)
-      },
-      (error) => {
-        console.error('[useAISuggestions] Error in funnel suggestions subscription:', error)
-        setLoadingFunnelSuggestions(false)
-      }
-    )
-
-    return unsubscribe
-  }, [documentId])
-
-  // Generate funnel suggestions using AI service
-  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string) => {
-    if (!documentId) {
-      console.error('[useAISuggestions] Cannot generate funnel suggestions: no documentId')
-      return
-    }
-
-    console.log('[useAISuggestions] Generating funnel suggestions:', {
+    // Subscribe to style suggestions
+    const unsubscribeStyle = SuggestionService.subscribeToSuggestions(
       documentId,
-      goals,
-      contentLength: content.length
-    })
+      user.uid,
+      (newStyleSuggestions) => {
+        console.log('[useAISuggestions] Received style suggestions update:', newStyleSuggestions.length)
+        setSuggestions(prev => {
+          // Remove old style suggestions, keep funnel
+          const funnel = prev.filter(s => s.type === 'headline' || s.type === 'subheadline' || s.type === 'cta' || s.type === 'outline')
+          return [...funnel, ...newStyleSuggestions]
+        })
+        setLoading(false)
+        setError(null)
+      }
+    )
 
-    setGeneratingFunnelSuggestions(true)
+    // Subscribe to funnel suggestions
+    const unsubscribeFunnel = SuggestionService.subscribeToFunnelSuggestions ? SuggestionService.subscribeToFunnelSuggestions(
+      documentId,
+      user.uid,
+      (newFunnelSuggestions) => {
+        console.log('[useAISuggestions] Received funnel suggestions update:', newFunnelSuggestions.length)
+        setSuggestions(prev => {
+          // Remove old funnel suggestions, keep style
+          const style = prev.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')
+          return [...style, ...newFunnelSuggestions]
+        })
+        setLoading(false)
+        setError(null)
+      }
+    ) : () => {};
+
+    // Cleanup subscription on unmount or dependency change
+    return () => {
+      console.log('[useAISuggestions] Cleaning up subscriptions for document:', documentId)
+      unsubscribeStyle()
+      unsubscribeFunnel()
+    }
+  }, [documentId, user?.uid, autoSubscribe])
+
+  /**
+   * Apply a suggestion to the document
+   */
+  const applySuggestion = useCallback(async (suggestion: AISuggestion) => {
+    console.log('[useAISuggestions] applySuggestion called', suggestion);
+    
+    // Prevent duplicate applications
+    if (suggestion.status === 'applied') {
+      console.warn('[useAISuggestions] Suggestion already applied, skipping:', suggestion.id);
+      toast({ 
+        title: 'Suggestion Already Applied', 
+        description: 'This suggestion has already been applied to the document.',
+        variant: 'default'
+      });
+      return;
+    }
     
     try {
-      await AIService.generateFunnelSuggestions(documentId, goals, content)
-      console.log('[useAISuggestions] Successfully generated funnel suggestions')
+      setError(null);
+      
+      // Dispatch event to document editor first
+      if (typeof window !== 'undefined') {
+        console.log('[useAISuggestions] Dispatching AI_SUGGESTION_APPLY event', suggestion);
+        const event = new CustomEvent('AI_SUGGESTION_APPLY', { detail: suggestion });
+        window.dispatchEvent(event);
+        
+        // Wait a moment for the editor to process the content change
+        await new Promise(resolve => setTimeout(resolve, 150));
+        console.log('[useAISuggestions] Event dispatched and processed');
+      }
+      
+      // Apply the suggestion via the service (this updates Firestore status)
+      console.log('[useAISuggestions] Calling SuggestionService.applySuggestion', suggestion);
+      await SuggestionService.applySuggestion(suggestion);
+      console.log('[useAISuggestions] SuggestionService.applySuggestion complete', suggestion);
+      
+      toast({ 
+        title: 'Suggestion Applied', 
+        description: `Applied: "${suggestion.title}"`,
+        variant: 'default'
+      });
+      
+    } catch (error) {
+      console.error('[useAISuggestions] Error applying suggestion:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(`Failed to apply suggestion: ${errorMessage}`);
+      toast({ 
+        title: 'Error Applying Suggestion', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    }
+  }, [toast]);
+
+  /**
+   * Dismiss a suggestion
+   */
+  const dismissSuggestion = useCallback(async (suggestionId: string) => {
+    if (!documentId) {
+      console.error('[useAISuggestions] Cannot dismiss suggestion - no document ID')
+      return
+    }
+
+    console.log('[useAISuggestions] Dismissing suggestion:', suggestionId)
+
+    try {
+      setError(null)
+      
+      // Dismiss the suggestion via the service
+      await SuggestionService.dismissSuggestion(documentId, suggestionId)
+      
+      console.log('[useAISuggestions] Successfully dismissed suggestion:', suggestionId)
+      
+      // Show success toast
+      toast({
+        title: 'Suggestion Dismissed',
+        description: 'The suggestion has been dismissed.',
+      })
+      
+      // Note: The real-time subscription will automatically update the suggestions state
+      // by removing the dismissed suggestion from the pending list
+      
+    } catch (error) {
+      console.error('[useAISuggestions] Error dismissing suggestion:', error)
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to dismiss suggestion: ${errorMessage}`)
+      
+      // Show error toast
+      toast({
+        title: 'Error Dismissing Suggestion',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+    }
+  }, [documentId, toast])
+
+  /**
+   * Batch dismiss multiple suggestions
+   */
+  const batchDismissSuggestions = useCallback(async (suggestionIds: string[]) => {
+    if (!documentId) {
+      console.error('[useAISuggestions] Cannot batch dismiss suggestions - no document ID')
+      return
+    }
+
+    if (suggestionIds.length === 0) {
+      console.log('[useAISuggestions] No suggestions to batch dismiss')
+      return
+    }
+
+    console.log('[useAISuggestions] Batch dismissing suggestions:', suggestionIds.length)
+
+    try {
+      setError(null)
+      
+      // Batch dismiss suggestions via the service
+      await SuggestionService.batchDismissSuggestions(documentId, suggestionIds)
+      
+      console.log('[useAISuggestions] Successfully batch dismissed suggestions:', suggestionIds.length)
+      
+      // Show success toast
+      toast({
+        title: 'Suggestions Dismissed',
+        description: `Dismissed ${suggestionIds.length} suggestions.`,
+      })
+      
+    } catch (error) {
+      console.error('[useAISuggestions] Error batch dismissing suggestions:', error)
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to batch dismiss suggestions: ${errorMessage}`)
+      
+      // Show error toast
+      toast({
+        title: 'Error Dismissing Suggestions',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+    }
+  }, [documentId, toast])
+
+  /**
+   * Manually reload suggestions (for error recovery)
+   */
+  const reloadSuggestions = useCallback(() => {
+    console.log('[useAISuggestions] Manual reload requested for document:', documentId)
+    
+    if (!documentId || !user?.uid) {
+      console.log('[useAISuggestions] Cannot reload - missing requirements')
+      return
+    }
+
+    // Reset state and let useEffect handle the reload
+    setLoading(true)
+    setError(null)
+    
+    // The useEffect will handle resubscribing
+  }, [documentId, user?.uid])
+
+  /**
+   * Generate funnel suggestions based on writing goals
+   */
+  const generateFunnelSuggestions = useCallback(async (goals: any, content: string) => {
+    if (!documentId || !user?.uid) {
+      console.error('[useAISuggestions] Cannot generate funnel suggestions - missing documentId or userId')
+      toast({
+        title: 'Error',
+        description: 'Missing document or user information.',
+        variant: 'destructive',
+      })
+      return
+    }
+    console.log('[useAISuggestions] Generating funnel suggestions with goals:', goals, 'content length:', content.length)
+    setGeneratingFunnelSuggestions(true)
+    setError(null)
+
+    try {
+      const result = await AIService.generateFunnelSuggestions(documentId, goals, content)
+      console.log('[useAISuggestions] Funnel suggestions generated:', result)
+      toast({
+        title: 'Funnel Suggestions Generated',
+        description: `Added ${result?.suggestions?.length || 0} funnel suggestions.`,
+      })
+      // Real-time subscription will update suggestions automatically
     } catch (error) {
       console.error('[useAISuggestions] Error generating funnel suggestions:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to generate funnel suggestions: ${errorMessage}`)
+      toast({
+        title: 'Error Generating Suggestions',
+        description: errorMessage,
+        variant: 'destructive',
+      })
     } finally {
       setGeneratingFunnelSuggestions(false)
     }
-  }, [documentId])
+  }, [documentId, user?.uid, toast])
 
-  // Apply a suggestion
-  const applySuggestion = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
-    if (!documentId) {
-      console.error('[useAISuggestions] Cannot apply suggestion: no documentId')
-      return
+  // Separate suggestions by type
+  const styleSuggestions = suggestions.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')
+  const funnelSuggestions: FunnelSuggestion[] = suggestions
+    .filter(s => s.type === 'headline' || s.type === 'subheadline' || s.type === 'cta' || s.type === 'outline')
+    .map(s => ({
+      id: s.id,
+      documentId: s.documentId,
+      userId: s.userId,
+      type: s.type as 'headline' | 'subheadline' | 'cta' | 'outline',
+      title: s.title,
+      description: s.description,
+      suggestedText: s.suggestedText,
+      confidence: s.confidence,
+      status: s.status,
+      createdAt: s.createdAt,
+      appliedAt: s.appliedAt
+    }))
+  
+  // Wrapper functions to match expected signatures
+  const applySuggestionWrapper = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
+    const suggestion = suggestions.find(s => s.id === suggestionId)
+    if (suggestion) {
+      await applySuggestion(suggestion)
     }
+  }, [suggestions, applySuggestion])
 
-    console.log('[useAISuggestions] Applying suggestion:', { suggestionId, type, documentId })
-
-    try {
-      if (type === 'style') {
-        // Apply style suggestion (not implemented in AIService yet)
-        console.log('[useAISuggestions] Style suggestion apply not implemented')
-      } else {
-        // Apply funnel suggestion (not implemented in AIService yet)
-        console.log('[useAISuggestions] Funnel suggestion apply not implemented')
-      }
-      console.log('[useAISuggestions] Successfully applied suggestion')
-    } catch (error) {
-      console.error('[useAISuggestions] Error applying suggestion:', error)
+  const dismissSuggestionWrapper = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
+    const suggestion = suggestions.find(s => s.id === suggestionId)
+    if (suggestion) {
+      // Pass the type so SuggestionService can use the correct collection
+      await SuggestionService.dismissSuggestion(suggestion.documentId, suggestionId, suggestion.type)
+    } else {
+      // fallback for legacy
+      await dismissSuggestion(suggestionId)
     }
-  }, [documentId])
+  }, [suggestions, dismissSuggestion])
 
-  // Dismiss a suggestion
-  const dismissSuggestion = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
-    if (!documentId) {
-      console.error('[useAISuggestions] Cannot dismiss suggestion: no documentId')
-      return
-    }
+  const suggestionCount = suggestions.length
+  const totalSuggestionsCount = suggestions.length
+  const loadingStyleSuggestions = loading
+  const loadingFunnelSuggestions = loading
+  const refreshSuggestions = reloadSuggestions
 
-    console.log('[useAISuggestions] Dismissing suggestion:', { suggestionId, type, documentId })
-
-    try {
-      if (type === 'style') {
-        // Dismiss style suggestion (not implemented in AIService yet)
-        console.log('[useAISuggestions] Style suggestion dismiss not implemented')
-      } else {
-        // Dismiss funnel suggestion (not implemented in AIService yet)
-        console.log('[useAISuggestions] Funnel suggestion dismiss not implemented')
-      }
-      console.log('[useAISuggestions] Successfully dismissed suggestion')
-    } catch (error) {
-      console.error('[useAISuggestions] Error dismissing suggestion:', error)
-    }
-  }, [documentId])
-
-  // Refresh suggestions by clearing cache and refetching
-  const refreshSuggestions = useCallback(async () => {
-    if (!documentId) {
-      console.warn('[useAISuggestions] Cannot refresh suggestions: no documentId')
-      return
-    }
-
-    console.log('[useAISuggestions] Refreshing suggestions for document:', documentId)
-    
-    // The real-time subscriptions will automatically update the state
-    // when new data is available in Firestore
-  }, [documentId])
-
-  return {
-    styleSuggestions,
-    funnelSuggestions,
+  console.log('[useAISuggestions] Current state:', {
+    suggestionCount,
     totalSuggestionsCount,
+    styleSuggestionsCount: styleSuggestions.length,
+    funnelSuggestionsCount: funnelSuggestions.length,
+    loading,
     loadingStyleSuggestions,
     loadingFunnelSuggestions,
     generatingFunnelSuggestions,
+    error: !!error,
+    documentId,
+    userId: user?.uid
+  })
+
+  return {
+    suggestions,
+    styleSuggestions,
+    funnelSuggestions,
+    totalSuggestionsCount,
+    loading,
+    loadingStyleSuggestions,
+    loadingFunnelSuggestions,
+    generatingFunnelSuggestions,
+    error,
+    applySuggestion: applySuggestionWrapper,
+    dismissSuggestion: dismissSuggestionWrapper,
+    batchDismissSuggestions,
+    reloadSuggestions,
+    refreshSuggestions,
     generateFunnelSuggestions,
-    applySuggestion,
-    dismissSuggestion,
-    refreshSuggestions
+    suggestionCount
   }
-} 
+}

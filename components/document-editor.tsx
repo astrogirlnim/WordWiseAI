@@ -35,6 +35,8 @@ import { useMarkdownPreview } from '@/hooks/use-markdown-preview'
 import { MarkdownPreviewPanel } from './markdown-preview-panel'
 import { MarkdownPreviewToggle } from './markdown-preview-toggle'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
+import { useAISuggestions } from '@/hooks/use-ai-suggestions'
+import type { AISuggestion } from '@/types/ai-features'
 
 // Phase 6: Document Pagination
 const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
@@ -45,6 +47,8 @@ interface DocumentEditorProps {
   onSave?: (content: string, title: string) => void
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
+  onAISuggestionsChange?: (suggestions: AISuggestion[]) => void
+
 }
 
 export function DocumentEditor({
@@ -53,6 +57,8 @@ export function DocumentEditor({
   onSave,
   onContentChange,
   saveStatus,
+  onAISuggestionsChange,
+
 }: DocumentEditorProps) {
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
@@ -90,12 +96,44 @@ export function DocumentEditor({
   }), [pageOffset, pageContent]);
 
   const { user } = useAuth()
+  
   // Phase 6: Pass visibleRange to the grammar checker hook
   const { errors, removeError, checkGrammarImmediately, checkFullDocument } = useGrammarChecker(
     documentId, 
     fullPlainText,
     visibleRange
   )
+
+  // AI Suggestions integration
+  const {
+    suggestions,
+    loading: suggestionsLoading,
+    error: suggestionsError,
+    applySuggestion,
+    dismissSuggestion,
+    suggestionCount
+  } = useAISuggestions({
+    documentId,
+    autoSubscribe: true
+  })
+
+  console.log(`[DocumentEditor] AI Suggestions state:`, {
+    suggestionCount,
+    loading: suggestionsLoading,
+    error: !!suggestionsError
+  })
+
+  // Notify parent component about AI suggestions changes
+  useEffect(() => {
+    console.log(`[DocumentEditor] AI suggestions changed, notifying parent:`, suggestions.length)
+    if (onAISuggestionsChange) {
+      onAISuggestionsChange(suggestions)
+    }
+  }, [suggestions, onAISuggestionsChange])
+
+
+
+
 
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
@@ -199,6 +237,265 @@ export function DocumentEditor({
         }
     }
   }, [pageContent, editor, currentPage])
+
+  /**
+   * Apply an AI suggestion to the document
+   */
+  const handleApplyAISuggestion = useCallback(async (suggestion: AISuggestion) => {
+    if (!editor || !user) {
+      console.warn('[DocumentEditor] Cannot apply AI suggestion - missing editor or user');
+      return;
+    }
+    
+    console.log('[DocumentEditor] handleApplyAISuggestion called', suggestion);
+    
+    // Prevent repeated application by checking if already applied
+    if (suggestion.status === 'applied') {
+      console.warn('[DocumentEditor] Suggestion already applied, skipping', suggestion.id);
+      return;
+    }
+    
+    try {
+      const originalText = suggestion.originalText;
+      const suggestedText = suggestion.suggestedText;
+      const suggestionType = suggestion.type;
+      
+      console.log('[DocumentEditor] Applying suggestion:', {
+        id: suggestion.id,
+        type: suggestionType,
+        title: suggestion.title,
+        hasOriginalText: !!originalText,
+        suggestedTextLength: suggestedText?.length || 0,
+        status: suggestion.status
+      });
+      
+      console.log('[DocumentEditor] Current fullContentHtml (first 500 chars):', fullContentHtml.slice(0, 500));
+      let textReplaced = false;
+      let updatedContent = fullContentHtml;
+      
+      // Determine if this is a funnel suggestion (headline, subheadline, cta, outline)
+      const funnelTypes = ['headline', 'subheadline', 'cta', 'outline'];
+      const isFunnelSuggestion = funnelTypes.includes(suggestionType);
+      
+      if (!originalText || originalText.trim() === '' || isFunnelSuggestion) {
+        // Funnel suggestion: insert at strategic positions with deduplication
+        console.log('[DocumentEditor] Processing funnel suggestion');
+        
+        // Check if this type of suggestion already exists in the document to prevent duplicates
+        // Only check for funnel types that have specific markers
+        type FunnelSuggestionType = 'headline' | 'subheadline' | 'cta' | 'outline';
+        
+        const existingMarkers: Record<FunnelSuggestionType, RegExp> = {
+          headline: /^#\s+.+$/m,
+          subheadline: /^##\s+.+$/m,
+          cta: /\*\*[^*]+\*\*\s*$/m,
+          outline: /^\d+\.\s+.+:/m
+        };
+        
+        // Only check for existing markers if this is a funnel suggestion type
+        const isFunnelType = (type: string): type is FunnelSuggestionType => {
+          return ['headline', 'subheadline', 'cta', 'outline'].includes(type);
+        };
+        
+        if (isFunnelType(suggestionType)) {
+          const existingMarker = existingMarkers[suggestionType];
+          if (existingMarker && existingMarker.test(fullContentHtml)) {
+            console.log(`[DocumentEditor] ${suggestionType} already exists, replacing instead of adding`);
+            
+            // Replace existing content of same type
+            if (suggestionType === 'headline') {
+              updatedContent = fullContentHtml.replace(/^#\s+.+$/m, `# ${suggestedText}`);
+            } else if (suggestionType === 'subheadline') {
+              updatedContent = fullContentHtml.replace(/^##\s+.+$/m, `## ${suggestedText}`);
+            } else if (suggestionType === 'cta') {
+              updatedContent = fullContentHtml.replace(/\*\*[^*]+\*\*\s*$/m, `**${suggestedText}**`);
+            } else if (suggestionType === 'outline') {
+              // Replace existing outline
+              const outlineRegex = /^\d+\.\s+.+$/gm;
+              updatedContent = fullContentHtml.replace(outlineRegex, '').trim() + '\n\n' + suggestedText;
+            }
+            textReplaced = true;
+          } else {
+            // Insert new content at appropriate position
+            textReplaced = insertFunnelSuggestionContent(suggestionType, suggestedText, fullContentHtml);
+          }
+        } else {
+          // For non-funnel suggestions, just insert the content
+          textReplaced = insertFunnelSuggestionContent(suggestionType as FunnelSuggestionType, suggestedText, fullContentHtml);
+        }
+        
+        // Helper function to insert funnel suggestion content
+        function insertFunnelSuggestionContent(type: string, text: string, content: string): boolean {
+          let insertPosition = 0;
+          let insertText = text;
+          
+          if (type === 'headline') {
+            // Headlines go at the very beginning
+            insertPosition = 0;
+            insertText = `# ${text}\n\n`;
+            updatedContent = insertText + content;
+          } else if (type === 'subheadline') {
+            // Subheadlines go after any existing headline
+            const headlineMatch = content.match(/^#\s+.+?\n/m);
+            if (headlineMatch) {
+              insertPosition = headlineMatch.index! + headlineMatch[0].length;
+              insertText = `## ${text}\n\n`;
+              updatedContent = content.slice(0, insertPosition) + insertText + content.slice(insertPosition);
+            } else {
+              insertPosition = 0;
+              insertText = `## ${text}\n\n`;
+              updatedContent = insertText + content;
+            }
+          } else if (type === 'cta') {
+            // CTAs go at the end of the document
+            insertText = `\n\n**${text}**`;
+            updatedContent = content + insertText;
+          } else if (type === 'outline') {
+            // Outlines go after headlines/subheadlines but before main content
+            const headerEndMatch = content.match(/^#{1,6}\s+.+?\n+/gm);
+            if (headerEndMatch && headerEndMatch.length > 0) {
+              const lastHeader = headerEndMatch[headerEndMatch.length - 1];
+              const lastHeaderIndex = content.lastIndexOf(lastHeader);
+              insertPosition = lastHeaderIndex + lastHeader.length;
+              insertText = `${text}\n\n`;
+              updatedContent = content.slice(0, insertPosition) + insertText + content.slice(insertPosition);
+            } else {
+              insertPosition = 0;
+              insertText = `${text}\n\n`;
+              updatedContent = insertText + content;
+            }
+          }
+          return true;
+        }
+        
+        console.log('[DocumentEditor] Applied funnel suggestion:', {
+          type: suggestionType,
+          contentLengthBefore: fullContentHtml.length,
+          contentLengthAfter: updatedContent.length,
+          textReplaced
+        });
+        
+      } else if (originalText && suggestedText) {
+        // Style suggestion: replace original text with suggested text
+        console.log('[DocumentEditor] Processing style suggestion with originalText:', originalText.substring(0, 100));
+        
+        if (fullContentHtml.includes(originalText)) {
+          console.log('[DocumentEditor] Found original text in full document HTML, replacing...');
+          updatedContent = fullContentHtml.replace(originalText, suggestedText);
+          textReplaced = true;
+          console.log('[DocumentEditor] Successfully replaced text in document');
+        } else {
+          console.warn('[DocumentEditor] Could not find original text in document for style suggestion:', {
+            originalText: originalText.substring(0, 100),
+            fullContentPreview: fullContentHtml.slice(0, 200)
+          });
+          
+          // Try partial matching for better results
+          const words = originalText.split(' ');
+          if (words.length > 2) {
+            const partialText = words.slice(0, Math.floor(words.length / 2)).join(' ');
+            if (fullContentHtml.includes(partialText)) {
+              console.log('[DocumentEditor] Found partial match, replacing...');
+              updatedContent = fullContentHtml.replace(partialText, suggestedText);
+              textReplaced = true;
+            }
+          }
+        }
+      }
+      
+      // Update the document content if changes were made
+      if (textReplaced && updatedContent !== fullContentHtml) {
+        console.log('[DocumentEditor] Updating document content');
+        setFullContentHtml(updatedContent);
+        
+        // Update editor content for current page
+        const newPageContent = updatedContent.substring(pageOffset, Math.min(pageOffset + PAGE_SIZE_CHARS, updatedContent.length));
+        if (editor && !editor.isDestroyed) {
+          editor.commands.setContent(newPageContent, false);
+        }
+        
+        // Apply suggestion in Firestore with correct type
+        const applyType = isFunnelSuggestion ? 'funnel' : 'style';
+        console.log('[DocumentEditor] Applying suggestion to Firestore with type:', applyType);
+        await applySuggestion(suggestion.id, applyType);
+        
+        // Trigger grammar check and save
+        const div = document.createElement('div');
+        div.innerHTML = updatedContent;
+        const plainText = div.textContent || '';
+        checkGrammarImmediately(plainText);
+        
+        if (onSave) {
+          onSave(updatedContent, title);
+        }
+        
+        console.log('[DocumentEditor] Successfully applied suggestion and updated content');
+        
+        // Show success feedback
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('AI_SUGGESTION_SUCCESS', { 
+            detail: { 
+              suggestionId: suggestion.id,
+              type: suggestionType,
+              title: suggestion.title
+            } 
+          }));
+        }
+        
+      } else {
+        console.warn('[DocumentEditor] No text replacement occurred');
+        
+        // Still try to apply in Firestore to mark as applied
+        const applyType = isFunnelSuggestion ? 'funnel' : 'style';
+        await applySuggestion(suggestion.id, applyType);
+        
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('AI_SUGGESTION_WARNING', { 
+            detail: { 
+              suggestionId: suggestion.id,
+              message: 'Suggestion marked as applied but content may not have changed'
+            } 
+          }));
+        }
+      }
+      
+    } catch (error) {
+      console.error('[DocumentEditor] Error applying AI suggestion:', error);
+      
+      // Show user-friendly error
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('AI_SUGGESTION_ERROR', { 
+          detail: { 
+            suggestionId: suggestion.id, 
+            error: error instanceof Error ? error.message : 'Unknown error occurred while applying suggestion'
+          } 
+        }));
+      }
+      
+      // Don't throw the error to prevent UI crashes
+    }
+  }, [editor, user, applySuggestion, checkGrammarImmediately, fullContentHtml, setFullContentHtml, onSave, title, pageOffset]);
+
+  // Listen for AI suggestion apply events from the sidebar
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleAISuggestionApplyEvent = (event: CustomEvent) => {
+      console.log('[DocumentEditor] Received AI_SUGGESTION_APPLY event:', event.detail);
+      const suggestion = event.detail as AISuggestion
+      if (suggestion) {
+        handleApplyAISuggestion(suggestion)
+      }
+    }
+
+    window.addEventListener('AI_SUGGESTION_APPLY', handleAISuggestionApplyEvent as EventListener)
+    console.log('[DocumentEditor] Added AI_SUGGESTION_APPLY event listener')
+
+    return () => {
+      window.removeEventListener('AI_SUGGESTION_APPLY', handleAISuggestionApplyEvent as EventListener)
+      console.log('[DocumentEditor] Removed AI_SUGGESTION_APPLY event listener')
+    }
+  }, [handleApplyAISuggestion])
 
   const handleApplySuggestion = useCallback(
     (error: GrammarError, suggestion: string) => {
@@ -375,7 +672,7 @@ export function DocumentEditor({
       }
     }, 0) // Use setTimeout to ensure state update completes before editor update
 
-  }, [initialDocument.content, documentId, editor]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
+  }, [initialDocument.content, documentId, editor, fullContentHtml])
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
@@ -462,7 +759,8 @@ export function DocumentEditor({
   }, [fullPlainText])
 
   // Handle paste event to trigger grammar check and save
-  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handlePaste = useCallback((_event: React.ClipboardEvent<HTMLDivElement>) => {
     console.log('[DocumentEditor] handlePaste: Paste event detected')
     console.log('[DocumentEditor] handlePaste: Current document state - fullContentHtml length:', fullContentHtml.length)
     console.log('[DocumentEditor] handlePaste: Current page offset:', pageOffset, 'Page content length:', pageContent.length)
@@ -523,7 +821,29 @@ export function DocumentEditor({
     }, 10) // 10ms delay to let the paste finish
   }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately, fullContentHtml, documentId])
 
-  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
+  // Return AI suggestion handlers along with other handlers
+  const aiSuggestionHandlers = useMemo(() => ({
+    suggestions,
+    suggestionsLoading,
+    suggestionsError,
+    suggestionCount,
+    handleApplyAISuggestion,
+    handleDismissAISuggestion: dismissSuggestion
+  }), [suggestions, suggestionsLoading, suggestionsError, suggestionCount, handleApplyAISuggestion, dismissSuggestion])
+
+  console.log('[DocumentEditor] Exporting AI suggestion handlers:', {
+    suggestionCount: aiSuggestionHandlers.suggestionCount,
+    loading: aiSuggestionHandlers.suggestionsLoading,
+    error: !!aiSuggestionHandlers.suggestionsError
+  })
+
+  // Add AI suggestion handlers to window for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // @ts-expect-error - for debugging only
+      window.documentEditorAISuggestions = aiSuggestionHandlers
+    }
+  }, [aiSuggestionHandlers])
 
   // **MARKDOWN PREVIEW FUNCTIONALITY**
   // Get plain text content from editor for markdown preview
@@ -541,7 +861,6 @@ export function DocumentEditor({
   console.log('[DocumentEditor] Initializing markdown preview with plain text length:', editorPlainText.length)
   const {
     isPreviewOpen,
-    setIsPreviewOpen,
     previewContent,
     isMarkdownDetected,
     togglePreview,
@@ -756,4 +1075,14 @@ export function DocumentEditor({
       />
     </div>
   )
+}
+
+// Export AI suggestion handlers for external use
+export type DocumentEditorAISuggestionHandlers = {
+  suggestions: AISuggestion[]
+  suggestionsLoading: boolean
+  suggestionsError: string | null
+  suggestionCount: number
+  handleApplyAISuggestion: (suggestion: AISuggestion) => Promise<void>
+  handleDismissAISuggestion: (suggestionId: string) => Promise<void>
 }

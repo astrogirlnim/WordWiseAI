@@ -19,6 +19,7 @@ import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AuditService, AuditEvent } from '@/services/audit-service'
 
+
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
   loading: () => <p>Loading editor...</p>
@@ -229,6 +230,8 @@ export function DocumentContainer() {
     [deleteDocument, documents, activeDocumentId, toast],
   )
 
+
+
   const handleUserAction = useCallback((action: string) => {
     switch (action) {
       case 'profile':
@@ -432,6 +435,7 @@ export function DocumentContainer() {
               initialDocument={initialDocument}
               onSave={handleSave}
               saveStatus={saveStatus}
+
             />
           ) : (
             <div className="flex h-full items-center justify-center">

@@ -102,7 +102,7 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
                   blockquote: ({ children }) => (
                     <blockquote>{children}</blockquote>
                   ),
-                  code: ({ children, className, ...props }) => {
+                  code: ({ children, className }) => {
                     // Detect if it's a code block by checking for language class
                     const isCodeBlock = className && className.startsWith('language-')
                     
@@ -139,6 +139,7 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
                     </a>
                   ),
                   img: ({ src, alt }) => (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={src} alt={alt} />
                   ),
                   table: ({ children }) => (
@@ -172,12 +173,11 @@ export const MarkdownPreviewPanel = memo(function MarkdownPreviewPanel({
                     <del>{children}</del>
                   ),
                   // Task list support
-                  input: ({ checked, ...props }) => (
+                  input: ({ checked }) => (
                     <input
                       type="checkbox"
                       checked={checked}
                       disabled
-                      {...props}
                     />
                   ),
                 }}

@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useDocuments } from '@/hooks/use-documents'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import type { Document } from '@/types/document'
+
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth()
