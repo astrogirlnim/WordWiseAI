@@ -228,9 +228,12 @@ export class DocumentService {
         addedBy: sharedBy,
       }
 
+      // Update both the sharedWith array and the sharedRoles map
+      const fieldPath = `sharedRoles.${userToShareWith.id}`
       batch.update(docRef, {
         sharedWith: arrayUnion(newAccess),
         sharedWithIds: arrayUnion(userToShareWith.id),
+        [fieldPath]: role,
       })
     }
 
