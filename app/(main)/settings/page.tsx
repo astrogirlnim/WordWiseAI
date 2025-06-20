@@ -7,6 +7,10 @@ import { useDocuments } from '@/hooks/use-documents'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+// Force dynamic rendering for this page since it uses Firebase hooks
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function SettingsPage() {
   console.log('[SettingsPage] Rendering settings page')
   const { user, loading: authLoading } = useAuth()

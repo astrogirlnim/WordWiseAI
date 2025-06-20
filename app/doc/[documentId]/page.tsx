@@ -5,6 +5,10 @@ import { DocumentContainer } from '@/components/document-container'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, use } from 'react'
 
+// Force dynamic rendering for this page since it uses Firebase hooks
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function DocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
   const { user, loading, acceptInvitation } = useAuth()
   const router = useRouter()

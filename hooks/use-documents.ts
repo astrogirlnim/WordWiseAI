@@ -34,6 +34,13 @@ export function useDocuments() {
 
   // Subscribe to user's documents
   useEffect(() => {
+    // Skip if Firebase is not initialized (during build)
+    if (!firestore) {
+      console.log('[useDocuments] Firestore not initialized, skipping document subscriptions')
+      setLoading(false)
+      return
+    }
+
     if (!user?.uid) {
       console.log('[useDocuments] No user available, clearing documents')
       setOwnedDocuments([])
@@ -150,6 +157,11 @@ export function useDocuments() {
 
   const createDocument = useCallback(
     async (title: string): Promise<string | null> => {
+      if (!firestore) {
+        console.error('[useDocuments.createDocument] Firestore not initialized')
+        return null
+      }
+
       if (!user?.uid) {
         console.error('[useDocuments.createDocument] No user available')
         return null
@@ -233,6 +245,11 @@ export function useDocuments() {
       documentId: string,
       updates: Partial<Document>,
     ): Promise<void> => {
+      if (!firestore) {
+        console.error('[useDocuments.updateDocument] Firestore not initialized')
+        return
+      }
+
       if (!user?.uid) {
         console.error('[useDocuments.updateDocument] No user available')
         return
@@ -318,6 +335,11 @@ export function useDocuments() {
 
   const restoreDocumentVersion = useCallback(
     async (documentId: string, versionId: string): Promise<void> => {
+      if (!firestore) {
+        console.error('[useDocuments.restoreDocumentVersion] Firestore not initialized')
+        return
+      }
+
       if (!user?.uid) {
         console.error('[useDocuments.restoreDocumentVersion] No user available')
         return

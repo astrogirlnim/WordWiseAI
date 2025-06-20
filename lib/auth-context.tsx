@@ -37,6 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
+    // Skip auth state monitoring if Firebase is not initialized (during build)
+    if (!auth) {
+      console.log('[AuthContext] Firebase auth not initialized, skipping auth state monitoring')
+      setLoading(false)
+      return
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('[AuthContext] Auth state changed, user:', user?.uid)
       
@@ -85,18 +92,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     console.log('[AuthContext] Signing in user with email:', email)
+    if (!auth) {
+      throw new Error('Firebase auth not initialized')
+    }
     await signInWithEmailAndPassword(auth, email, password)
     // The onAuthStateChanged effect will handle the invitation acceptance and redirect
   }
 
   const signUp = async (email: string, password: string) => {
     console.log('[AuthContext] Signing up new user with email:', email)
+    if (!auth) {
+      throw new Error('Firebase auth not initialized')
+    }
     await createUserWithEmailAndPassword(auth, email, password)
     // The onAuthStateChanged effect will handle the invitation acceptance and redirect
   }
 
   const signInWithGoogle = async () => {
     console.log('[AuthContext] Signing in with Google')
+    if (!auth) {
+      throw new Error('Firebase auth not initialized')
+    }
     const provider = new GoogleAuthProvider()
     await signInWithPopup(auth, provider)
     // The onAuthStateChanged effect will handle the invitation acceptance and redirect
@@ -106,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('[AuthContext] Logging out user. Active document:', activeDocumentId)
     
     // Gracefully leave collaboration session before signing out
-    if (activeDocumentId && auth.currentUser) {
+    if (activeDocumentId && auth?.currentUser) {
       try {
         await CollaborationService.leaveDocumentSession(activeDocumentId, auth.currentUser.uid)
         console.log('[AuthContext] Successfully left collaboration session for document:', activeDocumentId)
@@ -115,6 +131,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
+    if (!auth) {
+      throw new Error('Firebase auth not initialized')
+    }
     await signOut(auth)
     // Redirect to home or sign-in page after logout
     router.push('/sign-in') 
@@ -122,16 +141,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateUserProfile = async (name: string) => {
     console.log('[AuthContext] Updating user profile with name:', name)
-    if (auth.currentUser) {
-      await updateProfile(auth.currentUser, { displayName: name })
-      setUser(auth.currentUser ? { ...auth.currentUser } : null)
-    } else {
-      throw new Error('No user is currently signed in.')
+    if (!auth?.currentUser) {
+      throw new Error('No user is currently signed in or Firebase auth not initialized')
     }
+    await updateProfile(auth.currentUser, { displayName: name })
+    setUser(auth.currentUser ? { ...auth.currentUser } : null)
   }
 
   const acceptInvitation = async (token: string) => {
     console.log('[AuthContext] Accepting invitation with token:', token)
+    if (!functions) {
+      throw new Error('Firebase functions not initialized')
+    }
     try {
       const acceptInviteFunction = httpsCallable(functions, 'acceptInvite')
       const result = await acceptInviteFunction({ token })
