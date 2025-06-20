@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Check, X, Lightbulb, Target, MessageSquare, Megaphone, List, Zap, ShieldCheck } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
 
 interface AISuggestionsProps {
@@ -59,6 +61,32 @@ export function AISuggestions({
   })
 
   const totalSuggestions = styleSuggestions.length + funnelSuggestions.length
+
+  // Categorize style suggestions by conversion aspect
+  const urgencySuggestions = styleSuggestions.filter((s) => s.type === 'urgency')
+  const claritySuggestions = styleSuggestions.filter((s) => s.type === 'clarity')
+  const trustSuggestions = styleSuggestions.filter((s) => s.type === 'trust')
+
+  const categoryInfo = {
+    urgency: {
+      label: 'Urgency',
+      description: 'Edits that create a sense of urgency and encourage immediate action.',
+      icon: <Zap className="mr-1 h-3 w-3" />,
+      count: urgencySuggestions.length,
+    },
+    clarity: {
+      label: 'Clarity',
+      description: 'Edits that improve readability and remove ambiguity.',
+      icon: <MessageSquare className="mr-1 h-3 w-3" />,
+      count: claritySuggestions.length,
+    },
+    trust: {
+      label: 'Trust',
+      description: 'Edits that build credibility and reduce user friction.',
+      icon: <ShieldCheck className="mr-1 h-3 w-3" />,
+      count: trustSuggestions.length,
+    },
+  } as const
 
   if (loading) {
     return (
@@ -117,27 +145,90 @@ export function AISuggestions({
           <Separator />
         )}
 
-        {/* Style Suggestions Section */}
-        {styleSuggestions.length > 0 && (
-          <div className="space-y-3">
+        {/* Conversion Aspect Suggestions Section (Urgency, Clarity, Trust) */}
+        {(urgencySuggestions.length + claritySuggestions.length + trustSuggestions.length) > 0 && (
+          <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold text-sm">Style Suggestions</h3>
+              <h3 className="font-semibold text-sm">Conversion Suggestions</h3>
               <Badge variant="secondary" className="text-xs">
-                {styleSuggestions.length}
+                {urgencySuggestions.length + claritySuggestions.length + trustSuggestions.length}
               </Badge>
             </div>
-            
-            <div className="space-y-3">
-              {styleSuggestions.map((suggestion) => (
-                <StyleSuggestionCard
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  onApply={() => onApply(suggestion.id, 'style')}
-                  onDismiss={() => onDismiss(suggestion.id, 'style')}
-                />
-              ))}
-            </div>
+
+            <TooltipProvider>
+              <Tabs defaultValue={categoryInfo.urgency.count > 0 ? 'urgency' : categoryInfo.clarity.count > 0 ? 'clarity' : 'trust'} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  {(['urgency', 'clarity', 'trust'] as const).map((key) => (
+                    <Tooltip key={key}>
+                      <TooltipTrigger asChild>
+                        <TabsTrigger value={key} disabled={categoryInfo[key].count === 0}>
+                          {categoryInfo[key].icon}
+                          {categoryInfo[key].label}
+                          {categoryInfo[key].count > 0 && (
+                            <Badge variant="secondary" className="ml-1 text-xxs">
+                              {categoryInfo[key].count}
+                            </Badge>
+                          )}
+                        </TabsTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>{categoryInfo[key].description}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </TabsList>
+
+                <TabsContent value="urgency">
+                  {urgencySuggestions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-4">No urgency suggestions.</p>
+                  ) : (
+                    <div className="space-y-3 pt-3">
+                      {urgencySuggestions.map((suggestion) => (
+                        <StyleSuggestionCard
+                          key={suggestion.id}
+                          suggestion={suggestion}
+                          onApply={() => onApply(suggestion.id, 'style')}
+                          onDismiss={() => onDismiss(suggestion.id, 'style')}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="clarity">
+                  {claritySuggestions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-4">No clarity suggestions.</p>
+                  ) : (
+                    <div className="space-y-3 pt-3">
+                      {claritySuggestions.map((suggestion) => (
+                        <StyleSuggestionCard
+                          key={suggestion.id}
+                          suggestion={suggestion}
+                          onApply={() => onApply(suggestion.id, 'style')}
+                          onDismiss={() => onDismiss(suggestion.id, 'style')}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="trust">
+                  {trustSuggestions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-4">No trust suggestions.</p>
+                  ) : (
+                    <div className="space-y-3 pt-3">
+                      {trustSuggestions.map((suggestion) => (
+                        <StyleSuggestionCard
+                          key={suggestion.id}
+                          suggestion={suggestion}
+                          onApply={() => onApply(suggestion.id, 'style')}
+                          onDismiss={() => onDismiss(suggestion.id, 'style')}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </TooltipProvider>
           </div>
         )}
       </div>
