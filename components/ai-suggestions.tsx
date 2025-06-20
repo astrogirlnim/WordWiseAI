@@ -63,9 +63,9 @@ export function AISuggestions({
   const totalSuggestions = styleSuggestions.length + funnelSuggestions.length
 
   // Categorize style suggestions by conversion aspect
-  const urgencySuggestions = styleSuggestions.filter((s) => s.type === 'urgency')
-  const claritySuggestions = styleSuggestions.filter((s) => s.type === 'clarity')
-  const trustSuggestions = styleSuggestions.filter((s) => s.type === 'trust')
+  const urgencySuggestions = styleSuggestions.filter((s: AISuggestion) => s.type === 'urgency')
+  const claritySuggestions = styleSuggestions.filter((s: AISuggestion) => s.type === 'clarity')
+  const trustSuggestions = styleSuggestions.filter((s: AISuggestion) => s.type === 'trust')
 
   const categoryInfo = {
     urgency: {
@@ -88,7 +88,7 @@ export function AISuggestions({
     },
   } as const
 
-  const categories = Object.keys(categoryInfo) as Array<keyof typeof categoryInfo>
+  const categories: Array<keyof typeof categoryInfo> = Object.keys(categoryInfo) as Array<keyof typeof categoryInfo>
 
   if (loading) {
     return (
@@ -161,7 +161,7 @@ export function AISuggestions({
             <TooltipProvider>
               <Tabs defaultValue={categoryInfo.urgency.count > 0 ? 'urgency' : categoryInfo.clarity.count > 0 ? 'clarity' : 'trust'} className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
-                  {categories.map((key) => {
+                  {categories.map((key: keyof typeof categoryInfo) => {
                     const info = categoryInfo[key]
                     return (
                       <Tooltip key={key}>
