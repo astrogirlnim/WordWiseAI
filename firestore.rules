@@ -44,6 +44,8 @@ service cloud.firestore {
     match /documents/{documentId} {
       // READ access: Owner, shared users, or public
       allow get: if canView(resource.data);
+      // LIST access: Allow authenticated users to list documents
+      // The actual filtering is done by Firestore queries (where clauses)
       allow list: if request.auth != null;
 
       // WRITE access:

@@ -105,19 +105,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (activeDocumentId?: string) => {
     console.log('[AuthContext] Logging out user. Active document:', activeDocumentId)
     
-    // Gracefully leave collaboration session before signing out
-    if (activeDocumentId && auth.currentUser) {
-      try {
-        await CollaborationService.leaveDocumentSession(activeDocumentId, auth.currentUser.uid)
-        console.log('[AuthContext] Successfully left collaboration session for document:', activeDocumentId)
-      } catch (error) {
-        console.error('[AuthContext] Error leaving collaboration session during logout:', error)
+    try {
+      // Gracefully leave collaboration session before signing out
+      if (activeDocumentId && auth.currentUser) {
+        try {
+          await CollaborationService.leaveDocumentSession(activeDocumentId, auth.currentUser.uid)
+          console.log('[AuthContext] Successfully left collaboration session for document:', activeDocumentId)
+        } catch (error) {
+          console.error('[AuthContext] Error leaving collaboration session during logout:', error)
+          // Continue with logout even if collaboration cleanup fails
+        }
       }
+      
+      // Sign out from Firebase
+      await signOut(auth)
+      console.log('[AuthContext] Successfully signed out from Firebase')
+      
+      // Clear any pending invitation tokens
+      localStorage.removeItem('pendingInviteToken')
+      localStorage.removeItem('pendingDocumentId')
+      
+      // Redirect to sign-in page after logout
+      router.push('/sign-in')
+    } catch (error) {
+      console.error('[AuthContext] Error during logout:', error)
+      // Even if logout fails, redirect to sign-in page
+      router.push('/sign-in')
     }
-    
-    await signOut(auth)
-    // Redirect to home or sign-in page after logout
-    router.push('/sign-in') 
   }
 
   const updateUserProfile = async (name: string) => {

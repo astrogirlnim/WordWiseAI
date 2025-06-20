@@ -40,11 +40,13 @@ export function useDocuments() {
       setSharedDocuments([])
       setPublicDocuments([])
       setLoading(false)
+      setError(null)
       return
     }
 
     console.log('[useDocuments] Setting up document subscriptions for user:', user.uid)
     setLoading(true)
+    setError(null)
 
     const documentsRef = collection(firestore, 'documents')
 
@@ -53,6 +55,7 @@ export function useDocuments() {
     const unsubscribeOwned = onSnapshot(
       ownedQuery,
       (snapshot) => {
+        console.log('[useDocuments] Owned documents snapshot received:', snapshot.docs.length)
         const docs = snapshot.docs.map(
           (doc) =>
             ({
@@ -65,7 +68,10 @@ export function useDocuments() {
       },
       (error) => {
         console.error('[useDocuments] Error fetching owned documents:', error)
-        setError('Failed to fetch your documents.')
+        // Only set error if user is still authenticated to avoid showing errors during sign out
+        if (user?.uid) {
+          setError('Failed to fetch your documents.')
+        }
         setLoading(false)
       },
     )
@@ -78,6 +84,7 @@ export function useDocuments() {
     const unsubscribeShared = onSnapshot(
       sharedQuery,
       (snapshot) => {
+        console.log('[useDocuments] Shared documents snapshot received:', snapshot.docs.length)
         const docs = snapshot.docs.map(
           (doc) =>
             ({
@@ -89,6 +96,10 @@ export function useDocuments() {
       },
       (error) => {
         console.error('[useDocuments] Error fetching shared documents:', error)
+        // Only log error if user is still authenticated
+        if (user?.uid) {
+          console.error('[useDocuments] Shared documents error for authenticated user')
+        }
       },
     )
 
@@ -97,6 +108,7 @@ export function useDocuments() {
     const unsubscribePublic = onSnapshot(
       publicQuery,
       (snapshot) => {
+        console.log('[useDocuments] Public documents snapshot received:', snapshot.docs.length)
         const docs = snapshot.docs.map(
           (doc) =>
             ({
@@ -108,10 +120,15 @@ export function useDocuments() {
       },
       (error) => {
         console.error('[useDocuments] Error fetching public documents:', error)
+        // Only log error if user is still authenticated
+        if (user?.uid) {
+          console.error('[useDocuments] Public documents error for authenticated user')
+        }
       },
     )
 
     return () => {
+      console.log('[useDocuments] Cleaning up document subscriptions for user:', user?.uid)
       unsubscribeOwned()
       unsubscribeShared()
       unsubscribePublic()
