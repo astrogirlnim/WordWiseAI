@@ -5,13 +5,7 @@ import type { WritingGoals } from '@/types/writing-goals';
 import type { TextChunk } from '@/utils/text-chunker';
 import type { FunnelSuggestionsResponse } from '@/types/ai-features';
 
-// Lazy initialization helper with null checks
-const getFunctionsInstance = () => {
-  if (!app) {
-    throw new Error('Firebase app not initialized. This service requires client-side execution.');
-  }
-  return getFunctions(app, 'us-central1');
-};
+const functions = getFunctions(app, 'us-central1');
 
 interface GrammarCheckResult {
   errors: GrammarError[];
@@ -30,7 +24,6 @@ interface ChunkGrammarCheckResult {
 
 export class AIService {
   static async generateSuggestion(text: string): Promise<string> {
-    const functions = getFunctionsInstance();
     const generateSuggestionsCallable = httpsCallable<{ text: string }, { suggestion: string }>(functions, 'generateSuggestions');
     try {
       const result = await generateSuggestionsCallable({ text });
@@ -44,7 +37,6 @@ export class AIService {
   static async generateStyleSuggestions(documentId: string, text: string, goals?: WritingGoals): Promise<void> {
     console.log('[AIService] Triggering style suggestion generation...', { documentId, textLength: text.length, goals });
     
-    const functions = getFunctionsInstance();
     const callable = httpsCallable<
       { documentId: string; text: string; goals?: WritingGoals }, 
       { success: boolean; suggestionsAdded: number }
@@ -62,7 +54,6 @@ export class AIService {
   static async checkGrammar(documentId: string, text: string): Promise<GrammarError[]> {
     console.log(`[AIService] Checking grammar for document ${documentId}, text length: ${text.length}`);
     
-    const functions = getFunctionsInstance();
     const checkGrammarCallable = httpsCallable<
       { documentId: string; text: string }, 
       GrammarCheckResult
@@ -89,7 +80,6 @@ export class AIService {
   static async checkGrammarChunk(documentId: string, chunk: TextChunk): Promise<GrammarError[]> {
     console.log(`[AIService] Checking grammar for chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} of document ${documentId}, text length: ${chunk.text.length}`);
     
-    const functions = getFunctionsInstance();
     const checkGrammarCallable = httpsCallable<
       { 
         documentId: string; 
@@ -147,7 +137,6 @@ export class AIService {
       draftLength: currentDraft.length 
     });
     
-    const functions = getFunctionsInstance();
     const callable = httpsCallable<
       { 
         documentId: string; 

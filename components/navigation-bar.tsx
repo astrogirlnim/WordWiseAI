@@ -14,25 +14,16 @@ import { VersionHistoryButton } from './version-history-button'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ShareDialog } from './share-dialog'
-import { DocumentService } from '@/services/document-service'
-import { useToast } from '@/hooks/use-toast'
-import { useState } from 'react'
-import { Button } from './ui/button'
-import { UserPlus, MessageSquare } from 'lucide-react'
 
 interface NavigationBarProps {
   user: User
-  myDocuments: Document[]
-  sharedDocuments: Document[]
-  publicDocuments: Document[]
+  documents: Document[]
   displayMode?: 'editor' | 'settings'
   activeDocumentId?: string
   isAISidebarOpen?: boolean
   aiSuggestionCount?: number
   writingGoals: WritingGoals
   isDistractionFree: boolean
-  isCommentsSidebarOpen?: boolean
   onDocumentSelect?: (documentId: string) => void
   onNewDocument?: () => void
   onUserAction?: (action: string) => void
@@ -40,22 +31,18 @@ interface NavigationBarProps {
   onWritingGoalsClick?: () => void
   onDistractionFreeToggle?: () => void
   onVersionHistoryClick?: () => void
-  onCommentsToggle?: () => void
   onDeleteDocument?: (documentId: string) => Promise<void>
 }
 
 export function NavigationBar({
   user,
-  myDocuments,
-  sharedDocuments,
-  publicDocuments,
+  documents,
   displayMode = 'editor',
   activeDocumentId,
   isAISidebarOpen = false,
   aiSuggestionCount = 0,
   writingGoals,
   isDistractionFree,
-  isCommentsSidebarOpen = false,
   onDocumentSelect,
   onNewDocument,
   onUserAction,
@@ -63,16 +50,10 @@ export function NavigationBar({
   onWritingGoalsClick,
   onDistractionFreeToggle,
   onVersionHistoryClick,
-  onCommentsToggle,
   onDeleteDocument,
 }: NavigationBarProps) {
-  const { user: authUser, logout } = useAuth()
-  const { toast } = useToast()
+  const { logout } = useAuth()
   const router = useRouter()
-  const [isShareDialogOpen, setShareDialogOpen] = useState(false)
-
-  const allDocuments = [...myDocuments, ...sharedDocuments, ...publicDocuments]
-  const activeDocument = allDocuments.find(doc => doc.id === activeDocumentId)
 
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
@@ -83,54 +64,9 @@ export function NavigationBar({
     }
   }
 
-  const handleShare = async (emails: string[], role: 'editor' | 'commenter' | 'viewer') => {
-    if (!activeDocumentId || !authUser) return
-    try {
-      await DocumentService.shareDocument(activeDocumentId, emails, role, authUser.uid)
-      toast({ title: 'Success', description: 'Document shared successfully.' })
-      // Here you might want to refetch documents or update state
-    } catch (error) {
-      console.error(error)
-      toast({ title: 'Error', description: 'Failed to share document.', variant: 'destructive' })
-    }
-  }
-
-  const handleUpdateRole = async (userId: string, role: 'editor' | 'commenter' | 'viewer') => {
-    if (!activeDocumentId) return
-    try {
-      await DocumentService.updateUserRole(activeDocumentId, userId, role)
-      toast({ title: 'Success', description: "Collaborator's role updated." })
-    } catch (error) {
-      console.error(error)
-      toast({ title: 'Error', description: 'Failed to update role.', variant: 'destructive' })
-    }
-  }
-
-  const handleRemoveAccess = async (userId: string) => {
-    if (!activeDocumentId) return
-    try {
-      await DocumentService.removeUserAccess(activeDocumentId, userId)
-      toast({ title: 'Success', description: 'Collaborator removed.' })
-    } catch (error) {
-      console.error(error)
-      toast({ title: 'Error', description: 'Failed to remove collaborator.', variant: 'destructive' })
-    }
-  }
-
-  const handleUpdatePublicAccess = async (isPublic: boolean, publicViewMode: 'view' | 'comment' | 'disabled') => {
-    if (!activeDocumentId) return
-    try {
-      await DocumentService.updatePublicAccess(activeDocumentId, isPublic, publicViewMode)
-      toast({ title: 'Success', description: 'Public access settings updated.' })
-    } catch (error) {
-      console.error(error)
-      toast({ title: 'Error', description: 'Failed to update public access.', variant: 'destructive' })
-    }
-  }
-
   const handleSignOut = async () => {
     console.log('[NavigationBar] User signing out')
-    await logout(activeDocumentId)
+    await logout()
     router.push('/sign-in')
   }
 
@@ -165,9 +101,7 @@ export function NavigationBar({
           {/* Document Navigation - Hidden on mobile for cleaner layout */}
           <div className="hidden lg:flex items-center gap-6">
             <EnhancedDocumentList
-              myDocuments={myDocuments}
-              sharedDocuments={sharedDocuments}
-              publicDocuments={publicDocuments}
+              documents={documents}
               activeDocumentId={activeDocumentId}
               onDocumentSelect={onDocumentSelect}
               onNewDocument={onNewDocument}
@@ -191,9 +125,7 @@ export function NavigationBar({
           {/* Mobile Document List */}
           <div className="lg:hidden">
             <EnhancedDocumentList
-              myDocuments={myDocuments}
-              sharedDocuments={sharedDocuments}
-              publicDocuments={publicDocuments}
+              documents={documents}
               activeDocumentId={activeDocumentId}
               onDocumentSelect={onDocumentSelect}
               onNewDocument={onNewDocument}
@@ -231,20 +163,6 @@ export function NavigationBar({
               
               <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
 
-              <Button
-                variant={isCommentsSidebarOpen ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={onCommentsToggle}
-                aria-label="Toggle comments sidebar"
-              >
-                <MessageSquare className="h-5 w-5" />
-              </Button>
-
-              <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Share
-              </Button>
-
               <div className="h-6 w-px bg-border/30 ml-1" />
             </div>
           )}
@@ -258,17 +176,6 @@ export function NavigationBar({
         </div>
       </div>
       
-      {activeDocument && (
-        <ShareDialog
-          isOpen={isShareDialogOpen}
-          onOpenChange={setShareDialogOpen}
-          document={activeDocument}
-          onUpdateRole={handleUpdateRole}
-          onRemoveAccess={handleRemoveAccess}
-          onUpdatePublicAccess={handleUpdatePublicAccess}
-        />
-      )}
-
       {/* Sophisticated bottom accent line */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-retro-primary/30 via-retro-sunset/20 to-transparent" />
     </header>

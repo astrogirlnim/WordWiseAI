@@ -21,8 +21,6 @@ export interface Document {
   status: 'draft' | 'review' | 'final' | 'archived'
   // Access control list
   sharedWith: DocumentAccess[]
-  sharedWithIds: string[]
-  sharedRoles: { [key: string]: 'editor' | 'commenter' | 'viewer' }
   // Sharing settings
   isPublic: boolean
   publicViewMode: 'view' | 'comment' | 'disabled'

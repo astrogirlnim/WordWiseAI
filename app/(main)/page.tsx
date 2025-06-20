@@ -5,10 +5,6 @@ import { DocumentContainer } from '@/components/document-container'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-// Force dynamic rendering for this page since it uses Firebase hooks
-export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
-
 export default function Page() {
   const { user, loading } = useAuth()
   const router = useRouter()

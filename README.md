@@ -1,46 +1,13 @@
 # WordWiseAI
 
-A Next.js-based AI-powered writing assistant featuring real-time collaboration, grammar checking, document sharing, and team commenting. Built with Firebase backend and modern React architecture.
-
-**Current Status**: ✅ **Phase 3 Complete** - Full-featured commenting system with real-time collaboration  
-**Latest Features**: Team Review & Commenting, Role-based Access Control, Real-time Synchronization
-
-## ✨ Key Features
-
-### 📝 **Document Management**
-- Real-time document editing with auto-save
-- Version history with user attribution and diff viewer
-- Writing goals and document metadata
-
-### 👥 **Real-time Collaboration**
-- Multi-user editing with live presence indicators
-- User avatars and cursor tracking
-- Session management with automatic cleanup
-
-### 💬 **Team Review & Commenting** *(NEW)*
-- Text selection-based commenting system
-- Real-time comment synchronization
-- Comment resolution and reactivation
-- Role-based permissions (owner, editor, commenter, viewer)
-- Visual highlights and interactive comment threads
-
-### 🔐 **Document Sharing & Access Control**
-- Secure invitation system with link-based sharing
-- Role-based access control with granular permissions
-- Public link sharing with configurable access levels
-- Real-time permission updates
-
-### 🤖 **AI-Powered Features**
-- Grammar and spell checking with OpenAI integration
-- Writing suggestions and style recommendations
-- Intelligent text analysis and improvements
+A Next.js-based writing assistant powered by Firebase and AI, featuring real-time collaboration, grammar checking, and intelligent writing suggestions.
 
 ## 🚀 Tech Stack
 
-- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS, Shadcn UI
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
 - **Backend**: Firebase (Firestore, Realtime Database, Functions, Auth, Storage)
 - **AI Integration**: OpenAI API for writing suggestions and grammar checking
-- **Editor**: TipTap with custom extensions for commenting and grammar checking
+- **Editor**: TipTap with real-time collaboration
 - **Deployment**: Firebase Hosting with GitHub Actions CI/CD
 
 ## 🔧 Firebase Configuration

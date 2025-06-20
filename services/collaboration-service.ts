@@ -4,24 +4,12 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 import app from '../lib/firebase';
 
-// Lazy initialization helpers with null checks
-const getRealtimeDatabase = () => {
-  if (!app) {
-    throw new Error('Firebase app not initialized. This service requires client-side execution.');
-  }
-  return getDatabase(app);
-};
-
-const getFirebaseAuth = () => {
-  if (!app) {
-    throw new Error('Firebase app not initialized. This service requires client-side execution.');
-  }
-  return getAuth(app);
-};
+const db = getDatabase(app);
+const auth = getAuth(app);
 
 export class CollaborationService {
   /**
-   * Join a document collaboration session with access verification (ownership or shared access)
+   * Join a document collaboration session with ownership verification
    * @param docId - Document ID to join
    * @param user - User information for presence tracking
    */
@@ -29,14 +17,7 @@ export class CollaborationService {
     console.log('[CollaborationService] Attempting to join document session:', docId, 'as user:', user.id);
     
     try {
-      // Initialize Firebase services with null checks
-      const db = getRealtimeDatabase();
-      
-      // First, verify the user has access to this document by checking Firestore
-      if (!firestore) {
-        throw new Error('Firestore not initialized. This service requires client-side execution.');
-      }
-      
+      // First, verify the user owns this document by checking Firestore
       const firestoreDocRef = doc(firestore, 'documents', docId);
       const firestoreDocSnap = await getDoc(firestoreDocRef);
       
@@ -46,44 +27,22 @@ export class CollaborationService {
       }
       
       const documentData = firestoreDocSnap.data();
-      console.log('[CollaborationService] Document data:', {
-        ownerId: documentData.ownerId,
-        sharedWithIds: documentData.sharedWithIds || [],
-        isPublic: documentData.isPublic,
-        publicViewMode: documentData.publicViewMode
-      });
-      
-      // Check if user has access (owner, shared user, or public document)
-      const isOwner = documentData.ownerId === user.id;
-      const isSharedUser = documentData.sharedWithIds && documentData.sharedWithIds.includes(user.id);
-      const isPublicDocument = documentData.isPublic && documentData.publicViewMode !== 'disabled';
-      
-      if (!isOwner && !isSharedUser && !isPublicDocument) {
-        console.error('[CollaborationService] User', user.id, 'does not have access to document', docId);
-        console.error('[CollaborationService] Access check failed:', { isOwner, isSharedUser, isPublicDocument });
-        throw new Error('Access denied: You do not have permission to access this document');
+      if (documentData.ownerId !== user.id) {
+        console.error('[CollaborationService] User', user.id, 'does not own document', docId, 'Owner is:', documentData.ownerId);
+        throw new Error('Access denied: You do not own this document');
       }
       
-      console.log('[CollaborationService] Document access verified for user:', user.id, 'Access type:', { isOwner, isSharedUser, isPublicDocument });
-      
-      // Prepare shared user IDs object for database rules
-      const sharedUserIds: Record<string, boolean> = {};
-      if (documentData.sharedWithIds) {
-        documentData.sharedWithIds.forEach((userId: string) => {
-          sharedUserIds[userId] = true;
-        });
-      }
+      console.log('[CollaborationService] Document ownership verified for user:', user.id);
       
       // Set document metadata in Realtime Database for security rules
       const metadataRef = ref(db, `/documents/${docId}/metadata`);
       await set(metadataRef, {
-        ownerId: documentData.ownerId,
+        ownerId: user.id,
         title: documentData.title || 'Untitled Document',
-        lastUpdated: Date.now(),
-        sharedUserIds: sharedUserIds // This allows database rules to check shared access
+        lastUpdated: Date.now()
       });
       
-      console.log('[CollaborationService] Document metadata set in Realtime Database with shared users:', Object.keys(sharedUserIds));
+      console.log('[CollaborationService] Document metadata set in Realtime Database');
       
       // Now set up presence tracking
       const userStatusDatabaseRef = ref(db, `/documents/${docId}/presence/${user.id}`);
@@ -131,7 +90,6 @@ export class CollaborationService {
     console.log('[CollaborationService] User', userId, 'leaving document session:', docId);
     
     try {
-      const db = getRealtimeDatabase();
       const userStatusDatabaseRef = ref(db, `/documents/${docId}/presence/${userId}`);
       await set(userStatusDatabaseRef, {
         state: 'offline',
@@ -154,25 +112,14 @@ export class CollaborationService {
   static subscribeToPresence(docId: string, callback: (presence: Record<string, any>) => void): () => void {
     console.log('[CollaborationService] Subscribing to presence for document:', docId);
     
-    try {
-      const db = getRealtimeDatabase();
-      const presenceRef = ref(db, `/documents/${docId}/presence`);
-      
-      const unsubscribe = onValue(presenceRef, (snapshot) => {
-        const presenceData = snapshot.val() || {};
-        console.log('[CollaborationService] Presence update for document', docId, ':', Object.keys(presenceData));
-        callback(presenceData);
-      }, (error) => {
-        console.error('[CollaborationService] Error subscribing to presence:', error);
-        // Call callback with empty data on error to prevent UI issues
-        callback({});
-      });
-      
-      return unsubscribe;
-    } catch (error) {
-      console.error('[CollaborationService] Failed to subscribe to presence:', error);
-      // Return no-op function if subscription fails
-      return () => {};
-    }
+    const presenceRef = ref(db, `/documents/${docId}/presence`);
+    
+    const unsubscribe = onValue(presenceRef, (snapshot) => {
+      const presenceData = snapshot.val() || {};
+      console.log('[CollaborationService] Presence update for document', docId, ':', Object.keys(presenceData));
+      callback(presenceData);
+    });
+    
+    return unsubscribe;
   }
 } 

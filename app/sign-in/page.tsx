@@ -25,10 +25,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 
-// Force dynamic rendering for this page since it uses Firebase hooks
-export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
-
 const signInSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
   password: z.string().min(1, { message: 'Password is required' }),

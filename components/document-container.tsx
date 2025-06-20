@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
+// import { DocumentEditor } from './document-editor' - Will be dynamically imported
 import { AISidebar } from './ai-sidebar'
 import { NavigationBar } from './navigation-bar'
 import { WritingGoalsModal } from './writing-goals-modal'
@@ -11,23 +12,19 @@ import { useToast } from '@/hooks/use-toast'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
 import { VersionHistorySidebar } from './version-history-sidebar'
-import type { AutoSaveStatus, Document as DocumentType } from '@/types/document'
+import type { AutoSaveStatus } from '@/types/document'
+import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { useAutoSave } from '@/hooks/use-auto-save'
-import { CollaborationService } from '@/services/collaboration-service'
-import { useComments } from '@/hooks/use-comments'
-import { CommentsSidebar } from './comments-sidebar'
-import type { UserProfile } from '@/types/user'
-import { DistractionFreeToggle } from './distraction-free-toggle'
+import { AuditService, AuditEvent } from '@/services/audit-service'
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
   loading: () => <p>Loading editor...</p>
 })
 
-export function DocumentContainer({ documentId: initialDocumentId }: { documentId?: string }) {
-  console.log('[DocumentContainer] Rendering document container')
+export function DocumentContainer() {
   const { user } = useAuth()
   const {
     documents,
@@ -37,9 +34,8 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     restoreDocumentVersion,
     deleteDocument,
   } = useDocuments()
-  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(initialDocumentId || null)
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
   const { versions, loading: versionsLoading, error: versionsError, reloadVersions, deleteVersion } = useDocumentVersions(activeDocumentId || null)
-  const { comments, addComment, deleteComment, resolveComment, reactivateComment } = useComments(activeDocumentId)
   const { toast } = useToast()
 
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
@@ -51,8 +47,6 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
   const [newDocumentTitle, setNewDocumentTitle] = useState('Untitled Document')
   const [isDistractionFree, setIsDistractionFree] = useState(false)
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
-  const [isCommentsSidebarOpen, setIsCommentsSidebarOpen] = useState(false)
-  const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<{
     oldContent: string
     newContent: string
@@ -62,123 +56,12 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
   })
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
 
-  const activeDocument = useMemo(
-    () => documents.find((doc) => doc.id === activeDocumentId),
-    [documents, activeDocumentId]
-  );
-
-  const { canEdit } = useMemo(() => {
-    if (!activeDocument) {
-      return { canEdit: false }
-    }
-
-    // Handle public access for logged-out users first
-    if (!user) {
-      if (activeDocument.isPublic && activeDocument.publicViewMode !== 'disabled') {
-        return { canEdit: false };
-      }
-      return { canEdit: false };
-    }
-
-    // Handle access for logged-in users
-    if (activeDocument.ownerId === user.uid) {
-      return { canEdit: true }
-    }
-
-    const sharedInfo = activeDocument.sharedWith.find(
-      (s) => s.userId === user.uid
-    )
-    if (sharedInfo) {
-      return { canEdit: sharedInfo.role === 'editor' }
-    }
-
-    if (activeDocument.isPublic && activeDocument.publicViewMode !== 'disabled') {
-      return { canEdit: false };
-    }
-
-    return { canEdit: false }
-  }, [activeDocument, user]);
-
-  const { myDocuments, sharedWithMe, publicDocuments } = useMemo(() => {
-    if (!user?.uid) {
-      return { myDocuments: [], sharedWithMe: [], publicDocuments: [] };
-    }
-
-    const my: DocumentType[] = [];
-    const shared: DocumentType[] = [];
-    const publicDocs: DocumentType[] = [];
-
-    documents.forEach((doc: DocumentType) => {
-      if (doc.ownerId === user.uid) {
-        my.push(doc);
-      } else if (doc.sharedWithIds?.includes(user.uid)) {
-        shared.push(doc);
-      } else if (doc.isPublic) {
-        publicDocs.push(doc);
-      }
-    });
-
-    return { myDocuments: my, sharedWithMe: shared, publicDocuments: publicDocs };
-  }, [documents, user?.uid]);
-
-  // Set active document when documents load or initialDocumentId changes
+  // Set active document when documents load
   useEffect(() => {
-    if (initialDocumentId) {
-      setActiveDocumentId(initialDocumentId);
-    } else if (documents.length > 0 && !activeDocumentId) {
+    if (documents.length > 0 && !activeDocumentId) {
       setActiveDocumentId(documents[0].id)
     }
-  }, [documents, activeDocumentId, initialDocumentId])
-
-  // Join collaboration session when active document changes
-  useEffect(() => {
-    if (!activeDocumentId || !user?.uid) {
-      console.log('[DocumentContainer] No active document or user, skipping collaboration join')
-      return
-    }
-
-    console.log('[DocumentContainer] Joining collaboration session for document:', activeDocumentId)
-
-    const joinSession = async () => {
-      try {
-        // Generate user color and prepare user data for collaboration
-        const collaborationUser = {
-          id: user.uid,
-          name: user.displayName || user.email || 'Unknown User',
-          email: user.email || '',
-          color: '#3B82F6', // Will be generated consistently in the service
-        }
-
-        console.log('[DocumentContainer] Joining with user data:', collaborationUser)
-        await CollaborationService.joinDocumentSession(activeDocumentId, collaborationUser)
-        
-        console.log('[DocumentContainer] Successfully joined collaboration session')
-      } catch (error) {
-        console.error('[DocumentContainer] Failed to join collaboration session:', error)
-        // Don't show error to user unless it's a critical permission issue
-        if (error instanceof Error && error.message.includes('Access denied')) {
-          toast({
-            title: 'Access Denied',
-            description: 'You do not have permission to collaborate on this document.',
-            variant: 'destructive',
-          })
-        }
-      }
-    }
-
-    joinSession()
-
-    // Cleanup function to leave session when document changes or component unmounts
-    return () => {
-      // This is now handled by the logout function in AuthContext to avoid race conditions
-      // if (user?.uid) {
-      //   console.log('[DocumentContainer] Leaving collaboration session for document:', activeDocumentId)
-      //   CollaborationService.leaveDocumentSession(activeDocumentId, user.uid).catch((error) => {
-      //     console.error('[DocumentContainer] Error leaving collaboration session:', error)
-      //   })
-      // }
-    }
-  }, [activeDocumentId, user, toast])
+  }, [documents, activeDocumentId])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -282,14 +165,15 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
 
   const handleViewVersion = useCallback(
     (versionContent: string) => {
-      if (activeDocument) {
+      const currentDoc = documents.find((d) => d.id === activeDocumentId)
+      if (currentDoc) {
         setDiffContent({
           oldContent: versionContent,
-          newContent: activeDocument.content,
+          newContent: currentDoc.content,
         })
       }
     },
-    [activeDocument]
+    [activeDocumentId, documents],
   )
 
   const handleNewDocument = useCallback(async () => {
@@ -316,23 +200,68 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
 
   const handleDeleteDocument = useCallback(
     async (documentId: string) => {
+      if (!deleteDocument) return
+
+      const docToDelete = documents.find((d) => d.id === documentId)
+      if (!docToDelete) return
+
       try {
         await deleteDocument(documentId)
+
+        if (activeDocumentId === documentId) {
+          const remainingDocs = documents.filter((d) => d.id !== documentId)
+          setActiveDocumentId(remainingDocs.length > 0 ? remainingDocs[0].id : null)
+        }
+
         toast({
-          title: 'Document deleted',
-          description: 'The document has been successfully deleted.',
+          title: 'Document Deleted',
+          description: `"${docToDelete.title}" has been permanently deleted.`,
         })
       } catch (error) {
-        console.error('[DocumentContainer] Failed to delete document:', error)
+        console.error('Failed to delete document:', error)
         toast({
-          title: 'Error',
-          description: 'Failed to delete the document. Please try again.',
+          title: 'Error Deleting Document',
+          description: 'An unexpected error occurred. Please try again.',
           variant: 'destructive',
         })
       }
     },
-    [deleteDocument, toast],
+    [deleteDocument, documents, activeDocumentId, toast],
   )
+
+  const handleUserAction = useCallback((action: string) => {
+    switch (action) {
+      case 'profile':
+        console.log('Opening profile...')
+        break
+      case 'settings':
+        console.log('Opening settings...')
+        break
+      case 'billing':
+        console.log('Opening billing...')
+        break
+      case 'help':
+        console.log('Opening help...')
+        break
+      case 'signout':
+        console.log('Signing out...')
+        break
+      default:
+        console.log('Unknown action:', action)
+    }
+  }, [])
+
+  const handleAISidebarToggle = useCallback(() => {
+    setIsAISidebarOpen((prev) => !prev)
+  }, [])
+
+  const handleDistractionFreeToggle = useCallback(() => {
+    setIsDistractionFree((prev) => !prev)
+  }, [])
+
+  const handleWritingGoalsClick = useCallback(() => {
+    setIsGoalsModalOpen(true)
+  }, [])
 
   const handleSaveWritingGoals = useCallback(async (newGoals: WritingGoals, title?: string) => {
     console.log('[DocumentContainer] Saving writing goals:', { 
@@ -370,40 +299,83 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     }
   }, [isCreatingNewDocument, createDocument, user?.uid, toast])
 
-  const handleContentChange = useAutoSave(
-    (content: string) => {
-      if (!activeDocumentId || !updateDocument) return;
-      setSaveStatus({ status: 'saving' });
-      updateDocument(activeDocumentId, {
-        content,
-        wordCount: content.trim().split(/\s+/).filter(Boolean).length,
-        characterCount: content.length,
-      })
-      .then(() => setSaveStatus({ status: 'saved' }))
-      .catch(() => setSaveStatus({ status: 'error' }));
+  const activeDocument =
+    documents.find((doc) => doc.id === activeDocumentId) || null
+
+  // Memoize initialDocument to prevent unnecessary re-renders that cause title reset
+  const initialDocument = useMemo(() => {
+    if (!activeDocument) return null
+    console.log('[DocumentContainer] Memoizing initialDocument for', activeDocument.title)
+    return {
+      ...activeDocument,
+      content: activeDocument.content || ''
+    }
+  }, [activeDocument]) // Depend on activeDocument to satisfy linter
+
+  const mockUser = {
+    id: user?.uid || '',
+    name: user?.displayName || 'User',
+    email: user?.email || '',
+    plan: 'pro' as const,
+  }
+
+  const handleSave = useAutoSave(
+    async (content: string, title: string) => {
+      if (!activeDocumentId) return
+      console.log('[DocumentContainer] handleSave called. Content length:', content.length, 'Title:', title)
+      setSaveStatus({ status: 'saving' })
+      try {
+        await updateDocument(activeDocumentId, {
+          content,
+          title,
+          wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+          characterCount: content.length,
+        })
+        setSaveStatus({ status: 'saved' })
+        console.log('[DocumentContainer] Save completed successfully for title:', title)
+      } catch (error) {
+        console.error('[DocumentContainer] Failed to save document', error)
+        setSaveStatus({ status: 'error' })
+      }
     },
-    2000
-  );
+    2000,
+    {
+      compareArgs: (prev, current) => {
+        // Compare content and title to avoid unnecessary saves
+        const isSame = prev[0] === current[0] && prev[1] === current[1]
+        console.log('[DocumentContainer] Comparing save args. Same?', isSame, 'Title changed?', prev[1] !== current[1])
+        return isSame
+      }
+    }
+  )
 
   const handleDeleteVersion = useCallback(
     async (versionId: string) => {
-      if (!activeDocumentId) return
+      if (!activeDocumentId || !deleteVersion || !user?.uid) return
+
       try {
         await deleteVersion(versionId)
+
+        // Optional audit log
+        await AuditService.logEvent(AuditEvent.VERSION_DELETE, user.uid, {
+          documentId: activeDocumentId,
+          versionId,
+        })
+
         toast({
-          title: 'Version deleted',
-          description: 'The version has been successfully deleted.',
+          title: 'Version Deleted',
+          description: 'The selected version has been permanently removed.',
         })
       } catch (error) {
-        console.error('[DocumentContainer] Failed to delete version:', error)
+        console.error('Failed to delete version:', error)
         toast({
-          title: 'Error',
-          description: 'Failed to delete the version. Please try again.',
+          title: 'Error Deleting Version',
+          description: 'An unexpected error occurred. Please try again.',
           variant: 'destructive',
         })
       }
     },
-    [activeDocumentId, deleteVersion, toast],
+    [activeDocumentId, deleteVersion, toast, user?.uid],
   )
 
   if (loading) {
@@ -417,73 +389,52 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     )
   }
 
-  if (initialDocumentId && !loading && !activeDocument) {
-    return (
-      <div className="flex flex-col min-h-screen items-center justify-center text-center">
-        <h2 className="text-2xl font-semibold mb-2">Document not found</h2>
-        <p className="text-muted-foreground">
-          You may not have access to this document, or it may have been deleted.
-        </p>
-      </div>
-    )
-  }
-
   return (
-    <div className={`h-screen w-full flex flex-col ${isDistractionFree ? 'is-distraction-free' : ''}`}>
-      {!isDistractionFree && user && (
+    <div className="grid min-h-screen w-full grid-rows-[auto_1fr]">
+      {/* Navigation Bar */}
+      {!isDistractionFree && (
         <NavigationBar
-          user={{
-            id: user.uid,
-            name: user.displayName || 'User',
-            email: user.email || '',
-            avatar: user.photoURL || '',
-            plan: 'pro', // This should be dynamic
-          }}
-          myDocuments={myDocuments}
-          sharedDocuments={sharedWithMe}
-          publicDocuments={publicDocuments}
-          activeDocumentId={activeDocumentId || undefined}
+          user={mockUser}
+          documents={documents}
+          activeDocumentId={activeDocumentId || ''}
+          isAISidebarOpen={isAISidebarOpen}
+          aiSuggestionCount={0}
+          writingGoals={writingGoals}
+          isDistractionFree={isDistractionFree}
           onDocumentSelect={handleDocumentSelect}
           onNewDocument={handleNewDocument}
-          writingGoals={writingGoals}
-          onWritingGoalsClick={() => setIsGoalsModalOpen(true)}
-          isDistractionFree={isDistractionFree}
-          onDistractionFreeToggle={() => setIsDistractionFree(!isDistractionFree)}
-          isAISidebarOpen={isAISidebarOpen}
-          onAISidebarToggle={() => setIsAISidebarOpen(!isAISidebarOpen)}
+          onUserAction={handleUserAction}
+          onAISidebarToggle={handleAISidebarToggle}
+          onWritingGoalsClick={handleWritingGoalsClick}
+          onDistractionFreeToggle={handleDistractionFreeToggle}
           onVersionHistoryClick={handleToggleVersionHistory}
-          isCommentsSidebarOpen={isCommentsSidebarOpen}
-          onCommentsToggle={() => setIsCommentsSidebarOpen(!isCommentsSidebarOpen)}
           onDeleteDocument={handleDeleteDocument}
         />
       )}
 
-      {/* Distraction-free exit button - Always visible when in distraction-free mode */}
-      {isDistractionFree && (
-        <div className="fixed right-4 top-4 z-[100] bg-background/95 rounded-lg shadow-lg p-1 backdrop-blur-sm border border-border">
-          <DistractionFreeToggle
-            isDistractionFree={isDistractionFree}
-            onToggle={() => setIsDistractionFree(!isDistractionFree)}
-          />
-        </div>
-      )}
-
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {activeDocument ? (
+      {/* Main Content Area */}
+      <main className="relative flex">
+        <div
+          className={`flex-1 transition-all duration-300 ${isAISidebarOpen && !isDistractionFree ? 'mr-80' : 'mr-0'}`}
+        >
+          {isDistractionFree && (
+            <div className="absolute right-4 top-4 z-50">
+              <DistractionFreeToggle
+                isDistractionFree={isDistractionFree}
+                onToggle={handleDistractionFreeToggle}
+              />
+            </div>
+          )}
+          {activeDocument && initialDocument && user?.uid ? (
             <DocumentEditor
-              key={activeDocument.id}
+              key={activeDocumentId}
               documentId={activeDocument.id}
-              initialDocument={activeDocument}
-              onContentChange={handleContentChange}
+              initialDocument={initialDocument}
+              onSave={handleSave}
               saveStatus={saveStatus}
-              isEditable={canEdit}
-              comments={comments}
-              addComment={addComment}
-              setActiveCommentId={setActiveCommentId}
             />
-          ) : documents.length > 0 ? (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
+          ) : (
+            <div className="flex h-full items-center justify-center">
               <div className="text-center">
                 <p className="text-muted-foreground">
                   {documents.length > 0
@@ -498,88 +449,31 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <p className="text-muted-foreground">Create a new document to begin</p>
-                <button
-                  onClick={handleNewDocument}
-                  className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
-                >
-                  New Document
-                </button>
-              </div>
-            </div>
           )}
         </div>
 
         {/* AI Sidebar */}
         {isAISidebarOpen && !isDistractionFree && (
-          <AISidebar
-            isOpen={isAISidebarOpen}
+          <AISidebar 
+            isOpen={isAISidebarOpen} 
             documentId={activeDocumentId}
             writingGoals={writingGoals}
             currentContent={activeDocument?.content}
           />
         )}
+      </main>
 
-        {isCommentsSidebarOpen && !isDistractionFree && user && (
-          (() => {
-            const debugUser: UserProfile = {
-              id: user.uid,
-              name: user.displayName || 'User',
-              email: user.email || '',
-              orgId: '',
-              role: '',
-              preferences: {
-                defaultWritingGoals: {
-                  audience: 'consumers',
-                  formality: 'casual',
-                  domain: 'marketing-copy',
-                  intent: 'persuade',
-                },
-                autoSaveInterval: 0,
-                showAdvancedSuggestions: false,
-                preferredTone: '',
-              },
-              acceptedSuggestions: [],
-              rejectedSuggestions: [],
-              createdAt: 0,
-              updatedAt: 0,
-            }
-            console.log('[DocumentContainer] Passing currentUser to CommentsSidebar:', debugUser)
-            return (
-              <CommentsSidebar
-                isOpen={isCommentsSidebarOpen}
-                onClose={() => setIsCommentsSidebarOpen(false)}
-                comments={comments}
-                currentUser={debugUser}
-                onAddComment={addComment}
-                onResolveComment={resolveComment}
-                onDeleteComment={deleteComment}
-                onReactivateComment={reactivateComment}
-                activeCommentId={activeCommentId}
-                setActiveCommentId={setActiveCommentId}
-                isDocumentOwner={activeDocument?.ownerId === user.uid}
-              />
-            )
-          })()
-        )}
-      </div>
-
-      {isVersionHistoryOpen && activeDocumentId && (
-        <VersionHistorySidebar
-          isOpen={isVersionHistoryOpen}
-          onClose={handleToggleVersionHistory}
-          versions={versions}
-          onRestore={handleRestoreVersion}
-          onView={handleViewVersion}
-          onDelete={handleDeleteVersion}
-          loading={versionsLoading}
-          error={versionsError}
-          restoringVersionId={restoringVersionId}
-        />
-      )}
+      <VersionHistorySidebar
+        isOpen={isVersionHistoryOpen}
+        onClose={() => setIsVersionHistoryOpen(false)}
+        onRestore={handleRestoreVersion}
+        onView={handleViewVersion}
+        onDelete={handleDeleteVersion}
+        versions={versions}
+        loading={versionsLoading}
+        error={versionsError}
+        restoringVersionId={restoringVersionId}
+      />
 
       {diffContent && (
         <VersionDiffViewer

@@ -1,13 +1,7 @@
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import app from '../lib/firebase';
 
-// Lazy initialization helper with null checks
-const getFirestoreInstance = () => {
-  if (!app) {
-    throw new Error('Firebase app not initialized. This service requires client-side execution.');
-  }
-  return getFirestore(app);
-};
+const db = getFirestore(app);
 
 export enum AuditEvent {
   DOCUMENT_CREATE = 'document_create',
@@ -22,7 +16,6 @@ export enum AuditEvent {
 export class AuditService {
   static async logEvent(event: AuditEvent, userId: string, details: Record<string, any>) {
     try {
-      const db = getFirestoreInstance();
       await addDoc(collection(db, 'auditLogs'), {
         event,
         userId,

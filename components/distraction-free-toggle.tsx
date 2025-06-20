@@ -20,7 +20,6 @@ export function DistractionFreeToggle({
       size="icon"
       onClick={onToggle}
       aria-label={isDistractionFree ? "Exit distraction-free mode" : "Enter distraction-free mode"}
-      title={isDistractionFree ? "Exit fullscreen (Esc)" : "Enter distraction-free mode"}
     >
       {isDistractionFree ? (
         <Minimize className="h-[1.2rem] w-[1.2rem]" />

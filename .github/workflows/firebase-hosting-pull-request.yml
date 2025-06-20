@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -46,9 +46,7 @@ jobs:
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_WORDWISE_AI_MVP }}'
-          projectId: '${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}'
+          projectId: wordwise-ai-mvp
           entryPoint: './'
-          expires: 7d
-          firebaseToolsVersion: 'latest'
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks

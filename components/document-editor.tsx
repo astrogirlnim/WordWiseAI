@@ -2,7 +2,7 @@
 
 import type React from 'react'
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useEditor, EditorContent, FloatingMenu } from '@tiptap/react'
+import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { getWordCount, getCharacterCount } from '@/utils/document-utils'
@@ -18,7 +18,7 @@ import {
   ContextMenuLabel,
 } from '@/components/ui/context-menu'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, Search, FileText, MessageSquarePlus } from 'lucide-react'
+import { AlertTriangle, Search, FileText } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -35,9 +35,6 @@ import { useMarkdownPreview } from '@/hooks/use-markdown-preview'
 import { MarkdownPreviewPanel } from './markdown-preview-panel'
 import { MarkdownPreviewToggle } from './markdown-preview-toggle'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
-import type { Comment } from '@/types/comment'
-import { CommentHighlightExtension } from './tiptap-comment-extension'
-import { CommentInputBubble } from './comment-input-bubble'
 
 // Phase 6: Document Pagination
 const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
@@ -48,10 +45,6 @@ interface DocumentEditorProps {
   onSave?: (content: string, title: string) => void
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
-  isEditable: boolean
-  comments: Comment[]
-  addComment: (commentData: Pick<Comment, 'content' | 'anchorStart' | 'anchorEnd' | 'anchoredText'>) => Promise<void>
-  setActiveCommentId: (commentId: string | null) => void
 }
 
 export function DocumentEditor({
@@ -60,12 +53,8 @@ export function DocumentEditor({
   onSave,
   onContentChange,
   saveStatus,
-  isEditable,
-  comments,
-  addComment,
-  setActiveCommentId,
 }: DocumentEditorProps) {
-  console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}, Editable: ${isEditable}`)
+  console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
 
   // Phase 6: Pagination State
@@ -132,7 +121,6 @@ export function DocumentEditor({
   }
 
   const editor = useEditor({
-    editable: isEditable,
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
@@ -142,12 +130,6 @@ export function DocumentEditor({
         placeholder: 'Start writing your masterpiece...',
       }),
       GrammarExtension,
-      CommentHighlightExtension.configure({
-        onCommentClick: (commentId) => {
-          setActiveCommentId(commentId);
-          // Here you would also open the comments sidebar if it's not open
-        },
-      }),
     ],
     content: pageContent, // Use paginated content
     onUpdate: ({ editor }) => {
@@ -173,43 +155,6 @@ export function DocumentEditor({
       }
     },
   })
-
-  // Phase 3: Pass comments to the CommentHighlightExtension
-  useEffect(() => {
-    if (editor && !editor.isDestroyed) {
-      console.log(`[DocumentEditor] Comments updated with ${comments.length} total comments, adapting for current page.`)
-      console.log(`[DocumentEditor] All comment IDs:`, comments.map(c => ({ id: c.id, status: c.status })))
-      
-      const pageRelativeComments = comments
-        .map(comment => {
-          // Adjust anchor positions to be relative to the current page
-          const start = comment.anchorStart - pageOffset
-          const end = comment.anchorEnd - pageOffset
-
-          // Check if the comment is visible on the current page
-          if (end > 0 && start < editor.state.doc.content.size) {
-            return {
-              ...comment,
-              // Clamp positions to be within the current page's bounds
-              anchorStart: Math.max(0, start),
-              anchorEnd: Math.min(editor.state.doc.content.size, end),
-            }
-          }
-          return null
-        })
-        .filter((c): c is Comment => c !== null)
-
-      console.log(`[DocumentEditor] Passing ${pageRelativeComments.length} page-relative comments to extension.`)
-      console.log(`[DocumentEditor] All comments on this page:`, pageRelativeComments.map(c => ({ id: c.id, status: c.status, start: c.anchorStart, end: c.anchorEnd })))
-      console.log(`[DocumentEditor] Active comments on this page:`, pageRelativeComments.filter(c => c.status === 'active').map(c => ({ id: c.id, start: c.anchorStart, end: c.anchorEnd })))
-      
-      // Always dispatch the comment metadata, even if empty
-      // Add a timestamp to force refresh when comments change
-      editor.view.dispatch(
-        editor.state.tr.setMeta('comments', pageRelativeComments).setMeta('commentsTimestamp', Date.now())
-      )
-    }
-  }, [comments, editor, pageOffset])
 
   // Phase 6: Page change handler
   const handlePageChange = useCallback((newPage: number) => {
@@ -430,7 +375,7 @@ export function DocumentEditor({
       }
     }, 0) // Use setTimeout to ensure state update completes before editor update
 
-  }, [initialDocument.content, documentId, editor])  
+  }, [initialDocument.content, documentId, editor]) // eslint-disable-next-line react-hooks/exhaustive-deps -- fullContentHtml intentionally excluded to prevent editor reset on every keystroke. This effect should only run on external changes (version restore, document switch).
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
@@ -510,63 +455,6 @@ export function DocumentEditor({
 
   const [wordCount, setWordCount] = useState(0)
   const [characterCount, setCharacterCount] = useState(0)
-
-  // Phase 3: Comment input bubble state
-  const [isCommentBubbleVisible, setIsCommentBubbleVisible] = useState(false)
-  const [commentBubblePosition, setCommentBubblePosition] = useState({ x: 0, y: 0 })
-  const [selectedTextForComment, setSelectedTextForComment] = useState('')
-  const [pendingCommentSelection, setPendingCommentSelection] = useState<{
-    from: number
-    to: number
-    text: string
-  } | null>(null)
-
-  const handleAddComment = useCallback(() => {
-    if (!editor) return
-
-    const { from, to } = editor.state.selection
-    const text = editor.state.doc.textBetween(from, to)
-
-    if (!text) return
-
-    // Get the position of the selection for the bubble
-    const coords = editor.view.coordsAtPos(from)
-    setCommentBubblePosition({ x: coords.left, y: coords.bottom })
-    setSelectedTextForComment(text)
-    setPendingCommentSelection({ from, to, text })
-    setIsCommentBubbleVisible(true)
-    
-  }, [editor])
-
-  const handleCommentSubmit = useCallback((content: string) => {
-    if (!pendingCommentSelection) return
-
-    // Convert page-relative positions to absolute
-    const absoluteFrom = pendingCommentSelection.from + pageOffset
-    const absoluteTo = pendingCommentSelection.to + pageOffset
-    
-    addComment({
-        content,
-        anchorStart: absoluteFrom,
-        anchorEnd: absoluteTo,
-        anchoredText: pendingCommentSelection.text,
-    })
-
-    // Clear selection and hide bubble
-    setIsCommentBubbleVisible(false)
-    setPendingCommentSelection(null)
-    setSelectedTextForComment('')
-    
-    if (editor) {
-      editor.commands.setTextSelection(pendingCommentSelection.to)
-    }
-  }, [pendingCommentSelection, addComment, pageOffset, editor])
-
-  const handleCommentCancel = useCallback(() => {
-    setIsCommentBubbleVisible(false)
-    setPendingCommentSelection(null)
-    setSelectedTextForComment('')
-  }, [])
 
   useEffect(() => {
     setWordCount(getWordCount(fullPlainText))
@@ -772,26 +660,6 @@ export function DocumentEditor({
                     onContextMenuCapture={handleContextMenuCapture}
                     onPaste={handlePaste}
                   >
-                    {editor && (
-                      <FloatingMenu 
-                        editor={editor} 
-                        tippyOptions={{ duration: 100 }}
-                        shouldShow={({ state }) => {
-                          const { from, to } = state.selection
-                          return from !== to
-                        }}
-                      >
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={handleAddComment}
-                          className="shadow-lg"
-                        >
-                          <MessageSquarePlus className="h-4 w-4 mr-2" />
-                          Add Comment
-                        </Button>
-                      </FloatingMenu>
-                    )}
                     <div className="prose prose-lg dark:prose-invert max-w-none h-full overflow-y-auto px-6 py-8 focus:outline-none">
                       <EditorContent editor={editor} />
                     </div>
@@ -845,26 +713,6 @@ export function DocumentEditor({
             onContextMenuCapture={handleContextMenuCapture}
             onPaste={handlePaste}
           >
-            {editor && (
-              <FloatingMenu
-                editor={editor}
-                tippyOptions={{ duration: 100 }}
-                shouldShow={({ state }) => {
-                  const { from, to } = state.selection
-                  return from !== to
-                }}
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleAddComment}
-                  className="shadow-lg"
-                >
-                  <MessageSquarePlus className="h-4 w-4 mr-2" />
-                  Add Comment
-                </Button>
-              </FloatingMenu>
-            )}
             <div className="prose prose-lg dark:prose-invert max-w-none h-full overflow-y-auto px-12 py-10 focus:outline-none">
               <EditorContent editor={editor} />
             </div>
@@ -905,15 +753,6 @@ export function DocumentEditor({
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}
-      />
-      
-      {/* Comment Input Bubble */}
-      <CommentInputBubble
-        isVisible={isCommentBubbleVisible}
-        position={commentBubblePosition}
-        selectedText={selectedTextForComment}
-        onSubmit={handleCommentSubmit}
-        onCancel={handleCommentCancel}
       />
     </div>
   )

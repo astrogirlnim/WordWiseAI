@@ -23,150 +23,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, ChevronDown, Clock, BarChart3, Trash, AlertTriangle, Globe, Users, Trash2 } from "lucide-react"
+import { FileText, Plus, ChevronDown, Clock, BarChart3, Trash } from "lucide-react"
 import type { Document } from "@/types/document"
 import { formatLastSaved } from "@/utils/document-utils"
 import { Timestamp } from "firebase/firestore"
 
-interface DocumentSectionProps {
-  title: string
-  documents: Document[]
-  activeDocumentId?: string
-  onDocumentSelect?: (documentId: string) => void
-  onDeleteDocument?: (documentId: string) => Promise<void>
-  isDeleting: boolean
-  deleteCandidateId: string | null
-  setDeleteCandidateId: (id: string | null) => void
-  handleDeleteConfirm: () => void
-  handleDeleteCancel: () => void
-  getStatusColor: (status: string) => 'secondary' | 'default' | 'outline' | 'destructive'
-  getAlignmentColor: (score: number) => string
-}
-
-function DocumentSection({
-  title,
-  documents,
-  activeDocumentId,
-  onDocumentSelect,
-  onDeleteDocument,
-  isDeleting,
-  deleteCandidateId,
-  setDeleteCandidateId,
-  handleDeleteConfirm,
-  handleDeleteCancel,
-  getStatusColor,
-  getAlignmentColor,
-}: DocumentSectionProps) {
-  if (documents.length === 0) {
-    return null
-  }
-
-  return (
-    <>
-      <DropdownMenuLabel>{title}</DropdownMenuLabel>
-      {documents.map((document) => (
-        <DropdownMenuItem
-          key={document.id}
-          className="group flex flex-col items-start gap-2 p-4 cursor-pointer"
-          onClick={() => onDocumentSelect?.(document.id)}
-          onSelect={(e) => {
-            if (deleteCandidateId) e.preventDefault()
-          }}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="font-medium truncate flex-1">{document.title}</span>
-            <div className="flex items-center gap-2">
-              <Badge variant={getStatusColor(document.status)} className="text-xs">
-                {document.status}
-              </Badge>
-              {document.id === activeDocumentId && (
-                <Badge variant="secondary" className="text-xs">
-                  Active
-                </Badge>
-              )}
-              {onDeleteDocument && (
-                <AlertDialog
-                  open={deleteCandidateId === document.id}
-                  onOpenChange={(open) => !open && handleDeleteCancel()}
-                >
-                  <AlertDialogTrigger
-                    asChild
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setDeleteCandidateId(document.id)
-                    }}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                      aria-label={`Delete document ${document.title}`}
-                    >
-                      <Trash className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the document &quot;{document.title}&quot;.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteCancel()
-                      }}>
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteConfirm()
-                        }}
-                        disabled={isDeleting}
-                      >
-                        {isDeleting && (
-                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
-                        )}
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {formatLastSaved(
-                  document.updatedAt instanceof Timestamp
-                    ? document.updatedAt.toDate()
-                    : new Date(document.updatedAt as number),
-                )}
-              </div>
-              <span>{document.wordCount} words</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <BarChart3 className="h-3 w-3" />
-              <span className={getAlignmentColor(document.analysisSummary.brandAlignmentScore)}>
-                {document.analysisSummary.brandAlignmentScore}%
-              </span>
-            </div>
-          </div>
-        </DropdownMenuItem>
-      ))}
-      <DropdownMenuSeparator />
-    </>
-  )
-}
-
 interface EnhancedDocumentListProps {
-  myDocuments: Document[]
-  sharedDocuments: Document[]
-  publicDocuments: Document[]
+  documents: Document[]
   activeDocumentId?: string
   onDocumentSelect?: (documentId: string) => void
   onNewDocument?: () => void
@@ -174,9 +37,7 @@ interface EnhancedDocumentListProps {
 }
 
 export function EnhancedDocumentList({
-  myDocuments,
-  sharedDocuments,
-  publicDocuments,
+  documents,
   activeDocumentId,
   onDocumentSelect,
   onNewDocument,
@@ -187,16 +48,16 @@ export function EnhancedDocumentList({
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const getStatusColor = (status: string): 'secondary' | 'default' | 'outline' | 'destructive' => {
+  const getStatusColor = (status: Document["status"]) => {
     switch (status) {
       case "draft":
         return "secondary"
       case "review":
-        return "outline"
+        return "default"
       case "final":
         return "default"
       case "archived":
-        return "destructive"
+        return "outline"
       default:
         return "secondary"
     }
@@ -209,9 +70,8 @@ export function EnhancedDocumentList({
     return "text-red-600"
   }
 
-  const allDocuments = [...myDocuments, ...sharedDocuments, ...publicDocuments]
   const activeDocument =
-    allDocuments.find((doc) => doc.id === activeDocumentId) || allDocuments[0]
+    documents.find((doc) => doc.id === activeDocumentId) || documents[0]
 
   const handleDocumentSelect = (documentId: string) => {
     onDocumentSelect?.(documentId)
@@ -243,19 +103,6 @@ export function EnhancedDocumentList({
     )
   }
 
-  const sectionProps = {
-    activeDocumentId,
-    onDocumentSelect: handleDocumentSelect,
-    onDeleteDocument,
-    isDeleting,
-    deleteCandidateId,
-    setDeleteCandidateId,
-    handleDeleteConfirm,
-    handleDeleteCancel,
-    getStatusColor,
-    getAlignmentColor,
-  }
-
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -269,7 +116,7 @@ export function EnhancedDocumentList({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-96">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Documents</span>
+          <span>Recent Documents</span>
           <Button size="sm" variant="ghost" className="h-6 px-2" onClick={onNewDocument}>
             <Plus className="h-3 w-3" />
             New
@@ -278,12 +125,120 @@ export function EnhancedDocumentList({
         <DropdownMenuSeparator />
 
         <div className="max-h-[400px] overflow-y-auto">
-          <DocumentSection title="My Documents" documents={myDocuments} {...sectionProps} />
-          <DocumentSection title="Shared With Me" documents={sharedDocuments} {...sectionProps} />
-          <DocumentSection title="Public Documents" documents={publicDocuments} {...sectionProps} />
+          {documents.map((document) => (
+            <DropdownMenuItem
+              key={document.id}
+              className="group flex flex-col items-start gap-2 p-4 cursor-pointer"
+              onClick={() => handleDocumentSelect(document.id)}
+              onSelect={(e) => {
+                if (deleteCandidateId) e.preventDefault()
+              }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-medium truncate flex-1">
+                  {document.title}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={getStatusColor(document.status)}
+                    className="text-xs"
+                  >
+                    {document.status}
+                  </Badge>
+                  {document.id === activeDocumentId && (
+                    <Badge variant="secondary" className="text-xs">
+                      Active
+                    </Badge>
+                  )}
+                  {onDeleteDocument && (
+                    <AlertDialog
+                      open={deleteCandidateId === document.id}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          handleDeleteCancel()
+                        }
+                      }}
+                    >
+                      <AlertDialogTrigger
+                        asChild
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteCandidateId(document.id)
+                        }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                          aria-label={`Delete document ${document.title}`}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the document &quot;{document.title}&quot;.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteCancel()
+                          }}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteConfirm()
+                            }}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting && (
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
+                            )}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatLastSaved(
+                      document.updatedAt instanceof Timestamp
+                        ? document.updatedAt.toDate()
+                        : new Date(document.updatedAt as number),
+                    )}
+                  </div>
+                  <span>{document.wordCount} words</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <BarChart3 className="h-3 w-3" />
+                  <span
+                    className={getAlignmentColor(
+                      document.analysisSummary.brandAlignmentScore,
+                    )}
+                  >
+                    {document.analysisSummary.brandAlignmentScore}%
+                  </span>
+                </div>
+              </div>
+            </DropdownMenuItem>
+          ))}
         </div>
 
-        {allDocuments.length === 0 && (
+        {documents.length === 0 && (
           <div className="p-4 text-center text-muted-foreground">
             <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No documents yet</p>

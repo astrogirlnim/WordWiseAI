@@ -1,30 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Timestamp, query, where } from 'firebase/firestore'
+import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/lib/auth-context'
 import { DocumentService } from '@/services/document-service'
 import { VersionService } from '@/services/version-service'
 import { AuditService, AuditEvent } from '@/services/audit-service'
 import type { Document } from '@/types/document'
-import {
-  collection,
-  onSnapshot,
-  doc,
-  updateDoc,
-  serverTimestamp,
-  addDoc,
-  getDoc,
-} from 'firebase/firestore'
-import { firestore } from '@/lib/firebase'
-import { userService } from '@/services/user-service'
 
 export function useDocuments() {
   const { user } = useAuth()
   const [documents, setDocuments] = useState<Document[]>([])
-  const [ownedDocuments, setOwnedDocuments] = useState<Document[]>([])
-  const [sharedDocuments, setSharedDocuments] = useState<Document[]>([])
-  const [publicDocuments, setPublicDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Track last saved content for each document to prevent duplicate versions
@@ -32,446 +18,346 @@ export function useDocuments() {
   // Track pending saves to prevent race conditions
   const pendingSavesRef = useRef<Set<string>>(new Set())
 
-  // Subscribe to user's documents
-  useEffect(() => {
-    // Skip if Firebase is not initialized (during build)
-    if (!firestore) {
-      console.log('[useDocuments] Firestore not initialized, skipping document subscriptions')
+  const loadDocuments = useCallback(async () => {
+    if (!user?.uid) return
+
+    try {
+      setLoading(true)
+      const userDocuments = await DocumentService.getUserDocuments(user.uid)
+      setDocuments(userDocuments)
+      
+      // Initialize lastSavedContent tracking
+      userDocuments.forEach((doc) => {
+        lastSavedContentRef.current[doc.id] = doc.content
+      })
+      
+      setError(null)
+      console.log('[useDocuments] Loaded', userDocuments.length, 'documents')
+    } catch (err) {
+      setError('Failed to load documents')
+      console.error('Error loading documents:', err)
+    } finally {
       setLoading(false)
-      return
-    }
-
-    if (!user?.uid) {
-      console.log('[useDocuments] No user available, clearing documents')
-      setOwnedDocuments([])
-      setSharedDocuments([])
-      setPublicDocuments([])
-      setLoading(false)
-      return
-    }
-
-    console.log('[useDocuments] Setting up document subscriptions for user:', user.uid)
-    setLoading(true)
-
-    const documentsRef = collection(firestore, 'documents')
-
-    // Listener for owned documents
-    const ownedQuery = query(documentsRef, where('ownerId', '==', user.uid))
-    const unsubscribeOwned = onSnapshot(
-      ownedQuery,
-      (snapshot) => {
-        const docs = snapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as Document),
-        )
-        setOwnedDocuments(docs)
-        setLoading(false)
-      },
-      (error) => {
-        console.error('[useDocuments] Error fetching owned documents:', error)
-        setError('Failed to fetch your documents.')
-        setLoading(false)
-      },
-    )
-
-    // Listener for shared documents
-    const sharedQuery = query(
-      documentsRef,
-      where('sharedWithIds', 'array-contains', user.uid),
-    )
-    const unsubscribeShared = onSnapshot(
-      sharedQuery,
-      (snapshot) => {
-        const docs = snapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as Document),
-        )
-        setSharedDocuments(docs)
-      },
-      (error) => {
-        console.error('[useDocuments] Error fetching shared documents:', error)
-      },
-    )
-
-    // Listener for public documents
-    const publicQuery = query(documentsRef, where('isPublic', '==', true))
-    const unsubscribePublic = onSnapshot(
-      publicQuery,
-      (snapshot) => {
-        const docs = snapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as Document),
-        )
-        setPublicDocuments(docs)
-      },
-      (error) => {
-        console.error('[useDocuments] Error fetching public documents:', error)
-      },
-    )
-
-    return () => {
-      unsubscribeOwned()
-      unsubscribeShared()
-      unsubscribePublic()
     }
   }, [user?.uid])
 
-  useEffect(() => {
-    const allDocs = new Map<string, Document>()
-
-    ownedDocuments.forEach((doc) => allDocs.set(doc.id, doc))
-    sharedDocuments.forEach((doc) => allDocs.set(doc.id, doc))
-    publicDocuments.forEach((doc) => allDocs.set(doc.id, doc))
-
-    const getMillis = (timestamp: any): number => {
-      if (timestamp instanceof Timestamp) return timestamp.toMillis()
-      if (typeof timestamp === 'number') return timestamp
-      return 0
-    }
-
-    const sortedDocuments = Array.from(allDocs.values()).sort((a, b) => {
-      const timeA = getMillis(a.updatedAt)
-      const timeB = getMillis(b.updatedAt)
-      return timeB - timeA
-    })
-
-    setDocuments(sortedDocuments)
-    
-    // Initialize lastSavedContent tracking
-    sortedDocuments.forEach((doc) => {
-        if (!lastSavedContentRef.current[doc.id]) {
-            lastSavedContentRef.current[doc.id] = doc.content
-        }
-    })
-
-  }, [ownedDocuments, sharedDocuments, publicDocuments])
-
   const createDocument = useCallback(
-    async (title: string): Promise<string | null> => {
-      if (!firestore) {
-        console.error('[useDocuments.createDocument] Firestore not initialized')
-        return null
-      }
-
-      if (!user?.uid) {
-        console.error('[useDocuments.createDocument] No user available')
-        return null
-      }
-
-      console.log('[useDocuments.createDocument] Creating document with title:', title)
+    async (title: string) => {
+      if (!user?.uid) return null
 
       try {
-        // Get user profile for author name
-        const userProfile = await userService.getUserProfile(user.uid)
-        const authorName = userProfile?.name || user.displayName || user.email || 'Unknown User'
-        
-        console.log('[useDocuments.createDocument] Author name resolved to:', authorName)
+        console.log('[useDocuments] Creating new document:', title)
+        const documentId = await DocumentService.createDocument(user.uid, title)
+        console.log('[useDocuments] Document created with ID:', documentId)
 
-        const documentsRef = collection(firestore, 'documents')
-        const docData = {
-          title: title.trim() || 'Untitled Document',
+        // Optimistically create a local representation of the document
+        const now = Timestamp.now()
+        const newDoc: Document = {
+          id: documentId,
+          title,
           content: '',
           ownerId: user.uid,
-          orgId: userProfile?.orgId || '',
-          status: 'draft' as const,
+          orgId: '',
+          status: 'draft',
           sharedWith: [],
-          sharedWithIds: [],
           isPublic: false,
-          publicViewMode: 'disabled' as const,
-          lastEditedBy: user.uid,
-          lastEditedAt: serverTimestamp(),
+          publicViewMode: 'view',
           workflowState: {
-            currentStatus: 'draft' as const,
+            currentStatus: 'draft',
             submittedForReview: false,
+            reviewedBy: [],
           },
           analysisSummary: {
             overallScore: 0,
             brandAlignmentScore: 0,
-            lastAnalyzedAt: serverTimestamp(),
+            lastAnalyzedAt: now, // This will be replaced on next load
             suggestionCount: 0,
           },
-          lastSaved: serverTimestamp(),
+          lastSaved: now,
           wordCount: 0,
           characterCount: 0,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          createdAt: now,
+          updatedAt: now,
         }
 
-        console.log('[useDocuments.createDocument] Creating document with data:', {
-          ...docData,
-          ownerId: user.uid,
-          authorName
-        })
+        // Add to local state
+        setDocuments((prev) => [newDoc, ...prev])
 
-        const docRef = await addDoc(documentsRef, docData)
-        console.log('[useDocuments.createDocument] Document created with ID:', docRef.id)
+        // Initialize content tracking for new document
+        lastSavedContentRef.current[documentId] = ''
 
-        // Create initial version for the new document
-        console.log('[useDocuments.createDocument] Creating initial version...')
-        const versionId = await VersionService.createVersion(
-          docRef.id,
-          '', // empty content for new document
-          user.uid,
-          authorName,
-          title.trim() || 'Untitled Document'
-        )
+        // No longer reloading all documents here to prevent race conditions
+        // await loadDocuments()
 
-        if (versionId) {
-          console.log('[useDocuments.createDocument] Initial version created with ID:', versionId)
-        } else {
-          console.warn('[useDocuments.createDocument] Failed to create initial version')
-        }
-
-        return docRef.id
-      } catch (error) {
-        console.error('[useDocuments.createDocument] Error creating document:', error)
+        return documentId
+      } catch (err) {
+        setError('Failed to create document')
+        console.error('Error creating document:', err)
         return null
-      }
-    },
-    [user],
-  )
-
-  const updateDocument = useCallback(
-    async (
-      documentId: string,
-      updates: Partial<Document>,
-    ): Promise<void> => {
-      if (!firestore) {
-        console.error('[useDocuments.updateDocument] Firestore not initialized')
-        return
-      }
-
-      if (!user?.uid) {
-        console.error('[useDocuments.updateDocument] No user available')
-        return
-      }
-
-      console.log('[useDocuments.updateDocument] Updating document:', documentId)
-      console.log('[useDocuments.updateDocument] Updates:', {
-        ...updates,
-        content: updates.content ? `${updates.content.length} chars` : 'no content'
-      })
-
-      try {
-        // Get user profile for author name
-        const userProfile = await userService.getUserProfile(user.uid)
-        const authorName = userProfile?.name || user.displayName || user.email || 'Unknown User'
-        
-        console.log('[useDocuments.updateDocument] Author name resolved to:', authorName)
-
-        const docRef = doc(firestore, 'documents', documentId)
-        
-        // Prepare update data with collaboration metadata
-        const updateData = {
-          ...updates,
-          lastEditedBy: user.uid,
-          lastEditedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastSaved: serverTimestamp(),
-        }
-
-        console.log('[useDocuments.updateDocument] Updating document with collaboration metadata')
-        await updateDoc(docRef, updateData)
-
-        // Create a new version if content was updated
-        if (updates.content !== undefined) {
-          console.log('[useDocuments.updateDocument] Content updated, creating new version...')
-          
-          const versionId = await VersionService.createVersion(
-            documentId,
-            updates.content,
-            user.uid,
-            authorName,
-            updates.title
-          )
-
-          if (versionId) {
-            console.log('[useDocuments.updateDocument] New version created with ID:', versionId, 'by author:', authorName)
-          } else {
-            console.warn('[useDocuments.updateDocument] Failed to create version for content update')
-          }
-        } else {
-          console.log('[useDocuments.updateDocument] No content changes, skipping version creation')
-        }
-
-        console.log('[useDocuments.updateDocument] Document update completed successfully')
-      } catch (error) {
-        console.error('[useDocuments.updateDocument] Error updating document:', error)
-        console.error('[useDocuments.updateDocument] Document ID:', documentId)
-        console.error('[useDocuments.updateDocument] Updates:', updates)
-        throw error
-      }
-    },
-    [user],
-  )
-
-  const deleteDocument = useCallback(
-    async (documentId: string): Promise<void> => {
-      if (!user?.uid) {
-        console.error('[useDocuments.deleteDocument] No user available')
-        return
-      }
-
-      console.log('[useDocuments.deleteDocument] Deleting document:', documentId)
-
-      try {
-        await DocumentService.deleteDocument(documentId)
-        console.log('[useDocuments.deleteDocument] Document deleted')
-      } catch (error) {
-        console.error('[useDocuments.deleteDocument] Error deleting document:', error)
       }
     },
     [user?.uid],
   )
 
-  const restoreDocumentVersion = useCallback(
-    async (documentId: string, versionId: string): Promise<void> => {
-      if (!firestore) {
-        console.error('[useDocuments.restoreDocumentVersion] Firestore not initialized')
+  const updateDocument = useCallback(
+    async (documentId: string, updates: Partial<Document>) => {
+      if (!user?.uid) return
+
+      // Prevent concurrent saves for the same document
+      if (pendingSavesRef.current.has(documentId)) {
+        console.log('[updateDocument] Save already in progress for', documentId, 'skipping...')
         return
       }
-
-      if (!user?.uid) {
-        console.error('[useDocuments.restoreDocumentVersion] No user available')
-        return
-      }
-
-      console.log('[useDocuments.restoreDocumentVersion] Restoring document:', documentId, 'to version:', versionId)
 
       try {
-        // Get user profile for author name
-        const userProfile = await userService.getUserProfile(user.uid)
-        const authorName = userProfile?.name || user.displayName || user.email || 'Unknown User'
-
-        // Get the version to restore
-        const versions = await VersionService.getVersions(documentId)
-        const targetVersion = versions.find((v) => v.id === versionId)
-
-        if (!targetVersion) {
-          console.error('[useDocuments.restoreDocumentVersion] Version not found:', versionId)
-          throw new Error('Version not found')
+        pendingSavesRef.current.add(documentId)
+        console.log('[updateDocument] Starting document update for', documentId, 'with updates:', Object.keys(updates))
+        
+        // Handle version creation for content updates BEFORE updating the document
+        if (updates.content && user) {
+          console.log('[updateDocument] Content update detected, processing version creation...')
+          
+          const newContent = updates.content.trim()
+          let currentContent = lastSavedContentRef.current[documentId] || ''
+          
+          // Fallback: if we don't have tracked content, get it from current document state
+          if (!currentContent) {
+            const currentDocument = documents.find(doc => doc.id === documentId)
+            if (currentDocument && currentDocument.content) {
+              currentContent = currentDocument.content
+              console.log('[updateDocument] Using current document content as fallback, length:', currentContent.length)
+            }
+          }
+          
+          const currentContentTrimmed = currentContent.trim()
+          
+          console.log('[updateDocument] Content comparison - Current length:', currentContentTrimmed.length, 'New length:', newContent.length)
+          console.log('[updateDocument] Current content preview:', JSON.stringify(currentContentTrimmed.substring(0, 50)))
+          console.log('[updateDocument] New content preview:', JSON.stringify(newContent.substring(0, 50)))
+          
+          // Enhanced version creation logic to handle fresh documents
+          const hasContentChanged = newContent !== currentContentTrimmed
+          const hasPreviousContent = currentContentTrimmed.length > 0
+          const hasNewContent = newContent.length > 0
+          const isFreshDocument = currentContentTrimmed.length === 0 && hasNewContent
+          
+          console.log('[updateDocument] Version creation criteria - Changed:', hasContentChanged, 'Has previous:', hasPreviousContent, 'Has new:', hasNewContent, 'Is fresh:', isFreshDocument)
+          
+          // DEBUG: Log content comparison and versioning criteria
+          console.log('[updateDocument] --- Versioning Debug ---')
+          console.log('[updateDocument] currentContentTrimmed:', JSON.stringify(currentContentTrimmed))
+          console.log('[updateDocument] newContent:', JSON.stringify(newContent))
+          console.log('[updateDocument] hasContentChanged:', hasContentChanged)
+          console.log('[updateDocument] hasPreviousContent:', hasPreviousContent)
+          console.log('[updateDocument] hasNewContent:', hasNewContent)
+          console.log('[updateDocument] isFreshDocument:', isFreshDocument)
+          console.log('[updateDocument] --- End Debug ---')
+          
+          // Create version in two scenarios:
+          // 1. Normal case: content changed and there's previous content to preserve
+          // 2. Fresh document case: create baseline empty version when first content is added
+          if (hasContentChanged && (hasPreviousContent || isFreshDocument) && hasNewContent) {
+            const versionContent = hasPreviousContent ? currentContentTrimmed : '' // For fresh docs, version the empty state
+            const versionDescription = isFreshDocument ? 'Initial empty state (baseline version)' : 'Previous content before update'
+            
+            console.log(`[updateDocument] Creating version: ${versionDescription}`)
+            console.log(`[updateDocument] Version content length: ${versionContent.length}`)
+            
+            try {
+              const versionId = await VersionService.createVersion(documentId, versionContent, {
+                id: user.uid,
+                name: user.displayName || 'Unknown User',
+              })
+              console.log('[updateDocument] Version created successfully with ID:', versionId)
+              console.log(`[updateDocument] Version type: ${isFreshDocument ? 'baseline (empty)' : 'previous content'}`)
+            } catch (versionError) {
+              console.error('[updateDocument] Failed to create version:', versionError)
+              // Don't block the document update if version creation fails
+            }
+          } else if (!hasContentChanged) {
+            console.log('[updateDocument] Content unchanged, skipping version creation')
+          } else if (!hasNewContent) {
+            console.log('[updateDocument] New content is empty, skipping version creation')
+          } else {
+            console.log('[updateDocument] Conditions not met for version creation')
+          }
         }
 
-        console.log('[useDocuments.restoreDocumentVersion] Found target version by:', targetVersion.authorName)
-        console.log('[useDocuments.restoreDocumentVersion] Content length:', targetVersion.content.length)
+        // Now update the document in Firestore
+        console.log('[updateDocument] Updating document in Firestore...')
+        await DocumentService.updateDocument(documentId, updates)
+        console.log('[updateDocument] Document updated successfully in Firestore')
 
-        // Update the document with the version content
-        const docRef = doc(firestore, 'documents', documentId)
-        const restoreData = {
-          content: targetVersion.content,
-          title: targetVersion.title || 'Untitled Document',
-          lastEditedBy: user.uid,
-          lastEditedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastSaved: serverTimestamp(),
-          wordCount: targetVersion.content.trim().split(/\s+/).filter(Boolean).length,
-          characterCount: targetVersion.content.length,
+        // Update content tracking after successful document update
+        if (updates.content) {
+          console.log('[updateDocument] Updating lastSavedContentRef tracking')
+          lastSavedContentRef.current[documentId] = updates.content
+          console.log('[updateDocument] Updated tracking for document', documentId, 'with content length:', updates.content.length)
         }
 
-        console.log('[useDocuments.restoreDocumentVersion] Restoring document content...')
-        await updateDoc(docRef, restoreData)
-
-        // Create a new version to track the restore action
-        console.log('[useDocuments.restoreDocumentVersion] Creating restore version...')
-        const newVersionId = await VersionService.createVersion(
-          documentId,
-          targetVersion.content,
-          user.uid,
-          `${authorName} (restored from ${targetVersion.authorName})`,
-          targetVersion.title
+        // Update local state
+        console.log('[updateDocument] Updating local document state...')
+        setDocuments((prev) =>
+          prev.map((doc) =>
+            doc.id === documentId ? { ...doc, ...updates } : doc,
+          ),
         )
+        console.log('[updateDocument] Local state updated successfully')
 
-        if (newVersionId) {
-          console.log('[useDocuments.restoreDocumentVersion] Restore version created with ID:', newVersionId)
-        } else {
-          console.warn('[useDocuments.restoreDocumentVersion] Failed to create restore version')
-        }
-
-        console.log('[useDocuments.restoreDocumentVersion] Document restore completed successfully')
-      } catch (error) {
-        console.error('[useDocuments.restoreDocumentVersion] Error restoring version:', error)
-        throw error
-      }
-    },
-    [user],
-  )
-
-  const saveDocument = useCallback(
-    async (documentId: string, content: string, title: string): Promise<void> => {
-      if (!user?.uid) {
-        console.error('[useDocuments.saveDocument] No user available')
-        return
-      }
-
-      console.log(
-        `[useDocuments.saveDocument] Checking content and title changes for document: ${documentId}`
-      )
-
-      const existingDoc = documents.find((doc) => doc.id === documentId)
-      if (!existingDoc) {
-        console.error('[useDocuments.saveDocument] Document not found:', documentId)
-        return
-      }
-
-      const contentHasChanged = existingDoc.content !== content
-      const isTitleChange = existingDoc.title !== title
-
-      if (!contentHasChanged && !isTitleChange) {
-        console.log(
-          '[useDocuments.saveDocument] No content or title change, skipping save for document:',
-          documentId
-        )
-        return
-      }
-
-      console.log(
-        `[useDocuments.saveDocument] Content for doc ${documentId} has changed, proceeding with save.`
-      )
-      pendingSavesRef.current.add(documentId)
-
-      try {
-        await updateDocument(documentId, {
-          content,
-          title,
-          lastEditedBy: user.uid,
-          lastEditedAt: serverTimestamp(),
-        })
-
-        // Update last saved content after successful save
-        lastSavedContentRef.current[documentId] = content
-        console.log(
-          `[useDocuments.saveDocument] Successfully saved document ${documentId}`
-        )
-      } catch (error) {
-        console.error(
-          `[useDocuments.saveDocument] Error saving document ${documentId}:`,
-          error
-        )
+      } catch (err) {
+        setError('Failed to update document')
+        console.error('[updateDocument] Error updating document:', err)
       } finally {
         pendingSavesRef.current.delete(documentId)
+        console.log('[updateDocument] Completed update process for document', documentId)
       }
-    }, [user, updateDocument, documents])
+    },
+    [user, documents],
+  )
+
+  const restoreDocumentVersion = useCallback(
+    async (documentId: string, versionId: string) => {
+      if (!user) {
+        console.error('[restoreDocumentVersion] No authenticated user found')
+        return
+      }
+
+      // Prevent concurrent operations on the same document
+      if (pendingSavesRef.current.has(documentId)) {
+        console.log('[restoreDocumentVersion] Document operation already in progress for', documentId, 'skipping restore...')
+        return
+      }
+
+      try {
+        console.log('[restoreDocumentVersion] Starting version restore process')
+        console.log('[restoreDocumentVersion] Document ID:', documentId)
+        console.log('[restoreDocumentVersion] Version ID:', versionId)
+        console.log('[restoreDocumentVersion] User:', user.uid, user.displayName)
+
+        // Get the current document state for comparison and metadata preservation
+        const currentDocument = documents.find((d) => d.id === documentId)
+        if (!currentDocument) {
+          throw new Error(`Current document not found in local state: ${documentId}`)
+        }
+
+        console.log('[restoreDocumentVersion] Current document state:')
+        console.log('[restoreDocumentVersion] - Title:', currentDocument.title)
+        console.log('[restoreDocumentVersion] - Content length:', currentDocument.content.length)
+        console.log('[restoreDocumentVersion] - Last saved:', currentDocument.lastSaved)
+        console.log('[restoreDocumentVersion] - Current content preview:', JSON.stringify(currentDocument.content.substring(0, 100)))
+
+        // Fetch the version to restore
+        console.log('[restoreDocumentVersion] Fetching version to restore from Firestore...')
+        const versionToRestore = await VersionService.getVersion(documentId, versionId)
+        
+        if (!versionToRestore) {
+          throw new Error(`Version to restore not found: ${versionId}`)
+        }
+
+        console.log('[restoreDocumentVersion] Version to restore retrieved:')
+        console.log('[restoreDocumentVersion] - Version ID:', versionToRestore.id)
+        console.log('[restoreDocumentVersion] - Author:', versionToRestore.authorName)
+        console.log('[restoreDocumentVersion] - Created at:', versionToRestore.createdAt)
+        console.log('[restoreDocumentVersion] - Content length:', versionToRestore.content.length)
+        console.log('[restoreDocumentVersion] - Version content preview:', JSON.stringify(versionToRestore.content.substring(0, 100)))
+
+        // Check if the content is actually different from current
+        const currentContentTrimmed = currentDocument.content.trim()
+        const versionContentTrimmed = versionToRestore.content.trim()
+        const hasContentDifference = currentContentTrimmed !== versionContentTrimmed
+
+        console.log('[restoreDocumentVersion] Content comparison:')
+        console.log('[restoreDocumentVersion] - Current content length:', currentContentTrimmed.length)
+        console.log('[restoreDocumentVersion] - Version content length:', versionContentTrimmed.length)
+        console.log('[restoreDocumentVersion] - Content differs:', hasContentDifference)
+
+        if (!hasContentDifference) {
+          console.log('[restoreDocumentVersion] Version content is identical to current content, no restore needed')
+          return
+        }
+
+        // CRITICAL: Update lastSavedContentRef BEFORE calling updateDocument to prevent unwanted version creation
+        // This ensures that when updateDocument runs, it sees the restored content as the "last saved" content
+        console.log('[restoreDocumentVersion] Updating lastSavedContentRef to prevent version creation during restore...')
+        const previousTrackedContent = lastSavedContentRef.current[documentId]
+        lastSavedContentRef.current[documentId] = versionToRestore.content
+        console.log('[restoreDocumentVersion] - Previous tracked content length:', (previousTrackedContent || '').length)
+        console.log('[restoreDocumentVersion] - New tracked content length:', versionToRestore.content.length)
+
+        // Restore the document content while preserving metadata
+        console.log('[restoreDocumentVersion] Calling updateDocument with restored content...')
+        await updateDocument(documentId, {
+          content: versionToRestore.content,
+          // Preserve current document metadata
+          title: currentDocument.title,
+          status: currentDocument.status,
+          // Update timestamps to reflect the restore operation
+          updatedAt: Timestamp.now(),
+          lastSaved: Timestamp.now(),
+        })
+
+        console.log('[restoreDocumentVersion] Document successfully restored from version', versionId)
+        console.log('[restoreDocumentVersion] Restored content length:', versionToRestore.content.length)
+
+      } catch (err) {
+        console.error('[restoreDocumentVersion] Error during version restore:', err)
+        console.error('[restoreDocumentVersion] - Document ID:', documentId)
+        console.error('[restoreDocumentVersion] - Version ID:', versionId)
+        console.error('[restoreDocumentVersion] - Error details:', err instanceof Error ? err.message : String(err))
+        
+        // Restore the previous lastSavedContentRef state if the restore failed
+        const currentDocument = documents.find((d) => d.id === documentId)
+        if (currentDocument) {
+          lastSavedContentRef.current[documentId] = currentDocument.content
+          console.log('[restoreDocumentVersion] Restored lastSavedContentRef to current document content after error')
+        }
+        
+        setError('Failed to restore document version')
+        throw err // Re-throw for the calling component to handle
+      }
+    },
+    [user, documents, updateDocument],
+  )
+
+  const deleteDocument = useCallback(
+    async (documentId: string) => {
+      if (!user?.uid) return
+
+      try {
+        console.log('[deleteDocument] Deleting document:', documentId)
+        await DocumentService.deleteDocument(documentId)
+
+        // Log the delete event
+        await AuditService.logEvent(AuditEvent.DOCUMENT_DELETE, user.uid, {
+          documentId,
+        })
+        
+        // Clean up tracking
+        delete lastSavedContentRef.current[documentId]
+        pendingSavesRef.current.delete(documentId)
+        
+        setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
+        console.log('[deleteDocument] Document deleted successfully')
+      } catch (err) {
+        setError('Failed to delete document')
+        console.error('Error deleting document:', err)
+      }
+    },
+    [user?.uid],
+  )
+
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
 
   return {
     documents,
-    ownedDocuments,
-    sharedDocuments,
-    publicDocuments,
     loading,
     error,
     createDocument,
     updateDocument,
     deleteDocument,
     restoreDocumentVersion,
-    saveDocument,
+    refreshDocuments: loadDocuments,
   }
 }
