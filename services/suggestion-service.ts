@@ -12,7 +12,8 @@ import {
   Timestamp,
   QuerySnapshot,
   DocumentData,
-  FirestoreError
+  FirestoreError,
+  QueryDocumentSnapshot
 } from 'firebase/firestore'
 import { firestore } from '../lib/firebase'
 import type { AISuggestion } from '@/types/ai-features'
@@ -91,21 +92,45 @@ export class SuggestionService {
     console.log('[SuggestionService] Applying suggestion:', suggestion.id)
     console.log('[SuggestionService] Suggestion details:', {
       title: suggestion.title,
+      type: suggestion.type,
+      status: suggestion.status,
       originalText: suggestion.originalText,
       suggestedText: suggestion.suggestedText,
       position: suggestion.position
     })
 
+    // Prevent duplicate applications
+    if (suggestion.status === 'applied') {
+      console.warn('[SuggestionService] Suggestion already applied, skipping:', suggestion.id)
+      return
+    }
+
     // Determine the correct collection based on suggestion type
     const funnelTypes = ['headline', 'subheadline', 'cta', 'outline']
     const collectionName = funnelTypes.includes(suggestion.type) ? 'funnelSuggestions' : 'styleSuggestions'
 
+    console.log('[SuggestionService] Using collection:', collectionName, 'for type:', suggestion.type)
+
     try {
       const suggestionRef = doc(firestore, `documents/${suggestion.documentId}/${collectionName}`, suggestion.id)
+      
+      // First check if the suggestion still exists and is pending
+      const suggestionSnap = await getDocs(query(
+        collection(firestore, `documents/${suggestion.documentId}/${collectionName}`),
+        where('__name__', '==', suggestion.id),
+        where('status', '==', 'pending')
+      ))
+      
+      if (suggestionSnap.empty) {
+        console.warn('[SuggestionService] Suggestion not found or already processed:', suggestion.id)
+        return
+      }
+      
       await updateDoc(suggestionRef, {
         status: 'applied',
         appliedAt: serverTimestamp()
       })
+      
       console.log('[SuggestionService] Successfully applied suggestion:', suggestion.id)
     } catch (error) {
       console.error('[SuggestionService] Error applying suggestion:', error)
@@ -221,8 +246,6 @@ export class SuggestionService {
     }
   }
 
-
-
   /**
    * Subscribe to funnel suggestions for a specific document
    * @param documentId - The document ID to fetch funnel suggestions for
@@ -274,5 +297,46 @@ export class SuggestionService {
         onUpdate([])
       }
     )
+  }
+
+  /**
+   * Clear existing suggestions for a document (used before generating new ones)
+   * @param documentId - The document ID
+   * @param userId - The user ID for security filtering
+   * @param type - The type of suggestions to clear ('style' | 'funnel')
+   * @returns Promise that resolves when suggestions are cleared
+   */
+  static async clearExistingSuggestions(documentId: string, userId: string, type: 'style' | 'funnel'): Promise<void> {
+    console.log('[SuggestionService] Clearing existing suggestions:', { documentId, userId, type })
+
+    const collectionName = type === 'funnel' ? 'funnelSuggestions' : 'styleSuggestions'
+
+    try {
+      const suggestionsRef = collection(firestore, `documents/${documentId}/${collectionName}`)
+      const q = query(
+        suggestionsRef,
+        where('userId', '==', userId),
+        where('status', '==', 'pending')
+      )
+      
+      const snapshot = await getDocs(q)
+      
+      if (snapshot.empty) {
+        console.log('[SuggestionService] No existing suggestions to clear')
+        return
+      }
+      
+      const batch = writeBatch(firestore)
+      
+      snapshot.docs.forEach((docSnap: QueryDocumentSnapshot<DocumentData>) => {
+        batch.delete(docSnap.ref)
+      })
+      
+      await batch.commit()
+      console.log(`[SuggestionService] Successfully cleared ${snapshot.size} existing ${type} suggestions`)
+    } catch (error) {
+      console.error('[SuggestionService] Error clearing existing suggestions:', error)
+      throw new Error(`Failed to clear existing suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 }

@@ -614,67 +614,106 @@ exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async 
     );
   }
 
-  // Build comprehensive prompt for funnel copy suggestions
-  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your task is to analyze the user's writing goals and current draft, then provide 4 specific types of funnel copy suggestions.
+  // Check for existing suggestions to prevent duplicates
+  try {
+    const existingSuggestionsSnapshot = await admin.firestore()
+      .collection(`documents/${documentId}/funnelSuggestions`)
+      .where('userId', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
+    
+    if (!existingSuggestionsSnapshot.empty) {
+      logger.log("Found existing pending funnel suggestions, skipping generation", {
+        documentId,
+        userId,
+        existingCount: existingSuggestionsSnapshot.size
+      });
+      
+      // Return existing suggestions instead of generating new ones
+      const existingSuggestions = existingSuggestionsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      return {
+        suggestions: existingSuggestions,
+        generatedAt: Date.now(),
+        basedOnGoals: true,
+        note: 'Returned existing suggestions to prevent duplicates'
+      };
+    }
+  } catch (error) {
+    logger.warn("Error checking for existing suggestions, continuing with generation", {error});
+  }
 
-You MUST return a valid JSON object with the exact structure below. Never use hyphens in any text fields.
+  // Build comprehensive prompt for funnel copy suggestions with standardized output
+  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your task is to analyze the user's writing goals and current draft, then provide EXACTLY 4 specific types of funnel copy suggestions in a standardized format.
 
-Required JSON structure:
+CRITICAL: You MUST return a valid JSON object with exactly this structure. Never deviate from this format:
+
 {
   "suggestions": [
     {
       "type": "headline",
-      "title": "Compelling Headline",
-      "description": "Brief explanation of why this headline works",
-      "suggestedText": "Your headline text here",
-      "confidence": 85
+      "title": "Attention-Grabbing Headline",
+      "description": "A compelling headline that captures attention and communicates core value",
+      "suggestedText": "Your primary headline text here (keep under 10 words)",
+      "confidence": 85,
+      "position": "document-start"
     },
     {
       "type": "subheadline", 
       "title": "Supporting Subheadline",
-      "description": "How this supports the main headline",
-      "suggestedText": "Your subheadline text here",
-      "confidence": 80
+      "description": "A subheadline that elaborates on the main value proposition",
+      "suggestedText": "Your supporting subheadline text here (1-2 sentences)",
+      "confidence": 80,
+      "position": "after-headline"
     },
     {
       "type": "cta",
       "title": "Call to Action",
-      "description": "Why this CTA drives conversions",
-      "suggestedText": "Your CTA text here",
-      "confidence": 90
+      "description": "A clear, action-oriented CTA that drives the desired behavior",
+      "suggestedText": "Your CTA button text here (2-4 words)",
+      "confidence": 90,
+      "position": "document-end"
     },
     {
       "type": "outline",
       "title": "Content Structure",
-      "description": "Strategic outline for funnel flow",
-      "suggestedText": "Detailed outline structure here",
-      "confidence": 75
+      "description": "A strategic content outline optimized for conversions",
+      "suggestedText": "1. Hook: Opening statement\n2. Problem: Pain point identification\n3. Solution: Your offering\n4. Benefits: Key advantages\n5. Social Proof: Testimonials/stats\n6. Call to Action: Final push",
+      "confidence": 75,
+      "position": "content-structure"
     }
   ],
   "generatedAt": ${Date.now()},
   "basedOnGoals": true
 }
 
+STRICT REQUIREMENTS:
+- Always generate EXACTLY 4 suggestions with types: headline, subheadline, cta, outline
+- Never use hyphens in any text fields (use em dashes — or other punctuation)
+- Keep headlines under 10 words
+- Keep CTAs under 4 words
+- Make outlines specific and actionable
+- Tailor ALL content to the specific goals provided
+
 Writing Goals Context:
-- Target Audience: ${goals.audience}
-- Formality Level: ${goals.formality}
-- Marketing Domain: ${goals.domain}
-- Primary Intent: ${goals.intent}
+- Target Audience: ${goals.audience || 'general audience'}
+- Formality Level: ${goals.formality || 'professional'}
+- Marketing Domain: ${goals.domain || 'general business'}
+- Primary Intent: ${goals.intent || 'inform'}
 
-Focus on:
-1. Headlines that grab attention and match the audience
-2. Subheadlines that clarify value proposition
-3. CTAs that drive the intended action
-4. Outlines that structure content for maximum impact
+Focus Areas Based on Goals:
+1. Headlines: Match the ${goals.formality || 'professional'} tone while appealing to ${goals.audience || 'general audience'}
+2. Subheadlines: Elaborate on value for ${goals.audience || 'general audience'} in ${goals.domain || 'business'} context
+3. CTAs: Drive ${goals.intent || 'engagement'} behavior with appropriate urgency
+4. Outlines: Structure content to achieve ${goals.intent || 'informational'} goals
 
-Never use hyphens in your suggestions. Use em dashes (—) or other punctuation where appropriate.`;
-
-  if (currentDraft && currentDraft.trim()) {
-    systemPrompt += `\n\nCurrent Draft Context:\n${currentDraft.substring(0, 1000)}${currentDraft.length > 1000 ? '...' : ''}`;
-  }
+${currentDraft && currentDraft.trim() ? `\nCurrent Draft Context (use this to inform suggestions):\n${currentDraft.substring(0, 1000)}${currentDraft.length > 1000 ? '...' : ''}` : '\nNo current draft provided - create suggestions from goals alone.'}`;
 
   try {
-    logger.log("Calling OpenAI API for funnel suggestions", {
+    logger.log("Calling OpenAI API for standardized funnel suggestions", {
       userId, 
       documentId, 
       goals,
@@ -685,31 +724,96 @@ Never use hyphens in your suggestions. Use em dashes (—) or other punctuation 
       model: "gpt-4o",
       messages: [
         {role: "system", content: systemPrompt},
-        {role: "user", content: `Generate funnel copy suggestions for a ${goals.domain} piece targeting ${goals.audience} with ${goals.formality} tone to ${goals.intent}.`}
+        {role: "user", content: `Generate funnel copy suggestions for a ${goals.domain || 'business'} piece targeting ${goals.audience || 'general audience'} with ${goals.formality || 'professional'} tone to ${goals.intent || 'inform'}.`}
       ],
       response_format: {type: "json_object"},
+      temperature: 0.7 // Add some creativity while maintaining consistency
     });
 
     const responseContent = completion.choices[0].message.content;
-    logger.log("OpenAI funnel suggestions generated", {userId, documentId, responseContent});
+    logger.log("OpenAI standardized funnel suggestions generated", {userId, documentId, responseLength: responseContent.length});
 
     const parsedResponse = JSON.parse(responseContent);
     const suggestions = parsedResponse.suggestions || [];
 
-    // Enhance suggestions with additional metadata
+    // Validate that we have exactly 4 suggestions with correct types
+    const requiredTypes = ['headline', 'subheadline', 'cta', 'outline'];
+    const actualTypes = suggestions.map(s => s.type);
+    
+    if (suggestions.length !== 4 || !requiredTypes.every(type => actualTypes.includes(type))) {
+      logger.warn("AI returned non-standard suggestions, filtering and supplementing", {
+        actualTypes,
+        requiredTypes,
+        count: suggestions.length
+      });
+      
+      // Ensure we have all required types, create defaults if missing
+      const standardizedSuggestions = requiredTypes.map(type => {
+        const existing = suggestions.find(s => s.type === type);
+        if (existing) return existing;
+        
+        // Create default suggestion for missing type
+        const defaults = {
+          headline: {
+            title: "Attention-Grabbing Headline",
+            description: "A compelling headline that captures attention",
+            suggestedText: `Transform Your ${goals.domain || 'Business'} Today`,
+            confidence: 70
+          },
+          subheadline: {
+            title: "Supporting Subheadline", 
+            description: "Supporting information about your value proposition",
+            suggestedText: `Discover how ${goals.audience || 'professionals'} can achieve better results with our proven approach.`,
+            confidence: 65
+          },
+          cta: {
+            title: "Call to Action",
+            description: "Action-oriented button text",
+            suggestedText: "Get Started",
+            confidence: 80
+          },
+          outline: {
+            title: "Content Structure",
+            description: "Strategic content outline for maximum impact",
+            suggestedText: "1. Hook: Opening that grabs attention\n2. Problem: Identify key challenges\n3. Solution: Present your offering\n4. Benefits: Show clear advantages\n5. Proof: Add credibility\n6. Action: Clear next steps",
+            confidence: 60
+          }
+        };
+        
+        return {
+          type,
+          ...defaults[type],
+          position: type === 'headline' ? 'document-start' : 
+                   type === 'subheadline' ? 'after-headline' :
+                   type === 'cta' ? 'document-end' : 'content-structure'
+        };
+      });
+      
+      suggestions.splice(0, suggestions.length, ...standardizedSuggestions);
+    }
+
+    // Enhance suggestions with consistent metadata and unique IDs
+    const timestamp = Date.now();
     const enhancedSuggestions = suggestions.map((suggestion, index) => ({
       ...suggestion,
-      id: `funnel_${documentId}_${Date.now()}_${index}`,
+      id: `funnel_${documentId}_${timestamp}_${suggestion.type}`, // Use type in ID for uniqueness
       documentId,
       userId,
       status: "pending",
-      createdAt: Date.now(),
-      targetAudience: goals.audience,
-      intent: goals.intent,
-      domain: goals.domain
+      createdAt: timestamp,
+      targetAudience: goals.audience || 'general',
+      intent: goals.intent || 'inform',
+      domain: goals.domain || 'business',
+      originalText: '', // Funnel suggestions don't replace text
+      position: suggestion.position || {
+        headline: 'document-start',
+        subheadline: 'after-headline', 
+        cta: 'document-end',
+        outline: 'content-structure'
+      }[suggestion.type] || 'document-end'
     }));
 
-    // Store suggestions in Firestore
+    // Store suggestions in Firestore with error handling
     const batch = admin.firestore().batch();
     const suggestionsCollection = admin.firestore().collection(`documents/${documentId}/funnelSuggestions`);
 
@@ -719,12 +823,17 @@ Never use hyphens in your suggestions. Use em dashes (—) or other punctuation 
     });
 
     await batch.commit();
-    logger.log(`Stored ${enhancedSuggestions.length} funnel suggestions in Firestore`, {userId, documentId});
+    logger.log(`Successfully stored ${enhancedSuggestions.length} standardized funnel suggestions`, {
+      userId, 
+      documentId,
+      suggestionTypes: enhancedSuggestions.map(s => s.type)
+    });
 
     return {
       suggestions: enhancedSuggestions,
-      generatedAt: Date.now(),
-      basedOnGoals: true
+      generatedAt: timestamp,
+      basedOnGoals: true,
+      standardized: true
     };
 
   } catch (error) {
