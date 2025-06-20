@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CollaborationService } from '@/services/collaboration-service'
@@ -77,6 +76,7 @@ export function CollaborationPresence({
   const [isExpanded, setIsExpanded] = useState(false)
 
   console.log('[CollaborationPresence] Rendering with documentId:', documentId, 'currentUserId:', currentUserId)
+  console.log('[CollaborationPresence] Rendering presence component')
 
   // Subscribe to presence updates when documentId changes
   useEffect(() => {
@@ -90,25 +90,28 @@ export function CollaborationPresence({
 
     const unsubscribe = CollaborationService.subscribeToPresence(
       documentId,
-      (presence: Record<string, any>) => {
+      (presence: Record<string, unknown>) => {
         console.log('[CollaborationPresence] Received presence update:', presence)
-        
-        // Transform presence data and add colors
         const transformedPresence: Record<string, PresenceUser> = {}
-        
         Object.entries(presence).forEach(([userId, userData]) => {
           if (userData && typeof userData === 'object') {
-            transformedPresence[userId] = {
-              id: userId,
-              name: userData.name || 'Unknown User',
-              email: userData.email,
-              color: generateUserColor(userId),
-              state: userData.state || 'offline',
-              last_changed: userData.last_changed || Date.now(),
+            const maybeUser = userData as Partial<PresenceUser>
+            if (typeof maybeUser.name === 'string' && typeof maybeUser.state === 'string') {
+              transformedPresence[userId] = {
+                id: userId,
+                name: maybeUser.name || 'Unknown User',
+                email: typeof maybeUser.email === 'string' ? maybeUser.email : undefined,
+                color: generateUserColor(userId),
+                state: maybeUser.state === 'online' || maybeUser.state === 'offline' ? maybeUser.state : 'offline',
+                last_changed: typeof maybeUser.last_changed === 'number' ? maybeUser.last_changed : Date.now(),
+              }
+            } else {
+              console.warn('[CollaborationPresence] Skipping malformed user data:', userData)
             }
+          } else {
+            console.warn('[CollaborationPresence] Skipping non-object user data:', userData)
           }
         })
-        
         console.log('[CollaborationPresence] Transformed presence data:', transformedPresence)
         setPresenceData(transformedPresence)
       }
@@ -294,30 +297,35 @@ export function useCollaborationPresence(documentId: string | null, currentUserI
 
     const unsubscribe = CollaborationService.subscribeToPresence(
       documentId,
-      (presence: Record<string, any>) => {
+      (presence: Record<string, unknown>) => {
         const now = Date.now()
         const fiveMinutesAgo = now - 5 * 60 * 1000
-
-        const active = Object.values(presence)
-          .filter((user: any) => {
-            if (!user || typeof user !== 'object') return false
-            
-            const isOnline = user.state === 'online'
-            const isRecent = user.last_changed > fiveMinutesAgo
-            const isNotCurrentUser = user.id !== currentUserId
-            
-            return isOnline && isRecent && isNotCurrentUser
-          })
-          .map((user: any) => ({
-            id: user.id,
-            name: user.name || 'Unknown User',
-            email: user.email,
-            color: generateUserColor(user.id),
-            state: user.state,
-            last_changed: user.last_changed,
-          }))
-          .sort((a, b) => b.last_changed - a.last_changed)
-
+        const active: PresenceUser[] = []
+        Object.values(presence).forEach((userData) => {
+          if (userData && typeof userData === 'object') {
+            const maybeUser = userData as Partial<PresenceUser>
+            if (typeof maybeUser.id === 'string' && typeof maybeUser.name === 'string' && typeof maybeUser.state === 'string') {
+              const isOnline = maybeUser.state === 'online'
+              const isRecent = typeof maybeUser.last_changed === 'number' && maybeUser.last_changed > fiveMinutesAgo
+              const isNotCurrentUser = maybeUser.id !== currentUserId
+              if (isOnline && isRecent && isNotCurrentUser) {
+                active.push({
+                  id: maybeUser.id,
+                  name: maybeUser.name,
+                  email: typeof maybeUser.email === 'string' ? maybeUser.email : undefined,
+                  color: generateUserColor(maybeUser.id),
+                  state: maybeUser.state === 'online' || maybeUser.state === 'offline' ? maybeUser.state : 'offline',
+                  last_changed: typeof maybeUser.last_changed === 'number' ? maybeUser.last_changed : Date.now(),
+                })
+              }
+            } else {
+              console.warn('[useCollaborationPresence] Skipping malformed user data:', userData)
+            }
+          } else {
+            console.warn('[useCollaborationPresence] Skipping non-object user data:', userData)
+          }
+        })
+        active.sort((a, b) => b.last_changed - a.last_changed)
         console.log('[useCollaborationPresence] Active users updated:', active.length)
         setActiveUsers(active)
       }

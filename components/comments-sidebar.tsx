@@ -5,7 +5,7 @@
 'use client'
 
 import type { FC } from 'react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Comment } from '@/types/comment'
 import type { UserProfile as User } from '@/types/user'
 import { Button } from '@/components/ui/button'
@@ -147,6 +147,12 @@ export const CommentsSidebar: FC<CommentsSidebarProps> = ({
   const activeComments = comments.filter(c => c.status === 'active');
   const resolvedComments = comments.filter(c => c.status === 'resolved');
 
+  useEffect(() => {
+    if (activeComments.length === 0) {
+      console.log('No active comments. Prompting user to add a comment.');
+    }
+  }, [activeComments.length]);
+
   return (
     <aside className={`fixed top-0 right-0 z-40 h-full w-96 bg-background/80 backdrop-blur-sm border-l border-border/60 transform transition-transform duration-300 ease-out ${
       isOpen ? 'translate-x-0' : 'translate-x-full'
@@ -175,7 +181,7 @@ export const CommentsSidebar: FC<CommentsSidebarProps> = ({
               ))
             ) : (
               <div className="text-center text-sm text-muted-foreground py-10">
-                No active comments. Select text in the editor and click "Add Comment" to start a discussion.
+                No active comments. Select text in the editor and click &quot;Add Comment&quot; to start a discussion.
               </div>
             )}
             

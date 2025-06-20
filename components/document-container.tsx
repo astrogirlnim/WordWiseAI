@@ -26,6 +26,7 @@ const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod
 })
 
 export function DocumentContainer({ documentId: initialDocumentId }: { documentId?: string }) {
+  console.log('[DocumentContainer] Rendering document container')
   const { user } = useAuth()
   const {
     documents,
@@ -37,7 +38,7 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
   } = useDocuments()
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(initialDocumentId || null)
   const { versions, loading: versionsLoading, error: versionsError, reloadVersions, deleteVersion } = useDocumentVersions(activeDocumentId || null)
-  const { comments, loading: commentsLoading, error: commentsError, addComment, updateComment, deleteComment, resolveComment, reactivateComment } = useComments(activeDocumentId)
+  const { comments, addComment, deleteComment, resolveComment, reactivateComment } = useComments(activeDocumentId)
   const { toast } = useToast()
 
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(true)
@@ -65,38 +66,36 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
     [documents, activeDocumentId]
   );
 
-  const { userRole, canEdit } = useMemo(() => {
+  const { canEdit } = useMemo(() => {
     if (!activeDocument) {
-      return { userRole: null, canEdit: false }
+      return { canEdit: false }
     }
 
     // Handle public access for logged-out users first
     if (!user) {
       if (activeDocument.isPublic && activeDocument.publicViewMode !== 'disabled') {
-        const role = activeDocument.publicViewMode === 'comment' ? 'commenter' : 'viewer';
-        return { userRole: role, canEdit: false };
+        return { canEdit: false };
       }
-      return { userRole: null, canEdit: false };
+      return { canEdit: false };
     }
 
     // Handle access for logged-in users
     if (activeDocument.ownerId === user.uid) {
-      return { userRole: 'owner', canEdit: true }
+      return { canEdit: true }
     }
 
     const sharedInfo = activeDocument.sharedWith.find(
       (s) => s.userId === user.uid
     )
     if (sharedInfo) {
-      return { userRole: sharedInfo.role, canEdit: sharedInfo.role === 'editor' }
+      return { canEdit: sharedInfo.role === 'editor' }
     }
 
     if (activeDocument.isPublic && activeDocument.publicViewMode !== 'disabled') {
-      const role = activeDocument.publicViewMode === 'comment' ? 'commenter' : 'viewer';
-      return { userRole: role, canEdit: false };
+      return { canEdit: false };
     }
 
-    return { userRole: null, canEdit: false }
+    return { canEdit: false }
   }, [activeDocument, user]);
 
   const { myDocuments, sharedWithMe, publicDocuments } = useMemo(() => {
@@ -514,31 +513,46 @@ export function DocumentContainer({ documentId: initialDocumentId }: { documentI
         )}
 
         {isCommentsSidebarOpen && !isDistractionFree && user && (
-          <CommentsSidebar
-            isOpen={isCommentsSidebarOpen}
-            onClose={() => setIsCommentsSidebarOpen(false)}
-            comments={comments}
-            currentUser={{
+          (() => {
+            const debugUser: UserProfile = {
               id: user.uid,
               name: user.displayName || 'User',
               email: user.email || '',
-              // Dummy data for non-optional fields
               orgId: '',
               role: '',
-              preferences: {} as any,
+              preferences: {
+                defaultWritingGoals: {
+                  audience: 'consumers',
+                  formality: 'casual',
+                  domain: 'marketing-copy',
+                  intent: 'persuade',
+                },
+                autoSaveInterval: 0,
+                showAdvancedSuggestions: false,
+                preferredTone: '',
+              },
               acceptedSuggestions: [],
               rejectedSuggestions: [],
               createdAt: 0,
               updatedAt: 0,
-            }}
-            onAddComment={addComment}
-            onResolveComment={resolveComment}
-            onDeleteComment={deleteComment}
-            onReactivateComment={reactivateComment}
-            activeCommentId={activeCommentId}
-            setActiveCommentId={setActiveCommentId}
-            isDocumentOwner={activeDocument?.ownerId === user.uid}
-          />
+            }
+            console.log('[DocumentContainer] Passing currentUser to CommentsSidebar:', debugUser)
+            return (
+              <CommentsSidebar
+                isOpen={isCommentsSidebarOpen}
+                onClose={() => setIsCommentsSidebarOpen(false)}
+                comments={comments}
+                currentUser={debugUser}
+                onAddComment={addComment}
+                onResolveComment={resolveComment}
+                onDeleteComment={deleteComment}
+                onReactivateComment={reactivateComment}
+                activeCommentId={activeCommentId}
+                setActiveCommentId={setActiveCommentId}
+                isDocumentOwner={activeDocument?.ownerId === user.uid}
+              />
+            )
+          })()
         )}
       </div>
 
