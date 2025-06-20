@@ -10,9 +10,9 @@ import { AIService } from '@/services/ai-service'
 import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
 import type { WritingGoals } from '@/types/writing-goals'
 
-// Type alias for style suggestions (subset of AISuggestion)
+// Extend StyleSuggestion to cover new marketing-focused suggestion types
 export type StyleSuggestion = AISuggestion & {
-  type: 'grammar' | 'style' | 'clarity' | 'engagement' | 'readability'
+  type: 'grammar' | 'style' | 'clarity' | 'engagement' | 'readability' | 'urgency' | 'trust'
 }
 
 export interface UseAISuggestionsReturn {

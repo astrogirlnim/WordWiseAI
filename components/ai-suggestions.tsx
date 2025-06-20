@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Check, X, Lightbulb, Target, MessageSquare, Megaphone, List } from 'lucide-react'
+import { Check, X, Lightbulb, Target, MessageSquare, Megaphone, List, Zap, ShieldCheck } from 'lucide-react'
 import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
 
 interface AISuggestionsProps {
@@ -26,7 +26,9 @@ const suggestionIcons = {
   headline: <Megaphone className="h-4 w-4" />,
   subheadline: <MessageSquare className="h-4 w-4" />,
   cta: <Target className="h-4 w-4" />,
-  outline: <List className="h-4 w-4" />
+  outline: <List className="h-4 w-4" />,
+  urgency: <Zap className="h-4 w-4" />,
+  trust: <ShieldCheck className="h-4 w-4" />
 }
 
 const suggestionColors = {
@@ -38,7 +40,9 @@ const suggestionColors = {
   headline: 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-800',
   subheadline: 'bg-teal-50 border-teal-200 dark:bg-teal-950/20 dark:border-teal-800',
   cta: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800',
-  outline: 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800'
+  outline: 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800',
+  urgency: 'bg-rose-50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800',
+  trust: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/20 dark:border-cyan-800'
 }
 
 export function AISuggestions({ 
@@ -171,7 +175,6 @@ function FunnelSuggestionCard({ suggestion, onApply, onDismiss }: FunnelSuggesti
           </Badge>
         </div>
       </CardHeader>
-      
       <CardContent className="pt-0">
         <div className="space-y-3">
           {/* Suggestion Content */}
@@ -183,7 +186,6 @@ function FunnelSuggestionCard({ suggestion, onApply, onDismiss }: FunnelSuggesti
               {suggestion.suggestedText}
             </p>
           </div>
-
           {/* Action Buttons */}
           <div className="flex gap-2">
             <Button size="sm" onClick={onApply} className="flex-1">
@@ -230,7 +232,7 @@ function StyleSuggestionCard({ suggestion, onApply, onDismiss }: StyleSuggestion
           </Badge>
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
         <div className="space-y-3">
           {/* Before/After Content */}
