@@ -16,7 +16,9 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "frameworksBackend": {}
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
   },
   "emulators": {
     "auth": {
@@ -45,4 +47,4 @@
   "database": {
     "rules": "database.rules.json"
   }
-} 
+}
