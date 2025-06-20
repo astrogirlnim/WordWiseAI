@@ -88,6 +88,8 @@ export function AISuggestions({
     },
   } as const
 
+  const categories = Object.keys(categoryInfo) as Array<keyof typeof categoryInfo>
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -159,22 +161,25 @@ export function AISuggestions({
             <TooltipProvider>
               <Tabs defaultValue={categoryInfo.urgency.count > 0 ? 'urgency' : categoryInfo.clarity.count > 0 ? 'clarity' : 'trust'} className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
-                  {(['urgency', 'clarity', 'trust'] as const).map((key) => (
-                    <Tooltip key={key}>
-                      <TooltipTrigger asChild>
-                        <TabsTrigger value={key} disabled={categoryInfo[key].count === 0}>
-                          {categoryInfo[key].icon}
-                          {categoryInfo[key].label}
-                          {categoryInfo[key].count > 0 && (
-                            <Badge variant="secondary" className="ml-1 text-xxs">
-                              {categoryInfo[key].count}
-                            </Badge>
-                          )}
-                        </TabsTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent>{categoryInfo[key].description}</TooltipContent>
-                    </Tooltip>
-                  ))}
+                  {categories.map((key) => {
+                    const info = categoryInfo[key]
+                    return (
+                      <Tooltip key={key}>
+                        <TooltipTrigger asChild>
+                          <TabsTrigger value={key} disabled={info.count === 0}>
+                            {info.icon}
+                            {info.label}
+                            {info.count > 0 && (
+                              <Badge variant="secondary" className="ml-1 text-xxs">
+                                {info.count}
+                              </Badge>
+                            )}
+                          </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>{info.description}</TooltipContent>
+                      </Tooltip>
+                    )
+                  })}
                 </TabsList>
 
                 <TabsContent value="urgency">
