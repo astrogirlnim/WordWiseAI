@@ -57,18 +57,18 @@ service cloud.firestore {
       // Sub-collections
       // Corrected the get() path from '/documents/documents/' to just '/documents/'.
       match /versions/{versionId} {
-        allow read, list: if request.auth != null && hasDocumentAccess(get(/databases/$(database)/documents/$(documentId)).data, request.auth.uid, 'viewer');
-        allow write: if request.auth != null && hasDocumentAccess(get(/databases/$(database)/documents/$(documentId)).data, request.auth.uid, 'editor');
+        allow read, list: if request.auth != null && hasDocumentAccess(get(/databases/(database)/documents/(documentId)).data, request.auth.uid, 'viewer');
+        allow write: if request.auth != null && hasDocumentAccess(get(/databases/(database)/documents/(documentId)).data, request.auth.uid, 'editor');
       }
 
       match /styleSuggestions/{suggestionId} {
-         allow read, list: if request.auth != null && hasDocumentAccess(get(/databases/$(database)/documents/$(documentId)).data, request.auth.uid, 'viewer');
-         allow write: if request.auth != null && hasDocumentAccess(get(/databases/$(database)/documents/$(documentId)).data, request.auth.uid, 'commenter');
+         allow read, list: if request.auth != null && hasDocumentAccess(get(/databases/(database)/documents/(documentId)).data, request.auth.uid, 'viewer');
+         allow write: if request.auth != null && hasDocumentAccess(get(/databases/(database)/documents/(documentId)).data, request.auth.uid, 'commenter');
       }
       
       match /funnelSuggestions/{suggestionId} {
-         allow read, list: if request.auth != null && hasDocumentAccess(get(/databases/$(database)/documents/$(documentId)).data, request.auth.uid, 'viewer');
-         allow write: if request.auth != null && hasDocumentAccess(get(/databases/$(database)/documents/$(documentId)).data, request.auth.uid, 'commenter');
+         allow read, list: if request.auth != null && hasDocumentAccess(get(/databases/(database)/documents/(documentId)).data, request.auth.uid, 'viewer');
+         allow write: if request.auth != null && hasDocumentAccess(get(/databases/(database)/documents/(documentId)).data, request.auth.uid, 'commenter');
       }
     }
 
@@ -76,17 +76,17 @@ service cloud.firestore {
     match /shareTokens/{tokenId} {
       // Document owner can read all tokens for their doc. User token is intended for can read it.
       allow get: if request.auth != null &&
-                  (get(/databases/$(database)/documents/$(resource.data.documentId)).data.ownerId == request.auth.uid ||
+                  (get(/databases/(database)/documents/(resource.data.documentId)).data.ownerId == request.auth.uid ||
                    resource.data.email == request.auth.token.email);
 
       // Only the document owner can create a share token.
       // Use request.resource.data for create operations. Corrected path to document.
       allow create: if request.auth != null &&
-                     get(/databases/$(database)/documents/$(request.resource.data.documentId)).data.ownerId == request.auth.uid;
+                     get(/databases/(database)/documents/(request.resource.data.documentId)).data.ownerId == request.auth.uid;
 
       // Only the document owner can update or delete a token. Corrected path to document.
       allow update, delete: if request.auth != null &&
-                             get(/databases/$(database)/documents/$(resource.data.documentId)).data.ownerId == request.auth.uid;
+                             get(/databases/(database)/documents/(resource.data.documentId)).data.ownerId == request.auth.uid;
     }
 
     // Audit logs can be created by any authenticated user.
