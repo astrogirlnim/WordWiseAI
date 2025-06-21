@@ -276,16 +276,16 @@ export function useGrammarChecker(
 
   console.log(`[useGrammarChecker] Phase 3: Returning grammar state - ${errors.length} errors, checking: ${isChecking}, Harper ready: ${isHarperReady}`);
   
-  return { 
-    errors, 
-    isChecking, 
-    chunkProgress, 
-    removeError, 
-    ignoreError, 
-    checkGrammarImmediately, 
+  return {
+    errors,
+    isChecking,
+    chunkProgress,
+    removeError,
+    ignoreError,
+    checkGrammar,
+    checkGrammarImmediately,
     checkFullDocument,
-    // Phase 3: Additional helper methods
     isHarperReady,
-    harperStatus: getHarperStatus()
+    harperStatus: getHarperStatus(),
   };
 } 

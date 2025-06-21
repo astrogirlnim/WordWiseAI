@@ -28,6 +28,9 @@ let harperLinter: any = null;
 let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 
+// Track all Harper.js lint_kind values we encounter for analysis
+const detectedHarperCategories = new Set<string>();
+
 /**
  * Harper.js error categories mapped to our grammar error types
  */
@@ -42,6 +45,8 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
   'WordChoice': 'style',
   'Repetition': 'style',
   'Readability': 'clarity',
+  'Formatting': 'style',
+  'Miscellaneous': 'grammar',
 } as const;
 
 /**
@@ -104,10 +109,21 @@ function convertHarperLintToGrammarError(lint: any, index: number): GrammarError
   const suggestions = lint.suggestions();
   const lintKind = lint.lint_kind();
   
+  // Track this category for analysis
+  detectedHarperCategories.add(lintKind);
+  
+  // Log the original Harper.js lint_kind for analysis
+  console.log(`[HarperWrapper] Phase 4: Raw Harper lint_kind: "${lintKind}"`);
+  
   // Map Harper.js lint kind to our error type
   const errorType = HARPER_ERROR_TYPE_MAP[lintKind] || 'grammar';
   
-  console.log(`[HarperWrapper] Phase 2: Converting Harper lint - Kind: ${lintKind}, Type: ${errorType}, Span: ${span.start}-${span.end}`);
+  // Log any unmapped categories
+  if (!HARPER_ERROR_TYPE_MAP[lintKind]) {
+    console.warn(`[HarperWrapper] Phase 4: ⚠️ UNMAPPED Harper lint_kind: "${lintKind}" - defaulting to 'grammar'`);
+  }
+  
+  console.log(`[HarperWrapper] Phase 4: Converting Harper lint - Kind: "${lintKind}" → Type: "${errorType}", Span: ${span.start}-${span.end}`);
   
   return {
     id: `harper-${Date.now()}-${index}`, // Generate unique ID
@@ -258,17 +274,42 @@ export function resetHarperState(): void {
 }
 
 /**
- * Pre-warm Harper.js initialization
- * Call this early in your app lifecycle to reduce first-use latency
+ * Pre-warm Harper.js for faster first-use
+ * This can be called during app initialization to reduce latency
  */
 export async function preWarmHarper(): Promise<boolean> {
-  console.log('[HarperWrapper] Phase 2: Pre-warming Harper.js initialization...');
+  console.log('[HarperWrapper] Phase 2: Pre-warming Harper.js...');
   
   try {
     await initializeHarper();
+    console.log('[HarperWrapper] Phase 2: ✅ Harper.js pre-warmed successfully');
     return true;
   } catch (error) {
-    console.error('[HarperWrapper] Phase 2: Pre-warm failed:', error);
+    console.error('[HarperWrapper] Phase 2: ❌ Harper.js pre-warm failed:', error);
     return false;
   }
+}
+
+/**
+ * Get analysis data about Harper.js category coverage
+ * This helps verify that our error type mapping is comprehensive
+ */
+export function getHarperCategoryAnalysis(): {
+  detectedCategories: string[];
+  mappedCategories: string[];
+  unmappedCategories: string[];
+  totalCategoriesDetected: number;
+  mappingCoverage: number;
+} {
+  const detectedArray = Array.from(detectedHarperCategories);
+  const mappedCategories = detectedArray.filter(cat => HARPER_ERROR_TYPE_MAP[cat]);
+  const unmappedCategories = detectedArray.filter(cat => !HARPER_ERROR_TYPE_MAP[cat]);
+  
+  return {
+    detectedCategories: detectedArray,
+    mappedCategories,
+    unmappedCategories,
+    totalCategoriesDetected: detectedArray.length,
+    mappingCoverage: detectedArray.length > 0 ? (mappedCategories.length / detectedArray.length) * 100 : 100,
+  };
 } 
