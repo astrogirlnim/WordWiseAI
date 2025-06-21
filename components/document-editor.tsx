@@ -75,17 +75,21 @@ export function DocumentEditor({
   // Phase 1 Integration: Replace basic mutex with EditorContentCoordinator
   const contentCoordinatorRef = useRef<EditorContentCoordinator | null>(null)
   
-  // Initialize coordinator
+  // Initialize coordinator with React state callback
   useEffect(() => {
-    console.log('[DocumentEditor] Phase 1: Initializing EditorContentCoordinator')
+    console.log('[DocumentEditor] CRITICAL FIX: Initializing EditorContentCoordinator')
     contentCoordinatorRef.current = new EditorContentCoordinator({
       debounceDelay: 300,
       maxQueueSize: 50,
-      enableLogging: true
+      enableLogging: false // CRITICAL: Disable excessive logging during typing
     })
     
+    // Enable browser debugging in development
+    if (process.env.NODE_ENV === 'development') {
+      contentCoordinatorRef.current.enableBrowserDebugging()
+    }
+    
     return () => {
-      console.log('[DocumentEditor] Phase 1: Cleaning up EditorContentCoordinator')
       contentCoordinatorRef.current?.unbind()
       contentCoordinatorRef.current = null
     }
@@ -126,7 +130,7 @@ export function DocumentEditor({
   const { user } = useAuth()
   
   // Phase 6: Pass visibleRange to the grammar checker hook
-  const { errors, removeError, checkGrammarImmediately, checkFullDocument } = useGrammarChecker(
+  const { errors, removeError, checkFullDocument } = useGrammarChecker(
     documentId, 
     fullPlainText,
     visibleRange
@@ -195,7 +199,7 @@ export function DocumentEditor({
       GrammarExtension,
       // Phase 1 Integration: Use enhanced paste extension
       createEnhancedPlainTextPasteExtension({
-        enableLogging: true,
+        enableLogging: false, // CRITICAL: Disable logging during typing
         maxTextLength: 100000,
         preserveLineBreaks: true,
         allowBasicFormatting: false
@@ -203,54 +207,48 @@ export function DocumentEditor({
     ],
     content: pageContent, // Use paginated content
     onUpdate: ({ editor }) => {
-      console.log('[DocumentEditor] Phase 1: onUpdate called - handling with coordinator priority')
-      
+      // CRITICAL FIX: Only log errors during typing, remove excessive logging
       const newPageHtml = editor.getHTML();
       
-      // Phase 1 Integration: Handle user input through coordinator
+      // Phase 1: All content updates through coordinator only
       if (contentCoordinatorRef.current) {
+        const oldPageEndIndex = pageOffset + pageContent.length;
+        const updatedFullContent =
+          fullContentHtml.substring(0, pageOffset) +
+          newPageHtml +
+          fullContentHtml.substring(oldPageEndIndex);
+        
+        // Phase 1: Use coordinator for ALL content updates, including React state
         contentCoordinatorRef.current.updateContent(
           'user',
           newPageHtml,
-          'onUpdate-handler'
+          'typing',
+          { 
+            fullContent: updatedFullContent,
+            onStateUpdate: (content: string) => {
+              // Coordinator manages React state updates
+              setFullContentHtml(content);
+              if (onContentChange) onContentChange(content);
+              if (onSave) onSave(content, title);
+            }
+          }
         ).then(() => {
           console.log('[DocumentEditor] Phase 1: User input processed through coordinator')
         }).catch(error => {
-          console.error('[DocumentEditor] Phase 1: Error processing user input:', error)
+          console.error('[DocumentEditor] CRITICAL: Error processing user input:', error)
         })
       }
-      
-      setFullContentHtml(prevFullContentHtml => {
-        const oldPageEndIndex = pageOffset + pageContent.length;
-        const updatedFullContent =
-          prevFullContentHtml.substring(0, pageOffset) +
-          newPageHtml +
-          prevFullContentHtml.substring(oldPageEndIndex);
-
-        console.log('[DocumentEditor] onUpdate (Phase 1): updatedFullContent.length:', updatedFullContent.length);
-        
-        // Phase 1: Improved callback handling with coordinator awareness
-        setTimeout(() => {
-          if (onContentChange) onContentChange(updatedFullContent);
-          if (onSave) onSave(updatedFullContent, title);
-        }, 50);
-        
-        return updatedFullContent;
-      });
     },
     onCreate: ({ editor }) => {
-      console.log('[DocumentEditor] Phase 1: onCreate - binding editor to coordinator')
+      // CRITICAL FIX: Minimal logging during initialization
       
       // Phase 1 Integration: Bind editor to coordinator
       if (contentCoordinatorRef.current) {
         contentCoordinatorRef.current.bindToEditor(editor)
       }
       
-      const text = editor.getText()
-      // Initial grammar check for the first page
-      if (text) {
-        checkGrammarImmediately(fullPlainText); // Still check full text, but triggered by page load
-      }
+      // CRITICAL FIX: Let debounced grammar checking handle initial check
+      // Don't call checkGrammarImmediately here as it bypasses debouncing
     },
   })
 
@@ -275,13 +273,10 @@ export function DocumentEditor({
       console.error('[DocumentEditor] Phase 6.1: Full document check failed:', error);
     } finally {
       setIsFullDocumentChecking(false);
-      // After full document check, return to page-scoped checking
-      setTimeout(() => {
-        console.log('[DocumentEditor] Phase 6.1: Returning to page-scoped checking');
-        checkGrammarImmediately(fullPlainText);
-      }, 1000);
+      // CRITICAL FIX: Let debounced grammar checking handle the return to page-scoped checking
+      // Don't call checkGrammarImmediately as it bypasses debouncing
     }
-  }, [fullPlainText, checkFullDocument, checkGrammarImmediately]);
+  }, [fullPlainText, checkFullDocument]);
 
   const handleFullDocumentCheckConfirm = useCallback(() => {
     handleFullDocumentCheck();
@@ -294,11 +289,18 @@ export function DocumentEditor({
         if (currentEditorContent !== pageContent) {
             console.log(`[DocumentEditor] Phase 1: Page changed to ${currentPage}. Updating through coordinator.`)
             
-            // Phase 1: Use coordinator for page content updates
+            // Phase 1: Use coordinator for ALL page content updates
             contentCoordinatorRef.current.updateContent(
               'page',
               pageContent,
-              `page-change-${currentPage}`
+              `page-change-${currentPage}`,
+              {
+                pageInfo: { currentPage, totalPages },
+                onStateUpdate: (content: string) => {
+                  // Page changes managed by coordinator
+                  console.log(`[DocumentEditor] Phase 1: Page ${currentPage} state updated via coordinator`)
+                }
+              }
             ).then(() => {
               console.log(`[DocumentEditor] Phase 1: Page ${currentPage} content updated successfully`)
             }).catch(error => {
@@ -306,7 +308,7 @@ export function DocumentEditor({
             })
         }
     }
-  }, [pageContent, editor, currentPage])
+  }, [pageContent, editor, currentPage, totalPages])
 
   /**
    * Apply an AI suggestion to the document
@@ -476,15 +478,22 @@ export function DocumentEditor({
       // Update the document content if changes were made
       if (textReplaced && updatedContent !== fullContentHtml) {
         console.log('[DocumentEditor] Phase 1: Updating document content through coordinator');
-        setFullContentHtml(updatedContent);
         
-        // Phase 1: Update editor content through coordinator
+        // Phase 1: Update editor content through coordinator only
         const newPageContent = updatedContent.substring(pageOffset, Math.min(pageOffset + PAGE_SIZE_CHARS, updatedContent.length));
         if (contentCoordinatorRef.current) {
           contentCoordinatorRef.current.updateContent(
             'ai',
             newPageContent,
-            `ai-suggestion-${suggestion.id}`
+            `ai-suggestion-${suggestion.id}`,
+                         {
+               fullContent: updatedContent,
+               onStateUpdate: (content: string) => {
+                 // Coordinator manages React state updates
+                 setFullContentHtml(content);
+                 console.log('[DocumentEditor] Phase 1: AI suggestion state updated via coordinator', content.length)
+               }
+             }
           ).then(() => {
             console.log('[DocumentEditor] Phase 1: AI suggestion content update completed')
           }).catch(error => {
@@ -496,11 +505,8 @@ export function DocumentEditor({
         console.log('[DocumentEditor] Applying suggestion to Firestore');
         await applySuggestion(suggestion.id);
         
-        // Trigger grammar check and save
-        const div = document.createElement('div');
-        div.innerHTML = updatedContent;
-        const plainText = div.textContent || '';
-        checkGrammarImmediately(plainText);
+        // CRITICAL FIX: Let debounced grammar checking handle the re-check
+        // Don't call checkGrammarImmediately as it bypasses debouncing
         
         if (onSave) {
           onSave(updatedContent, title);
@@ -550,7 +556,7 @@ export function DocumentEditor({
       
       // Don't throw the error to prevent UI crashes
     }
-  }, [editor, user, applySuggestion, checkGrammarImmediately, fullContentHtml, setFullContentHtml, onSave, title, pageOffset]);
+  }, [editor, user, applySuggestion, fullContentHtml, setFullContentHtml, onSave, title, pageOffset]);
 
   // Listen for AI suggestion apply events from the sidebar
   useEffect(() => {
@@ -647,11 +653,8 @@ export function DocumentEditor({
         .insertContentAt(replacementRange.from, suggestion)
         .run()
 
-      if (editor) {
-        // After applying suggestion, the content is updated, onUpdate will trigger a full re-check
-        // We pass the full plain text to ensure context is always up-to-date
-        checkGrammarImmediately(fullPlainText)
-      }
+      // CRITICAL FIX: Let debounced grammar checking handle the re-check after suggestion
+      // onUpdate will trigger normal debounced grammar checking automatically
 
       AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
         documentId,
@@ -664,7 +667,7 @@ export function DocumentEditor({
       removeError(error.id)
       setContextMenu(null)
     },
-    [editor, user, documentId, removeError, pageOffset, checkGrammarImmediately, fullPlainText],
+    [editor, user, documentId, removeError, pageOffset],
   )
 
   const handleIgnoreError = useCallback(
@@ -724,10 +727,9 @@ export function DocumentEditor({
     console.log('[DocumentEditor] Phase 1: Previous fullContentHtml length:', fullContentHtml.length)
     console.log('[DocumentEditor] Phase 1: New content length:', newContent.length)
     
-    setFullContentHtml(newContent)
     setCurrentPage(1) // Reset to first page on document change
 
-    // **Phase 1: Use coordinator for version restore content updates**
+    // **Phase 1: Use coordinator for ALL version restore content updates**
     if (contentCoordinatorRef.current) {
       const newPageContent = newContent.substring(0, Math.min(PAGE_SIZE_CHARS, newContent.length))
       
@@ -736,7 +738,14 @@ export function DocumentEditor({
       contentCoordinatorRef.current.updateContent(
         'version',
         newPageContent,
-        'version-restore'
+        'version-restore',
+        {
+          fullContent: newContent,
+          onStateUpdate: (content: string) => {
+            // Coordinator manages React state updates
+            setFullContentHtml(content);
+          }
+        }
       ).then(() => {
         console.log('[DocumentEditor] Phase 1: Version restore completed successfully')
       }).catch(error => {

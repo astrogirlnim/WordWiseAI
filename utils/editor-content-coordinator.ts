@@ -224,13 +224,20 @@ export class EditorContentCoordinator {
       const shouldEmitUpdate = update.type === 'user';
       this.editor.commands.setContent(update.content, shouldEmitUpdate);
 
+      // Handle React state updates through coordinator
+      if (update.metadata?.onStateUpdate && typeof update.metadata.onStateUpdate === 'function') {
+        const fullContent = update.metadata.fullContent as string || update.content;
+        update.metadata.onStateUpdate(fullContent);
+      }
+
       const duration = performance.now() - startTime;
 
       if (this.options.enableLogging) {
         console.log(`[EditorContentCoordinator] Applied ${update.type} update from ${update.source}`, {
           duration: `${duration.toFixed(2)}ms`,
           contentLength: update.content.length,
-          emitUpdate: shouldEmitUpdate
+          emitUpdate: shouldEmitUpdate,
+          hasStateCallback: !!update.metadata?.onStateUpdate
         });
       }
 
@@ -317,6 +324,17 @@ export class EditorContentCoordinator {
     console.warn('[EditorContentCoordinator] Force processing queue - this may cause conflicts');
     this.isUserTyping = false;
     await this.processQueuedUpdates();
+  }
+
+  /**
+   * Debug helper: Expose coordinator to browser console for testing
+   */
+  enableBrowserDebugging(): void {
+    if (typeof window !== 'undefined') {
+      // @ts-expect-error - Intentionally adding to window for debugging
+      window.editorContentCoordinator = this;
+      console.log('[EditorContentCoordinator] Debug mode enabled. Use window.editorContentCoordinator to inspect state');
+    }
   }
 
   /**

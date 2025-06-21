@@ -4,7 +4,7 @@ import type { GrammarError } from '@/types/grammar';
 import { TextChunker, type TextChunk } from '@/utils/text-chunker';
 import { debounce } from 'lodash';
 
-const DEBOUNCE_DELAY = 500; // ms
+const DEBOUNCE_DELAY = 2000; // ms - CRITICAL FIX: Increase to 2 seconds to prevent excessive API calls
 const MIN_TEXT_LENGTH = 10;
 const THROTTLE_INTERVAL = 2000; // 30 req/min -> 1 req every 2s
 const MAX_CONCURRENT_CHUNKS = 2; // Lowered for backend safety
