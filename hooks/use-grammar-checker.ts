@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AIService } from '@/services/ai-service';
 import type { GrammarError } from '@/types/grammar';
 import { TextChunker, type TextChunk } from '@/utils/text-chunker';
@@ -248,7 +248,7 @@ export function useGrammarChecker(
    * Main grammar checking function with pagination-scoped processing
    * Phase 6.1: Only processes visible page text, no background processing
    */
-  const checkGrammar = useCallback(debounce(async (currentText: string) => {
+  const checkGrammar = useMemo(() => debounce(async (currentText: string) => {
     console.log(`[useGrammarChecker] Starting grammar check for text length: ${currentText.length}`);
     
     // Phase 6.1: Extract only visible page text

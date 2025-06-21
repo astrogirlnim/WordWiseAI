@@ -183,7 +183,17 @@ export function DocumentSharingDialog({
         })
       }
     }
-  }, [isOpen, document, isUserAuthorized, authLoading, loadSharingInfo, onOpenChange, toast, user, isOwner])
+  }, [
+    isOpen, 
+    document, 
+    isUserAuthorized, 
+    authLoading, 
+    loadSharingInfo, 
+    onOpenChange, 
+    toast, 
+    user, 
+    isOwner
+  ])
 
   const handleGenerateLink = async () => {
     if (!document || !isUserAuthorized()) {

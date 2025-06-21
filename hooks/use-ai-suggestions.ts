@@ -323,14 +323,14 @@ export function useAISuggestions({
     }))
   
   // Wrapper functions to match expected signatures
-  const applySuggestionWrapper = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
+  const applySuggestionWrapper = useCallback(async (suggestionId: string, _type: 'style' | 'funnel') => {
     const suggestion = suggestions.find(s => s.id === suggestionId)
     if (suggestion) {
       await applySuggestion(suggestion)
     }
   }, [suggestions, applySuggestion])
 
-  const dismissSuggestionWrapper = useCallback(async (suggestionId: string, type: 'style' | 'funnel') => {
+  const dismissSuggestionWrapper = useCallback(async (suggestionId: string, _type: 'style' | 'funnel') => {
     const suggestion = suggestions.find(s => s.id === suggestionId)
     if (suggestion) {
       // Pass the type so SuggestionService can use the correct collection

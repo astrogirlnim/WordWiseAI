@@ -88,6 +88,8 @@ export function DocumentContainer() {
 
   // Check for document ID in URL query params (for shared links)
   useEffect(() => {
+    let isMounted = true
+    
     const urlParams = new URLSearchParams(window.location.search)
     const documentIdParam = urlParams.get('documentId')
     const refreshParam = urlParams.get('refresh')
@@ -96,13 +98,17 @@ export function DocumentContainer() {
       const targetDocument = documents.find(doc => doc.id === documentIdParam)
       if (targetDocument) {
         console.log('[DocumentContainer] Loading document from URL:', documentIdParam)
-        setActiveDocumentId(documentIdParam)
-        // Clear the URL parameters
-        window.history.replaceState({}, '', window.location.pathname)
+        if (isMounted) {
+          setActiveDocumentId(documentIdParam)
+          // Clear the URL parameters
+          window.history.replaceState({}, '', window.location.pathname)
+        }
       } else if (refreshParam) {
         // If document not found but refresh param present, force reload documents
         console.log('[DocumentContainer] Document not found, forcing reload for shared document:', documentIdParam)
         reloadDocuments().then(() => {
+          if (!isMounted) return
+          
           // After reload, try to find the document again
           const reloadedDocument = documents.find(doc => doc.id === documentIdParam)
           if (reloadedDocument) {
@@ -113,8 +119,16 @@ export function DocumentContainer() {
           }
           // Clear URL parameters
           window.history.replaceState({}, '', window.location.pathname)
+        }).catch(error => {
+          if (isMounted) {
+            console.error('[DocumentContainer] Error reloading documents:', error)
+          }
         })
       }
+    }
+    
+    return () => {
+      isMounted = false
     }
   }, [documents, reloadDocuments])
 
@@ -220,7 +234,7 @@ export function DocumentContainer() {
       }
 
       const currentDocument = documents.find(d => d.id === activeDocumentId)
-             const versionToView = versions.find((v: any) => v.id === versionId)
+             const versionToView = versions.find((v) => v.id === versionId)
       
       if (!currentDocument || !versionToView) {
         console.error('[handleViewVersion] Document or version not found')
