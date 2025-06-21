@@ -86,70 +86,87 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
 
 /**
  * Initialize Harper.js WASM module
- * FIXED: Using correct LocalLinter initialization per Harper.js documentation
+ * UPGRADED: Using WorkerLinter for non-blocking web performance
  */
 async function initializeHarper(): Promise<void> {
-  console.log('[HarperWrapper] FIXED: initializeHarper called');
+  console.log('[HarperWrapper] WORKER_UPGRADE: initializeHarper called');
   
   // Ensure this only runs in the browser
   if (typeof window === 'undefined') {
-    console.warn('[HarperWrapper] FIXED: Attempted to initialize on the server. Skipping.');
+    console.warn('[HarperWrapper] WORKER_UPGRADE: Attempted to initialize on the server. Skipping.');
     return;
   }
   
-  console.log('[HarperWrapper] FIXED: Browser environment confirmed');
+  console.log('[HarperWrapper] WORKER_UPGRADE: Browser environment confirmed');
   
   if (isInitialized) {
-    console.log('[HarperWrapper] FIXED: Already initialized, skipping');
+    console.log('[HarperWrapper] WORKER_UPGRADE: Already initialized, skipping');
     return;
   }
   
   if (initializationPromise) {
-    console.log('[HarperWrapper] FIXED: Initialization already in progress, waiting...');
+    console.log('[HarperWrapper] WORKER_UPGRADE: Initialization already in progress, waiting...');
     return initializationPromise;
   }
 
-  console.log('[HarperWrapper] FIXED: Initializing Harper.js WASM module...');
+  console.log('[HarperWrapper] WORKER_UPGRADE: Initializing Harper.js WorkerLinter...');
 
   initializationPromise = (async () => {
     try {
-      console.log('[HarperWrapper] FIXED: Starting dynamic import of harper.js...');
+      console.log('[HarperWrapper] WORKER_UPGRADE: Starting dynamic import of harper.js...');
       
       // Dynamic import to handle WASM loading in Next.js environment
       const harperModuleImport = await import('harper.js');
-      console.log('[HarperWrapper] FIXED: Harper.js module imported:', Object.keys(harperModuleImport));
+      console.log('[HarperWrapper] WORKER_UPGRADE: Harper.js module imported:', Object.keys(harperModuleImport));
       
-      const { binary, LocalLinter, Dialect } = harperModuleImport;
+      const { binary, WorkerLinter, Dialect } = harperModuleImport;
       
-      console.log('[HarperWrapper] FIXED: Harper.js module loaded successfully');
-      console.log('[HarperWrapper] FIXED: Available exports:', { 
-        hasBinary: !!binary, 
-        hasLocalLinter: !!LocalLinter, 
+      console.log('[HarperWrapper] WORKER_UPGRADE: Harper.js module loaded successfully');
+      console.log('[HarperWrapper] WORKER_UPGRADE: Available exports:', { 
+        hasBinary: !!binary,
+        hasWorkerLinter: !!WorkerLinter, 
         hasDialect: !!Dialect 
       });
       
-      console.log('[HarperWrapper] FIXED: Creating LocalLinter with American dialect (correct API)...');
+      console.log('[HarperWrapper] WORKER_UPGRADE: Creating WorkerLinter (non-blocking)...');
       
-      // FIXED: Use LocalLinter constructor per Harper.js documentation
-      harperLinter = new LocalLinter({
+      // UPGRADE: Use WorkerLinter for better web performance with binary
+      harperLinter = new WorkerLinter({
         binary: binary,
         dialect: Dialect.American,
       });
       
-      console.log('[HarperWrapper] FIXED: Harper.js LocalLinter created successfully');
-      console.log('[HarperWrapper] FIXED: Linter type:', typeof harperLinter);
-      console.log('[HarperWrapper] FIXED: Linter methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(harperLinter)));
+      // Configure Harper.js with optimized settings for our use case
+      console.log('[HarperWrapper] WORKER_UPGRADE: Configuring Harper.js lint rules...');
+      await harperLinter.setLintConfig({
+        // Enable core grammar checking
+        SpellCheck: true,
+        ExplanationMarks: true,
+        // Disable verbose rules that might be too aggressive for writing flow
+        SentenceLength: false,
+        // Keep important rules for professional writing
+        Repetition: true,
+        Redundancy: true,
+        WordChoice: true,
+        Clarity: true,
+        Grammar: true,
+        Punctuation: true,
+        Capitalization: true,
+      });
+      
+      console.log('[HarperWrapper] WORKER_UPGRADE: Harper.js WorkerLinter created and configured successfully');
+      console.log('[HarperWrapper] WORKER_UPGRADE: Linter type:', typeof harperLinter);
       
       // Store the module reference
-      harperModule = { binary, LocalLinter, Dialect };
+      harperModule = { binary, WorkerLinter, Dialect };
       isInitialized = true;
       
-      console.log('[HarperWrapper] FIXED: ✅ Harper.js initialization complete');
-      console.log('[HarperWrapper] FIXED: Final state - isInitialized:', isInitialized, 'hasLinter:', !!harperLinter);
+      console.log('[HarperWrapper] WORKER_UPGRADE: ✅ Harper.js WorkerLinter initialization complete');
+      console.log('[HarperWrapper] WORKER_UPGRADE: Final state - isInitialized:', isInitialized, 'hasLinter:', !!harperLinter);
       
     } catch (error) {
-      console.error('[HarperWrapper] FIXED: ❌ Failed to initialize Harper.js:', error);
-      console.error('[HarperWrapper] FIXED: Error details:', {
+      console.error('[HarperWrapper] WORKER_UPGRADE: ❌ Failed to initialize Harper.js:', error);
+      console.error('[HarperWrapper] WORKER_UPGRADE: Error details:', {
         name: error instanceof Error ? error.name : 'Unknown',
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : 'No stack trace'
@@ -249,38 +266,38 @@ export async function checkGrammarWithHarper(
 ): Promise<GrammarError[]> {
   const { language = 'plaintext', minTextLength = 10 } = options;
   
-  console.log(`[HarperWrapper] FIXED: Starting grammar check - Text length: ${text.length}, Language: ${language}`);
-  console.log(`[HarperWrapper] FIXED: Text content (first 200 chars):`, text.substring(0, 200));
+  console.log(`[HarperWrapper] WORKER_UPGRADE: Starting grammar check - Text length: ${text.length}, Language: ${language}`);
+  console.log(`[HarperWrapper] WORKER_UPGRADE: Text content (first 200 chars):`, text.substring(0, 200));
   
   // Skip very short text
-  if (text.length < minTextLength) {
-    console.log(`[HarperWrapper] FIXED: Text too short (${text.length} < ${minTextLength}), skipping check.`);
-    return [];
-  }
-
-  try {
-    // Ensure Harper.js is initialized
-    await initializeHarper();
-    
-    if (!harperLinter) {
-      console.error('[HarperWrapper] FIXED: Harper linter not available after initialization attempt.');
+      if (text.length < minTextLength) {
+      console.log(`[HarperWrapper] WORKER_UPGRADE: Text too short (${text.length} < ${minTextLength}), skipping check.`);
       return [];
     }
 
-    console.log('[HarperWrapper] FIXED: Running Harper.js lint on text...');
-    const startTime = performance.now();
-    
-    // FIXED: Run Harper.js linting with correct API (no options parameter)
-    const lints = await harperLinter.lint(text);
-    console.log(`[HarperWrapper] FIXED: Harper.js lint returned ${lints.length} lints.`);
-    
-    // Log detailed information about each lint for debugging
-    lints.forEach((lint: any, index: number) => {
-      const span = lint.span();
-      console.log(`[HarperWrapper] FIXED: Lint ${index}: kind="${lint.lint_kind()}", span=${span.start}-${span.end}, message="${lint.message()}", suggestions=${lint.suggestion_count()}`);
-    });
-    
-    console.log(`[HarperWrapper] FIXED: ✅ Harper.js found ${lints.length} errors`);
+    try {
+      // Ensure Harper.js is initialized
+      await initializeHarper();
+      
+      if (!harperLinter) {
+        console.error('[HarperWrapper] WORKER_UPGRADE: Harper linter not available after initialization attempt.');
+        return [];
+      }
+
+      console.log('[HarperWrapper] WORKER_UPGRADE: Running Harper.js WorkerLinter on text...');
+      const startTime = performance.now();
+      
+      // WORKER_UPGRADE: Run Harper.js linting with WorkerLinter (non-blocking)
+      const lints = await harperLinter.lint(text);
+      console.log(`[HarperWrapper] WORKER_UPGRADE: Harper.js WorkerLinter returned ${lints.length} lints.`);
+      
+      // Log detailed information about each lint for debugging
+      lints.forEach((lint: any, index: number) => {
+        const span = lint.span();
+        console.log(`[HarperWrapper] WORKER_UPGRADE: Lint ${index}: kind="${lint.lint_kind()}", span=${span.start}-${span.end}, message="${lint.message()}", suggestions=${lint.suggestion_count()}`);
+      });
+      
+      console.log(`[HarperWrapper] WORKER_UPGRADE: ✅ Harper.js WorkerLinter found ${lints.length} errors`);
     
     // FIXED: Convert Harper.js lints to our GrammarError format with original text for extraction
     const errors = lints.map((lint: any, index: number) => convertHarperLintToGrammarError(lint, index, text));
@@ -300,8 +317,8 @@ export async function checkGrammarWithHarper(
     }
     
     const endTime = performance.now();
-    console.log(`[HarperWrapper] FIXED: ✅ Grammar check completed in ${(endTime - startTime).toFixed(2)}ms`);
-    console.log(`[HarperWrapper] FIXED: Final errors returned:`, errors.map((e: GrammarError) => ({ 
+    console.log(`[HarperWrapper] WORKER_UPGRADE: ✅ Grammar check completed in ${(endTime - startTime).toFixed(2)}ms`);
+    console.log(`[HarperWrapper] WORKER_UPGRADE: Final errors returned:`, errors.map((e: GrammarError) => ({ 
       id: e.id, 
       type: e.type, 
       span: `${e.start}-${e.end}`, 
@@ -313,8 +330,8 @@ export async function checkGrammarWithHarper(
     return errors;
     
   } catch (error) {
-    console.error('[HarperWrapper] FIXED: ❌ Error during Harper.js grammar check:', error);
-    console.error('[HarperWrapper] FIXED: Error stack:', error instanceof Error ? error.stack : 'No stack');
+    console.error('[HarperWrapper] WORKER_UPGRADE: ❌ Error during Harper.js grammar check:', error);
+    console.error('[HarperWrapper] WORKER_UPGRADE: Error stack:', error instanceof Error ? error.stack : 'No stack');
     
     // Return empty array on error to maintain compatibility
     return [];
@@ -392,7 +409,7 @@ export function getHarperStatus(): {
  * Reset Harper.js state (useful for testing or error recovery)
  */
 export function resetHarperState(): void {
-  console.log('[HarperWrapper] FIXED: Resetting Harper.js state.');
+  console.log('[HarperWrapper] WORKER_UPGRADE: Resetting Harper.js WorkerLinter state.');
   harperModule = null;
   harperLinter = null;
   isInitialized = false;
@@ -404,13 +421,13 @@ export function resetHarperState(): void {
  * @returns {Promise<boolean>} - True if initialization was successful, false otherwise
  */
 export async function preWarmHarper(): Promise<boolean> {
-  console.log('[HarperWrapper] FIXED: Pre-warming Harper.js module...');
+  console.log('[HarperWrapper] WORKER_UPGRADE: Pre-warming Harper.js WorkerLinter...');
   try {
     await initializeHarper();
-    console.log('[HarperWrapper] FIXED: ✅ Pre-warming successful.');
+    console.log('[HarperWrapper] WORKER_UPGRADE: ✅ Pre-warming successful.');
     return isInitialized;
   } catch (error) {
-    console.error('[HarperWrapper] FIXED: ❌ Error during pre-warming:', error);
+    console.error('[HarperWrapper] WORKER_UPGRADE: ❌ Error during pre-warming:', error);
     return false;
   }
 }
@@ -547,8 +564,9 @@ export function addGrammarUndoAction(action: Omit<GrammarUndoAction, 'id' | 'tim
 
 /**
  * Undo the last grammar suggestion
+ * CTRL_Z_FIX: Works with both TipTap editor and ProseMirror EditorView
  */
-export function undoLastGrammarSuggestion(editor: any): boolean {
+export function undoLastGrammarSuggestion(editorOrView: any): boolean {
   if (grammarUndoStack.length === 0) {
     console.log('[HarperWrapper] UNDO: No actions to undo');
     return false;
@@ -558,32 +576,72 @@ export function undoLastGrammarSuggestion(editor: any): boolean {
   console.log('[HarperWrapper] UNDO: Undoing action:', lastAction.id);
   
   try {
-    // Get current text at the position to verify it matches what we expect
-    const currentText = editor.state.doc.textBetween(
-      lastAction.startPosition, 
-      lastAction.startPosition + lastAction.replacementText.length
-    );
+    // Determine if we have a TipTap editor or ProseMirror EditorView
+    const isTipTapEditor = editorOrView.chain && typeof editorOrView.chain === 'function';
+    const isEditorView = editorOrView.state && editorOrView.dispatch && !isTipTapEditor;
     
-    if (currentText === lastAction.replacementText) {
-      // Restore the original text
-      editor
-        .chain()
-        .focus()
-        .setTextSelection({ 
-          from: lastAction.startPosition, 
-          to: lastAction.startPosition + lastAction.replacementText.length 
-        })
-        .insertContent(lastAction.originalText)
-        .run();
+    console.log('[HarperWrapper] UNDO: Editor type detection:', { isTipTapEditor, isEditorView });
+    
+    if (isTipTapEditor) {
+      // Handle TipTap editor (has .chain() method)
+      console.log('[HarperWrapper] UNDO: Using TipTap editor API');
+      
+      const currentText = editorOrView.state.doc.textBetween(
+        lastAction.startPosition, 
+        lastAction.startPosition + lastAction.replacementText.length
+      );
+      
+      if (currentText === lastAction.replacementText) {
+        editorOrView
+          .chain()
+          .focus()
+          .setTextSelection({ 
+            from: lastAction.startPosition, 
+            to: lastAction.startPosition + lastAction.replacementText.length 
+          })
+          .insertContent(lastAction.originalText)
+          .run();
+          
+        console.log('[HarperWrapper] UNDO: ✅ Successfully undone grammar suggestion via TipTap');
+        return true;
+      }
+      
+    } else if (isEditorView) {
+      // Handle ProseMirror EditorView (from keyboard handler)
+      console.log('[HarperWrapper] UNDO: Using ProseMirror EditorView API');
+      
+      const { state, dispatch } = editorOrView;
+      const currentText = state.doc.textBetween(
+        lastAction.startPosition, 
+        lastAction.startPosition + lastAction.replacementText.length
+      );
+      
+      if (currentText === lastAction.replacementText) {
+        // Create ProseMirror transaction to replace text
+        const tr = state.tr.replaceWith(
+          lastAction.startPosition,
+          lastAction.startPosition + lastAction.replacementText.length,
+          state.schema.text(lastAction.originalText)
+        );
         
-      console.log('[HarperWrapper] UNDO: ✅ Successfully undone grammar suggestion');
-      return true;
+        // Apply the transaction
+        dispatch(tr);
+        
+        console.log('[HarperWrapper] UNDO: ✅ Successfully undone grammar suggestion via ProseMirror');
+        return true;
+      }
+      
     } else {
-      console.warn('[HarperWrapper] UNDO: ⚠️ Text mismatch, cannot safely undo');
-      console.warn('[HarperWrapper] UNDO: Expected:', lastAction.replacementText);
-      console.warn('[HarperWrapper] UNDO: Found:', currentText);
+      console.error('[HarperWrapper] UNDO: ❌ Unknown editor type, cannot undo');
       return false;
     }
+    
+    // If we reach here, text didn't match
+    console.warn('[HarperWrapper] UNDO: ⚠️ Text mismatch, cannot safely undo');
+    console.warn('[HarperWrapper] UNDO: Expected:', lastAction.replacementText);
+    console.warn('[HarperWrapper] UNDO: Found:', 'text check failed');
+    return false;
+    
   } catch (error) {
     console.error('[HarperWrapper] UNDO: ❌ Error undoing suggestion:', error);
     return false;
