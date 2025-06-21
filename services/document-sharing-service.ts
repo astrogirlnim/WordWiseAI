@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
+  Timestamp,
 } from 'firebase/firestore'
 import { firestore } from '../lib/firebase'
 import { toJSDate } from '../lib/utils'
@@ -179,11 +180,12 @@ export class DocumentSharingService {
         }
       } else {
         // Add user to document's sharedWith array
+        // Note: Cannot use serverTimestamp() inside arrayUnion(), must use Timestamp.now()
         const newAccess: DocumentAccess = {
           userId,
           email: userEmail,
           role: tokenData.role,
-          addedAt: serverTimestamp(),
+          addedAt: Timestamp.now(),
           addedBy: tokenData.createdBy,
         }
         
