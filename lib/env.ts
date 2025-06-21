@@ -1,18 +1,44 @@
+// Environment variable validation with detailed error messages
+function validateEnvVar(name: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(`❌ Missing required environment variable: ${name}`)
+  }
+  return value
+}
+
+// Log environment variable status for debugging
+console.log('🔍 Environment Variables Debug:', {
+  NODE_ENV: process.env.NODE_ENV,
+  hasFirebaseApiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  hasFirebaseProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  hasFirebaseDatabaseUrl: !!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  hasFirebaseAuthDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  hasFirebaseStorageBucket: !!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  hasFirebaseAppId: !!process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  hasFirebaseMessagingSenderId: !!process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  hasFirebaseAdminProjectId: !!process.env.FIREBASE_ADMIN_PROJECT_ID,
+  hasFirebaseAdminClientEmail: !!process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+  hasFirebaseAdminPrivateKey: !!process.env.FIREBASE_ADMIN_PRIVATE_KEY,
+  hasOpenAiApiKey: !!process.env.OPENAI_API_KEY,
+})
+
 export const env = {
   // Firebase Configuration
-  NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  NEXT_PUBLIC_FIREBASE_DATABASE_URL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!,
+  NEXT_PUBLIC_FIREBASE_API_KEY: validateEnvVar('NEXT_PUBLIC_FIREBASE_API_KEY', process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: validateEnvVar('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: validateEnvVar('NEXT_PUBLIC_FIREBASE_PROJECT_ID', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID),
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: validateEnvVar('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: validateEnvVar('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
+  NEXT_PUBLIC_FIREBASE_APP_ID: validateEnvVar('NEXT_PUBLIC_FIREBASE_APP_ID', process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
+  NEXT_PUBLIC_FIREBASE_DATABASE_URL: validateEnvVar('NEXT_PUBLIC_FIREBASE_DATABASE_URL', process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL),
 
   // Firebase Admin (for server-side)
-  FIREBASE_ADMIN_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID!,
-  FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL!,
-  FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY!,
+  FIREBASE_ADMIN_PROJECT_ID: validateEnvVar('FIREBASE_ADMIN_PROJECT_ID', process.env.FIREBASE_ADMIN_PROJECT_ID),
+  FIREBASE_ADMIN_CLIENT_EMAIL: validateEnvVar('FIREBASE_ADMIN_CLIENT_EMAIL', process.env.FIREBASE_ADMIN_CLIENT_EMAIL),
+  FIREBASE_ADMIN_PRIVATE_KEY: validateEnvVar('FIREBASE_ADMIN_PRIVATE_KEY', process.env.FIREBASE_ADMIN_PRIVATE_KEY),
 
   // OpenAI API Key
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
+  OPENAI_API_KEY: validateEnvVar('OPENAI_API_KEY', process.env.OPENAI_API_KEY),
 }
+
+console.log('✅ All environment variables validated successfully')
