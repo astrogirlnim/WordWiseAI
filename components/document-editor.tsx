@@ -47,6 +47,8 @@ interface DocumentEditorProps {
   onSave?: (content: string, title: string) => void
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
+  readOnly?: boolean
+  userPermission: 'owner' | 'editor' | 'commenter' | 'viewer' | null
   onAISuggestionsChange?: (suggestions: AISuggestion[]) => void
 
 }
@@ -57,6 +59,8 @@ export function DocumentEditor({
   onSave,
   onContentChange,
   saveStatus,
+  readOnly = false,
+  userPermission,
   onAISuggestionsChange,
 
 }: DocumentEditorProps) {
@@ -159,6 +163,7 @@ export function DocumentEditor({
   }
 
   const editor = useEditor({
+    editable: !readOnly,
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({

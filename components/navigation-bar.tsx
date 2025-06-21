@@ -3,6 +3,7 @@
 import { UserMenu } from './user-menu'
 import { AISidebarToggle } from './ai-sidebar-toggle'
 import { WritingGoalsButton } from './writing-goals-button'
+import { DocumentSharingButton } from './document-sharing-button'
 
 import type { User } from '@/types/navigation'
 import type { Document } from '@/types/document'
@@ -18,6 +19,8 @@ import Link from 'next/link'
 interface NavigationBarProps {
   user: User
   documents: Document[]
+  ownedDocuments?: Document[]
+  sharedDocuments?: Document[]
   displayMode?: 'editor' | 'settings'
   activeDocumentId?: string
   isAISidebarOpen?: boolean
@@ -37,6 +40,8 @@ interface NavigationBarProps {
 export function NavigationBar({
   user,
   documents,
+  ownedDocuments = [],
+  sharedDocuments = [],
   displayMode = 'editor',
   activeDocumentId,
   isAISidebarOpen = false,
@@ -55,6 +60,14 @@ export function NavigationBar({
   const { logout } = useAuth()
   const router = useRouter()
 
+  console.log('[NavigationBar] Rendered with:', {
+    displayMode,
+    totalDocs: documents.length,
+    ownedDocs: ownedDocuments.length,
+    sharedDocs: sharedDocuments.length,
+    activeDocumentId
+  })
+
   const handleUserAction = (action: string) => {
     onUserAction?.(action)
     console.log(`[NavigationBar] User action: ${action}`)
@@ -69,6 +82,10 @@ export function NavigationBar({
     await logout()
     router.push('/sign-in')
   }
+
+  // Get the active document for sharing
+  const activeDocument = [...ownedDocuments, ...sharedDocuments, ...documents]
+    .find(doc => doc.id === activeDocumentId) || null
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/85">
@@ -99,85 +116,116 @@ export function NavigationBar({
           <div className="hidden h-6 w-px bg-gradient-to-b from-transparent via-border to-transparent lg:block" />
 
           {/* Document Navigation - Hidden on mobile for cleaner layout */}
-          <div className="hidden lg:flex items-center gap-6">
-            <EnhancedDocumentList
-              documents={documents}
-              activeDocumentId={activeDocumentId}
-              onDocumentSelect={onDocumentSelect}
-              onNewDocument={onNewDocument}
-              onDeleteDocument={onDeleteDocument}
-            />
-
-            {displayMode === 'editor' && (
-              <>
-                <div className="h-4 w-px bg-border/50" />
-                <WritingGoalsButton
-                  currentGoals={writingGoals}
-                  onClick={onWritingGoalsClick || (() => {})}
-                />
-              </>
-            )}
-          </div>
+          {displayMode === 'editor' && (
+            <div className="hidden lg:block">
+              <EnhancedDocumentList
+                documents={documents}
+                ownedDocuments={ownedDocuments}
+                sharedDocuments={sharedDocuments}
+                activeDocumentId={activeDocumentId}
+                onDocumentSelect={onDocumentSelect}
+                onNewDocument={onNewDocument}
+                onDeleteDocument={onDeleteDocument}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Action Center - Sophisticated controls layout */}
-        <div className="flex items-center gap-2">
-          {/* Mobile Document List */}
-          <div className="lg:hidden">
-            <EnhancedDocumentList
-              documents={documents}
-              activeDocumentId={activeDocumentId}
-              onDocumentSelect={onDocumentSelect}
-              onNewDocument={onNewDocument}
-              onDeleteDocument={onDeleteDocument}
+        {/* Center Actions - Document specific actions */}
+        {displayMode === 'editor' && activeDocument && (
+          <div className="hidden md:flex items-center gap-3">
+            {/* Document Sharing */}
+            <DocumentSharingButton 
+              document={activeDocument}
+              variant="outline"
+              size="sm"
+              showCollaboratorCount={true}
+            />
+            
+            {/* Writing Goals */}
+                         <WritingGoalsButton
+               onClick={onWritingGoalsClick || (() => {})}
+               currentGoals={writingGoals}
+               className="text-sm"
+             />
+            
+            {/* Version History */}
+            <VersionHistoryButton
+              onClick={onVersionHistoryClick}
+              className="text-sm"
             />
           </div>
+        )}
 
-          {/* Mobile Writing Goals */}
+        {/* Right Section - Controls and User */}
+        <div className="flex items-center gap-3">
+          {/* Editor Controls - Only show in editor mode */}
           {displayMode === 'editor' && (
-            <div className="md:hidden">
-              <WritingGoalsButton
-                currentGoals={writingGoals}
-                onClick={onWritingGoalsClick || (() => {})}
-              />
-            </div>
-          )}
-
-          {/* Editor Tools - Professional spacing and grouping */}
-          {displayMode === 'editor' && (
-            <div className="flex items-center gap-2 ml-2">
-              <div className="h-6 w-px bg-border/30" />
-              
+            <>
+              {/* AI Sidebar Toggle - Premium positioning */}
               <AISidebarToggle
                 isOpen={isAISidebarOpen}
-                onToggle={onAISidebarToggle || (() => {})}
+                onToggle={onAISidebarToggle}
                 suggestionCount={aiSuggestionCount}
-              />
-
-              <ThemeToggle />
-
-              <DistractionFreeToggle
-                isDistractionFree={isDistractionFree}
-                onToggle={onDistractionFreeToggle || (() => {})}
+                className="hidden md:flex"
               />
               
-              <VersionHistoryButton onClick={onVersionHistoryClick || (() => {})} />
-
-              <div className="h-6 w-px bg-border/30 ml-1" />
-            </div>
+              {/* Distraction Free Mode */}
+              <DistractionFreeToggle
+                isDistractionFree={isDistractionFree}
+                onToggle={onDistractionFreeToggle}
+                className="hidden lg:flex"
+              />
+            </>
           )}
 
-          {/* User Menu - Elegant final touch */}
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
+          {/* User Menu - Premium design */}
           <UserMenu
             user={user}
-            onSettingsClick={() => handleUserAction('settings')}
+            onAction={handleUserAction}
             onSignOut={handleSignOut}
           />
         </div>
       </div>
-      
-      {/* Sophisticated bottom accent line */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-retro-primary/30 via-retro-sunset/20 to-transparent" />
+
+      {/* Mobile Document Navigation - Show below main nav on mobile */}
+      {displayMode === 'editor' && (
+        <div className="lg:hidden border-t border-border/40 px-4 py-2 bg-background/80">
+          <div className="flex items-center justify-between">
+            <EnhancedDocumentList
+              documents={documents}
+              ownedDocuments={ownedDocuments}
+              sharedDocuments={sharedDocuments}
+              activeDocumentId={activeDocumentId}
+              onDocumentSelect={onDocumentSelect}
+              onNewDocument={onNewDocument}
+              onDeleteDocument={onDeleteDocument}
+            />
+            
+            {/* Mobile Actions */}
+            <div className="flex items-center gap-2">
+              {activeDocument && (
+                <DocumentSharingButton 
+                  document={activeDocument}
+                  variant="ghost"
+                  size="sm"
+                  showCollaboratorCount={false}
+                />
+              )}
+              
+              <AISidebarToggle
+                isOpen={isAISidebarOpen}
+                onToggle={onAISidebarToggle}
+                suggestionCount={aiSuggestionCount}
+                size="sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

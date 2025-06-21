@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Timestamp } from 'firebase/firestore'
+import { Timestamp, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from '@/lib/auth-context'
 import { DocumentService } from '@/services/document-service'
 import { VersionService } from '@/services/version-service'
@@ -10,40 +10,75 @@ import type { Document } from '@/types/document'
 
 export function useDocuments() {
   const { user } = useAuth()
-  const [documents, setDocuments] = useState<Document[]>([])
+  
+  // Separate owned and shared documents
+  const [ownedDocuments, setOwnedDocuments] = useState<Document[]>([])
+  const [sharedDocuments, setSharedDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Track last saved content for each document to prevent duplicate versions
+
+  // Track content for auto-save functionality
   const lastSavedContentRef = useRef<Record<string, string>>({})
-  // Track pending saves to prevent race conditions
-  const pendingSavesRef = useRef<Set<string>>(new Set())
+
+  console.log('[useDocuments] Hook initialized for user:', user?.uid)
 
   const loadDocuments = useCallback(async () => {
-    if (!user?.uid) return
+    if (!user?.uid) {
+      console.log('[useDocuments] No user available, skipping document load')
+      return
+    }
+
+    console.log('[useDocuments] Loading all documents for user:', user.uid)
+    setLoading(true)
+    setError(null)
 
     try {
-      setLoading(true)
-      const userDocuments = await DocumentService.getUserDocuments(user.uid)
-      setDocuments(userDocuments)
+      const { owned, shared } = await DocumentService.getAllUserDocuments(user.uid)
       
-      // Initialize lastSavedContent tracking
-      userDocuments.forEach((doc) => {
-        lastSavedContentRef.current[doc.id] = doc.content
+      console.log('[useDocuments] Loaded documents:', {
+        owned: owned.length,
+        shared: shared.length
       })
       
-      setError(null)
-      console.log('[useDocuments] Loaded', userDocuments.length, 'documents')
+      setOwnedDocuments(owned)
+      setSharedDocuments(shared)
+      
+      // Initialize content tracking for all documents
+      const allDocs = [...owned, ...shared]
+      const contentTracker: Record<string, string> = {}
+      allDocs.forEach(doc => {
+        contentTracker[doc.id] = doc.content || ''
+      })
+      lastSavedContentRef.current = contentTracker
+      
     } catch (err) {
-      setError('Failed to load documents')
-      console.error('Error loading documents:', err)
+      const errorMessage = 'Failed to load documents'
+      console.error('[useDocuments] Error loading documents:', err)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
   }, [user?.uid])
 
+  // Load documents when user changes
+  useEffect(() => {
+    if (user?.uid) {
+      loadDocuments()
+    } else {
+      // Clear documents when user logs out
+      setOwnedDocuments([])
+      setSharedDocuments([])
+      setLoading(false)
+      lastSavedContentRef.current = {}
+    }
+  }, [user?.uid, loadDocuments])
+
   const createDocument = useCallback(
     async (title: string) => {
-      if (!user?.uid) return null
+      if (!user?.uid) {
+        console.log('[useDocuments] No user available for document creation')
+        return null
+      }
 
       try {
         console.log('[useDocuments] Creating new document:', title)
@@ -70,7 +105,7 @@ export function useDocuments() {
           analysisSummary: {
             overallScore: 0,
             brandAlignmentScore: 0,
-            lastAnalyzedAt: now, // This will be replaced on next load
+            lastAnalyzedAt: now,
             suggestionCount: 0,
           },
           lastSaved: now,
@@ -80,14 +115,11 @@ export function useDocuments() {
           updatedAt: now,
         }
 
-        // Add to local state
-        setDocuments((prev) => [newDoc, ...prev])
+        // Add to owned documents (since user created it)
+                 setOwnedDocuments((prev: Document[]) => [newDoc, ...prev])
 
         // Initialize content tracking for new document
         lastSavedContentRef.current[documentId] = ''
-
-        // No longer reloading all documents here to prevent race conditions
-        // await loadDocuments()
 
         return documentId
       } catch (err) {
@@ -100,119 +132,77 @@ export function useDocuments() {
   )
 
   const updateDocument = useCallback(
-    async (documentId: string, updates: Partial<Document>) => {
-      if (!user?.uid) return
-
-      // Prevent concurrent saves for the same document
-      if (pendingSavesRef.current.has(documentId)) {
-        console.log('[updateDocument] Save already in progress for', documentId, 'skipping...')
-        return
+    async (documentId: string, updates: Partial<Document>): Promise<boolean> => {
+      if (!user?.uid) {
+        console.log('[useDocuments] No user available for document update')
+        return false
       }
 
       try {
-        pendingSavesRef.current.add(documentId)
-        console.log('[updateDocument] Starting document update for', documentId, 'with updates:', Object.keys(updates))
+        console.log('[useDocuments] Updating document:', documentId, 'with updates:', Object.keys(updates))
         
-        // Handle version creation for content updates BEFORE updating the document
-        if (updates.content && user) {
-          console.log('[updateDocument] Content update detected, processing version creation...')
-          
-          const newContent = updates.content.trim()
-          let currentContent = lastSavedContentRef.current[documentId] || ''
-          
-          // Fallback: if we don't have tracked content, get it from current document state
-          if (!currentContent) {
-            const currentDocument = documents.find(doc => doc.id === documentId)
-            if (currentDocument && currentDocument.content) {
-              currentContent = currentDocument.content
-              console.log('[updateDocument] Using current document content as fallback, length:', currentContent.length)
-            }
-          }
-          
-          const currentContentTrimmed = currentContent.trim()
-          
-          console.log('[updateDocument] Content comparison - Current length:', currentContentTrimmed.length, 'New length:', newContent.length)
-          console.log('[updateDocument] Current content preview:', JSON.stringify(currentContentTrimmed.substring(0, 50)))
-          console.log('[updateDocument] New content preview:', JSON.stringify(newContent.substring(0, 50)))
-          
-          // Enhanced version creation logic to handle fresh documents
-          const hasContentChanged = newContent !== currentContentTrimmed
-          const hasPreviousContent = currentContentTrimmed.length > 0
-          const hasNewContent = newContent.length > 0
-          const isFreshDocument = currentContentTrimmed.length === 0 && hasNewContent
-          
-          console.log('[updateDocument] Version creation criteria - Changed:', hasContentChanged, 'Has previous:', hasPreviousContent, 'Has new:', hasNewContent, 'Is fresh:', isFreshDocument)
-          
-          // DEBUG: Log content comparison and versioning criteria
-          console.log('[updateDocument] --- Versioning Debug ---')
-          console.log('[updateDocument] currentContentTrimmed:', JSON.stringify(currentContentTrimmed))
-          console.log('[updateDocument] newContent:', JSON.stringify(newContent))
-          console.log('[updateDocument] hasContentChanged:', hasContentChanged)
-          console.log('[updateDocument] hasPreviousContent:', hasPreviousContent)
-          console.log('[updateDocument] hasNewContent:', hasNewContent)
-          console.log('[updateDocument] isFreshDocument:', isFreshDocument)
-          console.log('[updateDocument] --- End Debug ---')
-          
-          // Create version in two scenarios:
-          // 1. Normal case: content changed and there's previous content to preserve
-          // 2. Fresh document case: create baseline empty version when first content is added
-          if (hasContentChanged && (hasPreviousContent || isFreshDocument) && hasNewContent) {
-            const versionContent = hasPreviousContent ? currentContentTrimmed : '' // For fresh docs, version the empty state
-            const versionDescription = isFreshDocument ? 'Initial empty state (baseline version)' : 'Previous content before update'
-            
-            console.log(`[updateDocument] Creating version: ${versionDescription}`)
-            console.log(`[updateDocument] Version content length: ${versionContent.length}`)
-            
-            try {
-              const versionId = await VersionService.createVersion(documentId, versionContent, {
-                id: user.uid,
-                name: user.displayName || 'Unknown User',
-              })
-              console.log('[updateDocument] Version created successfully with ID:', versionId)
-              console.log(`[updateDocument] Version type: ${isFreshDocument ? 'baseline (empty)' : 'previous content'}`)
-            } catch (versionError) {
-              console.error('[updateDocument] Failed to create version:', versionError)
-              // Don't block the document update if version creation fails
-            }
-          } else if (!hasContentChanged) {
-            console.log('[updateDocument] Content unchanged, skipping version creation')
-          } else if (!hasNewContent) {
-            console.log('[updateDocument] New content is empty, skipping version creation')
-          } else {
-            console.log('[updateDocument] Conditions not met for version creation')
-          }
-        }
-
-        // Now update the document in Firestore
-        console.log('[updateDocument] Updating document in Firestore...')
         await DocumentService.updateDocument(documentId, updates)
-        console.log('[updateDocument] Document updated successfully in Firestore')
 
-        // Update content tracking after successful document update
-        if (updates.content) {
-          console.log('[updateDocument] Updating lastSavedContentRef tracking')
+        // Update local state optimistically
+                 const updateDocumentInState = (docs: Document[]) =>
+           docs.map((doc: Document) =>
+             doc.id === documentId ? { ...doc, ...updates, updatedAt: serverTimestamp() } : doc
+           )
+
+        // Check if it's an owned or shared document and update accordingly
+                 setOwnedDocuments((prev: Document[]) => {
+           const isOwned = prev.some((doc: Document) => doc.id === documentId)
+           return isOwned ? updateDocumentInState(prev) : prev
+         })
+
+                 setSharedDocuments((prev: Document[]) => {
+           const isShared = prev.some((doc: Document) => doc.id === documentId)
+           return isShared ? updateDocumentInState(prev) : prev
+         })
+
+        // Update content tracking if content was updated
+        if (updates.content !== undefined) {
           lastSavedContentRef.current[documentId] = updates.content
-          console.log('[updateDocument] Updated tracking for document', documentId, 'with content length:', updates.content.length)
         }
 
-        // Update local state
-        console.log('[updateDocument] Updating local document state...')
-        setDocuments((prev) =>
-          prev.map((doc) =>
-            doc.id === documentId ? { ...doc, ...updates } : doc,
-          ),
-        )
-        console.log('[updateDocument] Local state updated successfully')
-
+        console.log('[useDocuments] Document updated successfully:', documentId)
+        return true
       } catch (err) {
         setError('Failed to update document')
-        console.error('[updateDocument] Error updating document:', err)
-      } finally {
-        pendingSavesRef.current.delete(documentId)
-        console.log('[updateDocument] Completed update process for document', documentId)
+        console.error('Error updating document:', err)
+        return false
       }
     },
-    [user, documents],
+    [user?.uid],
+  )
+
+  const deleteDocument = useCallback(
+    async (documentId: string): Promise<boolean> => {
+      if (!user?.uid) {
+        console.log('[useDocuments] No user available for document deletion')
+        return false
+      }
+
+      try {
+        console.log('[useDocuments] Deleting document:', documentId)
+        await DocumentService.deleteDocument(documentId)
+
+        // Remove from local state
+                 setOwnedDocuments((prev: Document[]) => prev.filter((doc: Document) => doc.id !== documentId))
+         setSharedDocuments((prev: Document[]) => prev.filter((doc: Document) => doc.id !== documentId))
+
+        // Clean up content tracking
+        delete lastSavedContentRef.current[documentId]
+
+        console.log('[useDocuments] Document deleted successfully:', documentId)
+        return true
+      } catch (err) {
+        setError('Failed to delete document')
+        console.error('Error deleting document:', err)
+        return false
+      }
+    },
+    [user?.uid],
   )
 
   const restoreDocumentVersion = useCallback(
@@ -222,20 +212,15 @@ export function useDocuments() {
         return
       }
 
-      // Prevent concurrent operations on the same document
-      if (pendingSavesRef.current.has(documentId)) {
-        console.log('[restoreDocumentVersion] Document operation already in progress for', documentId, 'skipping restore...')
-        return
-      }
-
       try {
         console.log('[restoreDocumentVersion] Starting version restore process')
         console.log('[restoreDocumentVersion] Document ID:', documentId)
         console.log('[restoreDocumentVersion] Version ID:', versionId)
         console.log('[restoreDocumentVersion] User:', user.uid, user.displayName)
 
-        // Get the current document state for comparison and metadata preservation
-        const currentDocument = documents.find((d) => d.id === documentId)
+        // Get current document for context
+        const allDocs = [...ownedDocuments, ...sharedDocuments]
+        const currentDocument = allDocs.find((d) => d.id === documentId)
         if (!currentDocument) {
           throw new Error(`Current document not found in local state: ${documentId}`)
         }
@@ -243,8 +228,6 @@ export function useDocuments() {
         console.log('[restoreDocumentVersion] Current document state:')
         console.log('[restoreDocumentVersion] - Title:', currentDocument.title)
         console.log('[restoreDocumentVersion] - Content length:', currentDocument.content.length)
-        console.log('[restoreDocumentVersion] - Last saved:', currentDocument.lastSaved)
-        console.log('[restoreDocumentVersion] - Current content preview:', JSON.stringify(currentDocument.content.substring(0, 100)))
 
         // Fetch the version to restore
         console.log('[restoreDocumentVersion] Fetching version to restore from Firestore...')
@@ -255,109 +238,110 @@ export function useDocuments() {
         }
 
         console.log('[restoreDocumentVersion] Version to restore retrieved:')
-        console.log('[restoreDocumentVersion] - Version ID:', versionToRestore.id)
-        console.log('[restoreDocumentVersion] - Author:', versionToRestore.authorName)
         console.log('[restoreDocumentVersion] - Created at:', versionToRestore.createdAt)
         console.log('[restoreDocumentVersion] - Content length:', versionToRestore.content.length)
-        console.log('[restoreDocumentVersion] - Version content preview:', JSON.stringify(versionToRestore.content.substring(0, 100)))
 
-        // Check if the content is actually different from current
-        const currentContentTrimmed = currentDocument.content.trim()
-        const versionContentTrimmed = versionToRestore.content.trim()
-        const hasContentDifference = currentContentTrimmed !== versionContentTrimmed
+                 // Restore the version by updating the document
+         const success = await updateDocument(documentId, {
+           content: versionToRestore.content,
+         })
 
-        console.log('[restoreDocumentVersion] Content comparison:')
-        console.log('[restoreDocumentVersion] - Current content length:', currentContentTrimmed.length)
-        console.log('[restoreDocumentVersion] - Version content length:', versionContentTrimmed.length)
-        console.log('[restoreDocumentVersion] - Content differs:', hasContentDifference)
-
-        if (!hasContentDifference) {
-          console.log('[restoreDocumentVersion] Version content is identical to current content, no restore needed')
-          return
+        if (!success) {
+          throw new Error('Failed to update document with restored content')
         }
 
-        // CRITICAL: Update lastSavedContentRef BEFORE calling updateDocument to prevent unwanted version creation
-        // This ensures that when updateDocument runs, it sees the restored content as the "last saved" content
-        console.log('[restoreDocumentVersion] Updating lastSavedContentRef to prevent version creation during restore...')
-        const previousTrackedContent = lastSavedContentRef.current[documentId]
-        lastSavedContentRef.current[documentId] = versionToRestore.content
-        console.log('[restoreDocumentVersion] - Previous tracked content length:', (previousTrackedContent || '').length)
-        console.log('[restoreDocumentVersion] - New tracked content length:', versionToRestore.content.length)
-
-        // Restore the document content while preserving metadata
-        console.log('[restoreDocumentVersion] Calling updateDocument with restored content...')
-        await updateDocument(documentId, {
-          content: versionToRestore.content,
-          // Preserve current document metadata
-          title: currentDocument.title,
-          status: currentDocument.status,
-          // Update timestamps to reflect the restore operation
-          updatedAt: Timestamp.now(),
-          lastSaved: Timestamp.now(),
-        })
-
-        console.log('[restoreDocumentVersion] Document successfully restored from version', versionId)
-        console.log('[restoreDocumentVersion] Restored content length:', versionToRestore.content.length)
-
-      } catch (err) {
-        console.error('[restoreDocumentVersion] Error during version restore:', err)
-        console.error('[restoreDocumentVersion] - Document ID:', documentId)
-        console.error('[restoreDocumentVersion] - Version ID:', versionId)
-        console.error('[restoreDocumentVersion] - Error details:', err instanceof Error ? err.message : String(err))
-        
-        // Restore the previous lastSavedContentRef state if the restore failed
-        const currentDocument = documents.find((d) => d.id === documentId)
-        if (currentDocument) {
-          lastSavedContentRef.current[documentId] = currentDocument.content
-          console.log('[restoreDocumentVersion] Restored lastSavedContentRef to current document content after error')
-        }
-        
-        setError('Failed to restore document version')
-        throw err // Re-throw for the calling component to handle
+        console.log('[restoreDocumentVersion] Version restore completed successfully')
+      } catch (error) {
+        console.error('[restoreDocumentVersion] Error:', error)
+        throw error
       }
     },
-    [user, documents, updateDocument],
+    [user, ownedDocuments, sharedDocuments, updateDocument],
   )
 
-  const deleteDocument = useCallback(
-    async (documentId: string) => {
-      if (!user?.uid) return
+  // Get all documents combined
+  const allDocuments = [...ownedDocuments, ...sharedDocuments]
 
-      try {
-        console.log('[deleteDocument] Deleting document:', documentId)
-        await DocumentService.deleteDocument(documentId)
-
-        // Log the delete event
-        await AuditService.logEvent(AuditEvent.DOCUMENT_DELETE, user.uid, {
-          documentId,
+  // Check if content has been modified since last save
+  const isContentModified = useCallback(
+    (documentId: string, currentContent: string): boolean => {
+      const lastSavedContent = lastSavedContentRef.current[documentId] || ''
+      const isModified = currentContent !== lastSavedContent
+      
+      if (isModified) {
+        console.log('[useDocuments] Content modified for document:', documentId, {
+          currentLength: currentContent.length,
+          lastSavedLength: lastSavedContent.length,
         })
-        
-        // Clean up tracking
-        delete lastSavedContentRef.current[documentId]
-        pendingSavesRef.current.delete(documentId)
-        
-        setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
-        console.log('[deleteDocument] Document deleted successfully')
-      } catch (err) {
-        setError('Failed to delete document')
-        console.error('Error deleting document:', err)
       }
+      
+      return isModified
     },
-    [user?.uid],
+    [],
   )
 
-  useEffect(() => {
-    loadDocuments()
+  // Get user's permission level for a document
+  const getUserPermission = useCallback(
+    (document: Document): 'owner' | 'editor' | 'commenter' | 'viewer' | null => {
+      if (!user?.uid) return null
+      
+      if (document.ownerId === user.uid) {
+        return 'owner'
+      }
+      
+      const sharedAccess = document.sharedWith.find(access => access.userId === user.uid)
+      return sharedAccess?.role || null
+    },
+    [user?.uid]
+  )
+
+  // Check if user can edit a document
+  const canEdit = useCallback(
+    (document: Document): boolean => {
+      if (!user?.uid) return false
+      return DocumentService.canUserEditDocument(document, user.uid)
+    },
+    [user?.uid]
+  )
+
+  // Check if user can comment on a document
+  const canComment = useCallback(
+    (document: Document): boolean => {
+      if (!user?.uid) return false
+      return DocumentService.canUserCommentOnDocument(document, user.uid)
+    },
+    [user?.uid]
+  )
+
+  // Reload documents (useful after sharing changes)
+  const reloadDocuments = useCallback(() => {
+    console.log('[useDocuments] Manually reloading documents')
+    return loadDocuments()
   }, [loadDocuments])
 
   return {
-    documents,
+    // Document lists
+    documents: allDocuments, // Combined for backward compatibility
+    ownedDocuments,
+    sharedDocuments,
+    
+    // State
     loading,
     error,
+    
+    // Actions
     createDocument,
     updateDocument,
     deleteDocument,
     restoreDocumentVersion,
-    refreshDocuments: loadDocuments,
+    reloadDocuments,
+    
+    // Content tracking
+    isContentModified,
+    
+    // Permission helpers
+    getUserPermission,
+    canEdit,
+    canComment,
   }
 }

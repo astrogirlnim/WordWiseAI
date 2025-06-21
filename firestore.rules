@@ -8,27 +8,71 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Example for a 'documents' collection where documents have an 'ownerId'.
+    // Helper function to check if user has access to document
+    function hasDocumentAccess(resource, requiredRole) {
+      let isOwner = request.auth != null && resource.data.ownerId == request.auth.uid;
+      let sharedAccess = request.auth != null && resource.data.sharedWith != null && 
+        resource.data.sharedWith.hasAny([request.auth.uid]) &&
+        getSharedRole(resource.data.sharedWith, request.auth.uid) in getRoleHierarchy(requiredRole);
+      return isOwner || sharedAccess;
+    }
+
+    // Helper function to get user's role from sharedWith array
+    function getSharedRole(sharedWith, userId) {
+      let userAccess = sharedWith.where('userId', '==', userId);
+      return userAccess.size() > 0 ? userAccess[0].role : null;
+    }
+
+    // Helper function to define role hierarchy
+    function getRoleHierarchy(minRole) {
+      return minRole == 'viewer' ? ['viewer', 'commenter', 'editor', 'owner'] :
+             minRole == 'commenter' ? ['commenter', 'editor', 'owner'] :
+             minRole == 'editor' ? ['editor', 'owner'] :
+             ['owner'];
+    }
+
+    // Documents collection with sharing support
     match /documents/{documentId} {
-      allow get, read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // Read access: owner or shared user with any role
+      allow get, read: if hasDocumentAccess(resource, 'viewer');
+      
+      // List access: authenticated users can list to find their shared documents
       allow list: if request.auth != null;
+      
+      // Write access: owner or shared user with editor role
+      allow update: if hasDocumentAccess(resource, 'editor');
+      
+      // Create access: only for document owner
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      
+      // Delete access: only document owner
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
 
-      // Allow the document owner to read/write versions sub-collection
+      // Allow the document owner and editors to read/write versions sub-collection
       match /versions/{versionId} {
-        allow read, list: if request.auth != null;
-        allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read, list: if hasDocumentAccess(get(/databases/$(database)/documents/documents/$(documentId)), 'viewer');
+        allow create, update, delete: if hasDocumentAccess(get(/databases/$(database)/documents/documents/$(documentId)), 'editor');
       }
 
-      // Allow the document owner to manage style suggestions
+      // Allow users with commenter role to manage style suggestions
       match /styleSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read, list: if hasDocumentAccess(get(/databases/$(database)/documents/documents/$(documentId)), 'viewer');
+        allow write, create, delete: if hasDocumentAccess(get(/databases/$(database)/documents/documents/$(documentId)), 'commenter');
       }
 
-      // Allow the document owner to manage funnel suggestions
+      // Allow users with commenter role to manage funnel suggestions
       match /funnelSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+        allow read, list: if hasDocumentAccess(get(/databases/$(database)/documents/documents/$(documentId)), 'viewer');
+        allow write, create, delete: if hasDocumentAccess(get(/databases/$(database)/documents/documents/$(documentId)), 'commenter');
       }
+    }
+
+    // Share tokens collection for link-based sharing
+    match /shareTokens/{tokenId} {
+      allow read: if request.auth != null;
+      // Only document owners can create/manage share tokens
+      allow write, create, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/documents/$(resource.data.documentId)).data.ownerId == request.auth.uid;
     }
 
     // Allow authenticated users to write to the audit log

@@ -3,15 +3,18 @@
 import { Button } from '@/components/ui/button'
 import { Target } from 'lucide-react'
 import type { WritingGoals } from '@/types/writing-goals'
+import { cn } from '@/lib/utils'
 
 interface WritingGoalsButtonProps {
   currentGoals: WritingGoals
   onClick: () => void
+  className?: string
 }
 
 export function WritingGoalsButton({
   currentGoals,
   onClick,
+  className,
 }: WritingGoalsButtonProps) {
   const getGoalsSummary = (goals: WritingGoals) => {
     const parts = [
@@ -29,7 +32,7 @@ export function WritingGoalsButton({
       variant="ghost"
       size="sm"
       onClick={onClick}
-      className="flex max-w-[200px] items-center gap-2"
+      className={cn("flex max-w-[200px] items-center gap-2", className)}
     >
       <Target className="h-4 w-4" />
       <div className="flex min-w-0 flex-col items-start">
