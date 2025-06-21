@@ -144,8 +144,8 @@ pnpm start
 The project uses **Firebase Hosting** with automated GitHub Actions deployment:
 
 #### Automatic Deployment
-- **Production**: Push to `main` branch → Deploys to live site
-- **Preview**: Pull requests → Deploy preview versions for testing
+- **Production**: A push to the `main` branch automatically deploys the latest version of the web application to the live site and updates the production **Firestore Rules**.
+- **Preview**: New pull requests automatically deploy a preview version of the web application for testing. This does **not** deploy Firestore rules.
 
 #### Manual Deployment
 ```bash
