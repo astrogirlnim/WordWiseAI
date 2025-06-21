@@ -112,6 +112,18 @@ export function useMarkdownPreview(
     setIsPreviewOpen((prev: boolean) => !prev)
   }, [isPreviewOpen])
 
+  // Phase 2.3: CRITICAL FIX - Initialize markdown detection when preview is first opened
+  useEffect(() => {
+    if (isPreviewOpen && plainTextContent.trim()) {
+      console.log('[useMarkdownPreview] Phase 2.3: Preview opened with existing content, running immediate detection')
+      // Cancel any pending debounced detection and run immediately
+      debouncedDetectMarkdown.cancel();
+      const detected = detectMarkdown(plainTextContent);
+      setIsMarkdownDetected(detected);
+      console.log('[useMarkdownPreview] Phase 2.3: Immediate detection completed, detected:', detected);
+    }
+  }, [isPreviewOpen, plainTextContent, detectMarkdown, debouncedDetectMarkdown])
+
   // Auto-open preview when markdown is detected
   useEffect(() => {
     if (isMarkdownDetected && !isPreviewOpen) {
@@ -124,7 +136,8 @@ export function useMarkdownPreview(
   console.log('[useMarkdownPreview] Hook state:', {
     isPreviewOpen,
     isMarkdownDetected,
-    previewContentLength: plainTextContent.length
+    previewContentLength: plainTextContent.length,
+    hasContent: plainTextContent.trim().length > 0
   })
 
   return {

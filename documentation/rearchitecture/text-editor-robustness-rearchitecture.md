@@ -108,6 +108,10 @@ graph TD
   - [x] Removed typing lock blocking from markdown preview updates ✅
   - [x] Added immediate plain text updates in onUpdate callback ✅
   - [x] Reduced debounce to 100ms for responsive preview ✅
+- [x] **CRITICAL FIX: Preview Initial Content Rendering** ✅
+  - [x] Added plain text initialization when editor has existing content ✅
+  - [x] Added immediate markdown detection when preview is first opened ✅
+  - [x] Preview now renders existing content immediately upon opening ✅
 
 ### Current Implementation Status ✅ PHASE 2 COMPLETE
 ✅ **Grammar Checker Enhanced**: Already had 2s debounce, now respects typing lock from coordinator
@@ -135,6 +139,8 @@ graph TD
 - [x] `components/document-editor.tsx` - **CRITICAL FIX**: Disabled TipTap markdown auto-conversion for plain text editing
 - [x] `components/document-editor.tsx` - **CRITICAL FIX**: Added immediate plain text updates for real-time preview
 - [x] `hooks/use-markdown-preview.ts` - **CRITICAL FIX**: Removed typing lock blocking and reduced debounce to 100ms
+- [x] `components/document-editor.tsx` - **CRITICAL FIX**: Added plain text initialization for existing content
+- [x] `hooks/use-markdown-preview.ts` - **CRITICAL FIX**: Added immediate detection when preview is first opened
 
 ---
 
@@ -501,6 +507,7 @@ This comprehensive testing will verify that Phase 1 has successfully eliminated 
 - **Better performance**: Debounced processing reduces unnecessary work
 - **CRITICAL**: Plain text preservation - all markdown symbols (# * _ ~) preserved as-is in editor
 - **CRITICAL**: Real-time markdown preview - preview updates immediately as user types (100ms responsiveness)
+- **CRITICAL**: Preview initialization - existing content renders immediately when preview is first opened
 
 ### Ready for Phase 3
 The text editor now has robust debouncing and typing lock integration:

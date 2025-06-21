@@ -887,8 +887,18 @@ export function DocumentEditor({
   // Get plain text content from editor for markdown preview
   const [editorPlainText, setEditorPlainText] = useState('')
   
-  // Phase 2.2: Plain text is now updated immediately in onUpdate callback for real-time preview
-  // No useEffect needed as setEditorPlainText(editor.getText()) is called in onUpdate
+  // Phase 2.3: CRITICAL FIX - Initialize plain text when editor is available with existing content
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      const currentPlainText = editor.getText();
+      if (currentPlainText.trim() && !editorPlainText.trim()) {
+        console.log('[DocumentEditor] Phase 2.3: Initializing plain text for preview with existing content, length:', currentPlainText.length);
+        setEditorPlainText(currentPlainText);
+      }
+    }
+  }, [editor, editorPlainText])
+  
+  // Phase 2.2: Plain text is also updated immediately in onUpdate callback for real-time preview
 
   // Phase 2: Initialize markdown preview with coordinator reference
   console.log('[DocumentEditor] Phase 2: Initializing markdown preview with plain text length:', editorPlainText.length)

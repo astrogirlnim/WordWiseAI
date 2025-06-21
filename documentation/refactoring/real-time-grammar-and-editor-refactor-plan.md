@@ -418,6 +418,12 @@ const PlainTextPasteExtension = Extension.create({
    - ✅ **Optimizations Applied**: Removed typing lock blocking, reduced debounce to 100ms
    - ✅ **Result**: Preview now updates in real-time as user types (100ms responsiveness)
 
+7. **CRITICAL BUGFIX: Preview Initial Content Rendering** ✅
+   - ✅ **Root Cause Identified**: Plain text not initialized when editor has existing content
+   - ✅ **Solution Implemented**: Added initialization effect + immediate detection when preview opens
+   - ✅ **Optimizations Applied**: Proper content initialization and immediate markdown detection
+   - ✅ **Result**: Preview renders existing content immediately when first opened
+
 ### Phase 3: Grammar Service Optimization & Harper.js Integration (Week 5-6)
 
 1. **Harper.js Parallel Implementation**
