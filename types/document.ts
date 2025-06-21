@@ -21,6 +21,8 @@ export interface Document {
   status: 'draft' | 'review' | 'final' | 'archived'
   // Access control list
   sharedWith: DocumentAccess[]
+  // Flat list of user IDs for efficient querying (optional for backward compatibility)
+  sharedWithUids?: string[]
   // Sharing settings
   isPublic: boolean
   publicViewMode: 'view' | 'comment' | 'disabled'

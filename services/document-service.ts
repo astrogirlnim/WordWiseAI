@@ -42,6 +42,7 @@ export class DocumentService {
         orgId: '', // Default empty for MVP
         status: 'draft',
         sharedWith: [],
+        sharedWithUids: [],
         isPublic: false,
         publicViewMode: 'view',
         workflowState: {

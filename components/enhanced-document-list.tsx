@@ -72,9 +72,9 @@ export function EnhancedDocumentList({
   })
 
   // Use the separated lists if provided, otherwise fallback to the combined list
-  const ownedDocs = ownedDocuments.length > 0 ? ownedDocuments : documents.filter(doc => doc.ownerId === user?.uid)
+  const ownedDocs = ownedDocuments.length > 0 ? ownedDocuments : documents.filter(doc => doc?.ownerId === user?.uid)
   const sharedDocs = sharedDocuments.length > 0 ? sharedDocuments : documents.filter(doc => 
-    doc.ownerId !== user?.uid && doc.sharedWith.some(access => access.userId === user?.uid)
+    doc?.ownerId !== user?.uid && doc?.sharedWith?.some(access => access.userId === user?.uid)
   )
 
   const getStatusColor = (status: Document["status"]) => {
@@ -100,13 +100,13 @@ export function EnhancedDocumentList({
   }
 
   const getRoleIcon = (document: Document) => {
-    if (!user?.uid) return <FileText className="h-4 w-4" />
+    if (!document || !user?.uid) return <FileText className="h-4 w-4" />
     
     if (document.ownerId === user.uid) {
       return <Crown className="h-4 w-4 text-yellow-500" />
     }
     
-    const sharedAccess = document.sharedWith.find(access => access.userId === user.uid)
+    const sharedAccess = document.sharedWith?.find(access => access.userId === user.uid)
     switch (sharedAccess?.role) {
       case 'editor':
         return <Edit className="h-4 w-4 text-blue-500" />
@@ -120,13 +120,13 @@ export function EnhancedDocumentList({
   }
 
   const getRoleBadge = (document: Document) => {
-    if (!user?.uid) return null
+    if (!document || !user?.uid) return null
     
     if (document.ownerId === user.uid) {
       return <Badge variant="default" className="text-xs">owner</Badge>
     }
     
-    const sharedAccess = document.sharedWith.find(access => access.userId === user.uid)
+    const sharedAccess = document.sharedWith?.find(access => access.userId === user.uid)
     if (sharedAccess) {
       return <Badge variant="secondary" className="text-xs">{sharedAccess.role}</Badge>
     }
@@ -161,7 +161,7 @@ export function EnhancedDocumentList({
   }
 
   const canDeleteDocument = (document: Document) => {
-    return user?.uid && document.ownerId === user.uid
+    return document && user?.uid && document.ownerId === user.uid
   }
 
   if (loading) {
@@ -206,7 +206,7 @@ export function EnhancedDocumentList({
           )}
           
           {/* Show sharing status for owned documents */}
-          {document.ownerId === user?.uid && document.sharedWith.length > 0 && (
+          {document.ownerId === user?.uid && document.sharedWith?.length > 0 && (
             <Badge variant="outline" className="text-xs flex items-center gap-1">
               <Users className="h-3 w-3" />
               {document.sharedWith.length}

@@ -172,6 +172,7 @@ export class DocumentSharingService {
         
         await updateDoc(docRef, {
           sharedWith: arrayUnion(newAccess),
+          sharedWithUids: arrayUnion(userId),
           updatedAt: serverTimestamp(),
         })
         
@@ -205,30 +206,37 @@ export class DocumentSharingService {
   static async getSharedDocuments(userId: string): Promise<Document[]> {
     console.log('[DocumentSharingService] Getting shared documents for user:', userId)
     
-         try {
-       // Note: Firestore doesn't support complex array queries well for sharedWith array,
-       // so we'll get all documents and filter client-side. For better performance, 
-       // consider restructuring the data model to have a separate collection for 
-       // user-document relationships.
-       
-       // Get all documents and filter client-side
-       const allDocsQuery = query(collection(firestore, 'documents'))
-      const querySnapshot = await getDocs(allDocsQuery)
+    try {
+      // First try the efficient query using sharedWithUids
+      const q = query(
+        collection(firestore, 'documents'),
+        where('sharedWithUids', 'array-contains', userId)
+      );
       
-      const sharedDocs: Document[] = []
+      const querySnapshot = await getDocs(q);
       
-      querySnapshot.docs.forEach((docSnap) => {
-        const docData = { id: docSnap.id, ...docSnap.data() } as Document
+      let sharedDocs = querySnapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Document)
+      );
+
+      // If no results from the efficient query, fall back to client-side filtering
+      // This handles the case where documents don't have sharedWithUids field yet
+      if (sharedDocs.length === 0) {
+        console.log('[DocumentSharingService] No results from sharedWithUids query, falling back to client-side filtering')
         
-        // Check if user is in sharedWith array and not the owner
-        const hasAccess = docData.sharedWith?.some(access => access.userId === userId)
-        const isOwner = docData.ownerId === userId
+        const allDocsQuery = query(collection(firestore, 'documents'))
+        const allDocsSnapshot = await getDocs(allDocsQuery)
         
-        if (hasAccess && !isOwner) {
-          sharedDocs.push(docData)
-        }
-      })
-      
+        sharedDocs = allDocsSnapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() } as Document))
+          .filter((docData) => {
+            // Check if user is in sharedWith array and not the owner
+            const hasAccess = docData.sharedWith?.some(access => access.userId === userId)
+            const isOwner = docData.ownerId === userId
+            return hasAccess && !isOwner
+          })
+      }
+
       // Sort by updatedAt descending
       sharedDocs.sort((a, b) => {
         const timeA = toJSDate(a.updatedAt)?.getTime() ?? 0
@@ -306,7 +314,7 @@ export class DocumentSharingService {
     userId: string,
     ownerId: string
   ): Promise<void> {
-    console.log('[DocumentSharingService] Removing user access:', { documentId, userId, ownerId })
+    console.log('[DocumentSharingService] Removing user access:', { documentId, userId })
     
     try {
       const docRef = doc(firestore, 'documents', documentId)
@@ -317,23 +325,29 @@ export class DocumentSharingService {
       }
       
       const document = docSnap.data() as Document
+      
+      // Only the document owner can remove access
       if (document.ownerId !== ownerId) {
-        throw new Error('Access denied')
+        throw new Error('Access denied: You do not own this document')
       }
       
-      const userAccess: DocumentAccess | undefined = document.sharedWith.find(access => access.userId === userId)
-      if (userAccess) {
-        await updateDoc(docRef, {
-          sharedWith: arrayRemove(userAccess),
-          updatedAt: serverTimestamp(),
-        })
-        console.log('[DocumentSharingService] User access removed successfully')
-      } else {
+      const accessToRemove = document.sharedWith.find(access => access.userId === userId)
+      
+      if (!accessToRemove) {
         console.warn('[DocumentSharingService] User to remove was not found in sharedWith list')
+        return
       }
+      
+      await updateDoc(docRef, {
+        sharedWith: arrayRemove(accessToRemove),
+        sharedWithUids: arrayRemove(userId),
+        updatedAt: serverTimestamp(),
+      })
+      
+      console.log('[DocumentSharingService] User access removed successfully')
     } catch (error) {
       console.error('[DocumentSharingService] Error removing user access:', error)
-      throw error
+      throw new Error('Failed to remove user access')
     }
   }
   
