@@ -219,13 +219,13 @@ export class DocumentSharingService {
         userEmail,
         errorType: error?.constructor?.name,
         errorMessage: error instanceof Error ? error.message : String(error),
-        errorCode: (error as any)?.code,
+        errorCode: (error as { code?: string })?.code,
         errorStack: error instanceof Error ? error.stack : undefined
       })
       
       // Handle Firebase errors specifically
       if (error && typeof error === 'object' && 'code' in error) {
-        const firebaseError = error as any
+        const firebaseError = error as { code?: string; message?: string }
         if (firebaseError.code === 'permission-denied') {
           throw new Error('You do not have permission to access this document. Please check that you are signed in with the correct account.')
         } else if (firebaseError.code === 'not-found') {

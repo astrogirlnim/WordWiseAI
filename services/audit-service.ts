@@ -14,7 +14,7 @@ export enum AuditEvent {
 }
 
 export class AuditService {
-  static async logEvent(event: AuditEvent, userId: string, details: Record<string, any>) {
+  static async logEvent(event: AuditEvent, userId: string, details: Record<string, unknown>) {
     try {
       await addDoc(collection(db, 'auditLogs'), {
         event,

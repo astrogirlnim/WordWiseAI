@@ -157,7 +157,7 @@ const config: Config = {
   plugins: [
     require('tailwindcss-animate'),
     // Enhanced plugin for organic retrowave utilities
-    function({ addUtilities }: { addUtilities: any }) {
+    function({ addUtilities }: { addUtilities: (utilities: Record<string, any>) => void }) {
       const newUtilities = {
         '.text-glow': {
           textShadow: '0 0 15px currentColor, 0 0 30px currentColor',

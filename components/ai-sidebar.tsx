@@ -233,7 +233,7 @@ export function AISidebar({
                                   size="sm"
                                   variant="outline"
                                   className="h-6 text-xs flex-1"
-                                  onClick={() => applySuggestion(suggestion.id, 'funnel')}
+                                  onClick={() => applySuggestion(suggestion.id)}
                                 >
                                   Apply
                                 </Button>
@@ -241,7 +241,7 @@ export function AISidebar({
                                   size="sm"
                                   variant="ghost"
                                   className="h-6 text-xs"
-                                  onClick={() => dismissSuggestion(suggestion.id, 'funnel')}
+                                  onClick={() => dismissSuggestion(suggestion.id)}
                                 >
                                   Dismiss
                                 </Button>

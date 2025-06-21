@@ -110,7 +110,7 @@ export function useGrammarChecker(
 
       console.log(`[useGrammarChecker] Chunk ${chunk.chunkIndex + 1} completed with ${mappedErrors.length} errors for session ${sessionId}`);
       return mappedErrors;
-    } catch (error: any) {
+    } catch (error) {
       console.error(`[useGrammarChecker] Error processing chunk ${chunk.chunkIndex + 1} for session ${sessionId}:`, error);
       return [];
     }
@@ -345,7 +345,7 @@ export function useGrammarChecker(
           console.log(`[useGrammarChecker] Chunked processing completed but session ${sessionId} was cancelled, discarding results`);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(`[useGrammarChecker] Failed to check grammar for session ${sessionId}:`, error);
       setChunkProgress(prev => ({
         ...prev,
@@ -481,7 +481,7 @@ export function useGrammarChecker(
           console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed but session ${sessionId} was cancelled, discarding results`);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(`[useGrammarChecker] Phase 6.1: Failed to check full document for session ${sessionId}:`, error);
       setChunkProgress(prev => ({
         ...prev,

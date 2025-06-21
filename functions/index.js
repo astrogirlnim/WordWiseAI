@@ -226,7 +226,7 @@ exports.pruneOldVersions = onSchedule(
       schedule: "every day 00:00",
       secrets: ["OPENAI_API_KEY"],
     },
-    async (event) => {
+    async (_event) => {
       logger.log("pruneOldVersions scheduled function triggered");
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -794,7 +794,7 @@ ${currentDraft && currentDraft.trim() ? `\nCurrent Draft Context (use this to in
 
     // Enhance suggestions with consistent metadata and unique IDs
     const timestamp = Date.now();
-    const enhancedSuggestions = suggestions.map((suggestion, index) => ({
+    const enhancedSuggestions = suggestions.map((suggestion) => ({
       ...suggestion,
       id: `funnel_${documentId}_${timestamp}_${suggestion.type}`, // Use type in ID for uniqueness
       documentId,

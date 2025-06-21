@@ -424,10 +424,9 @@ export function DocumentEditor({
           editor.commands.setContent(newPageContent, false);
         }
         
-        // Apply suggestion in Firestore with correct type
-        const applyType = isFunnelSuggestion ? 'funnel' : 'style';
-        console.log('[DocumentEditor] Applying suggestion to Firestore with type:', applyType);
-        await applySuggestion(suggestion.id, applyType);
+        // Apply suggestion in Firestore
+        console.log('[DocumentEditor] Applying suggestion to Firestore');
+        await applySuggestion(suggestion.id);
         
         // Trigger grammar check and save
         const div = document.createElement('div');
@@ -456,8 +455,7 @@ export function DocumentEditor({
         console.warn('[DocumentEditor] No text replacement occurred');
         
         // Still try to apply in Firestore to mark as applied
-        const applyType = isFunnelSuggestion ? 'funnel' : 'style';
-        await applySuggestion(suggestion.id, applyType);
+        await applySuggestion(suggestion.id);
         
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('AI_SUGGESTION_WARNING', { 

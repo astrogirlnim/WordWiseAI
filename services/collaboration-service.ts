@@ -107,7 +107,7 @@ export class CollaborationService {
    * @param callback - Callback to receive presence updates
    * @returns Unsubscribe function
    */
-  static subscribeToPresence(docId: string, callback: (presence: Record<string, any>) => void): () => void {
+  static subscribeToPresence(docId: string, callback: (presence: Record<string, unknown>) => void): () => void {
     console.log('[CollaborationService] Subscribing to presence for document:', docId);
     
     const presenceRef = ref(db, `/documents/${docId}/presence`);

@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/auth-context'
 import { SuggestionService } from '@/services/suggestion-service'
 import { AIService } from '@/services/ai-service'
 import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
+import type { WritingGoals } from '@/types/writing-goals'
 import { useToast } from './use-toast'
 
 interface UseAISuggestionsOptions {
@@ -20,12 +21,12 @@ interface UseAISuggestionsReturn {
   loadingFunnelSuggestions: boolean
   generatingFunnelSuggestions: boolean
   error: string | null
-  applySuggestion: (suggestionId: string, type: 'style' | 'funnel') => void
-  dismissSuggestion: (suggestionId: string, type: 'style' | 'funnel') => void
+  applySuggestion: (suggestionId: string) => void
+  dismissSuggestion: (suggestionId: string) => void
   batchDismissSuggestions: (suggestionIds: string[]) => Promise<void>
   reloadSuggestions: () => void
   refreshSuggestions: () => void
-  generateFunnelSuggestions: (goals: any, content: string) => Promise<void>
+  generateFunnelSuggestions: (goals: WritingGoals, content: string) => Promise<void>
   suggestionCount: number
 }
 
@@ -268,7 +269,7 @@ export function useAISuggestions({
   /**
    * Generate funnel suggestions based on writing goals
    */
-  const generateFunnelSuggestions = useCallback(async (goals: any, content: string) => {
+  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string) => {
     if (!documentId || !user?.uid) {
       console.error('[useAISuggestions] Cannot generate funnel suggestions - missing documentId or userId')
       toast({
@@ -323,14 +324,14 @@ export function useAISuggestions({
     }))
   
   // Wrapper functions to match expected signatures
-  const applySuggestionWrapper = useCallback(async (suggestionId: string, _type: 'style' | 'funnel') => {
+  const applySuggestionWrapper = useCallback(async (suggestionId: string) => {
     const suggestion = suggestions.find(s => s.id === suggestionId)
     if (suggestion) {
       await applySuggestion(suggestion)
     }
   }, [suggestions, applySuggestion])
 
-  const dismissSuggestionWrapper = useCallback(async (suggestionId: string, _type: 'style' | 'funnel') => {
+  const dismissSuggestionWrapper = useCallback(async (suggestionId: string) => {
     const suggestion = suggestions.find(s => s.id === suggestionId)
     if (suggestion) {
       // Pass the type so SuggestionService can use the correct collection
