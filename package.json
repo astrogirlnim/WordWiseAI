@@ -97,7 +97,7 @@
     "prosemirror-transform": "^1.10.4",
     "prosemirror-view": "^1.40.0",
     "react": "^19",
-    "react-day-picker": "8.10.1",
+    "react-day-picker": "9.7.0",
     "react-dom": "^19",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.54.1",
