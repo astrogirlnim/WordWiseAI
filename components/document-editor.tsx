@@ -48,7 +48,6 @@ interface DocumentEditorProps {
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
   readOnly?: boolean
-  userPermission: 'owner' | 'editor' | 'commenter' | 'viewer' | null
   onAISuggestionsChange?: (suggestions: AISuggestion[]) => void
 
 }
@@ -60,7 +59,6 @@ export function DocumentEditor({
   onContentChange,
   saveStatus,
   readOnly = false,
-  userPermission,
   onAISuggestionsChange,
 
 }: DocumentEditorProps) {

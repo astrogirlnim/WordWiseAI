@@ -5,7 +5,7 @@ import { Timestamp, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from '@/lib/auth-context'
 import { DocumentService } from '@/services/document-service'
 import { VersionService } from '@/services/version-service'
-import { AuditService, AuditEvent } from '@/services/audit-service'
+
 import type { Document } from '@/types/document'
 
 export function useDocuments() {

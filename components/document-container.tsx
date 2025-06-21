@@ -16,8 +16,8 @@ import type { AutoSaveStatus } from '@/types/document'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
-import { useAutoSave } from '@/hooks/use-auto-save'
 import { AuditService, AuditEvent } from '@/services/audit-service'
+
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
   ssr: false,
@@ -40,7 +40,6 @@ export function DocumentContainer() {
     updateDocument,
     deleteDocument,
     restoreDocumentVersion,
-    reloadDocuments,
     
     // Permission helpers
     canEdit,
@@ -492,7 +491,6 @@ export function DocumentContainer() {
               onSave={handleSave}
               saveStatus={saveStatus}
               readOnly={!canUserEdit}
-              userPermission={userPermission}
             />
           ) : (
             <div className="flex h-full items-center justify-center">

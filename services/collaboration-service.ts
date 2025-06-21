@@ -1,11 +1,9 @@
-import { getDatabase, ref, onValue, set, onDisconnect, get } from 'firebase/database';
-import { getAuth } from 'firebase/auth';
+import { getDatabase, ref, onValue, set, onDisconnect } from 'firebase/database';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 import app from '../lib/firebase';
 
 const db = getDatabase(app);
-const auth = getAuth(app);
 
 export class CollaborationService {
   /**

@@ -2,7 +2,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { firestore } from '@/lib/firebase'
 import type { UserProfile } from '@/types/user'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
-import type { FirestoreTimestamp } from '@/types/document'
+
 
 export const userService = {
   async getUserProfile(userId: string): Promise<UserProfile | null> {
