@@ -18,7 +18,6 @@
     "emulators:status": "ps aux | grep firebase | grep -v grep || echo 'No Firebase processes running'"
   },
   "dependencies": {
-    "@google-cloud/opentelemetry-cloud-trace-exporter": "^2.4.1",
     "@hookform/resolvers": "^3.9.1",
     "@opentelemetry/api-logs": "^0.202.0",
     "@opentelemetry/auto-instrumentations-node": "^0.60.1",
