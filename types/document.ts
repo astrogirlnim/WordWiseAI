@@ -54,6 +54,28 @@ export interface Document {
   updatedAt: FirestoreTimestamp
 }
 
+export interface ShareToken {
+  id: string
+  documentId: string
+  createdBy: string
+  email: string
+  role: 'viewer' | 'commenter' | 'editor'
+  expiresAt?: FirestoreTimestamp
+  isUsed: boolean
+  usedAt?: FirestoreTimestamp
+  createdAt: FirestoreTimestamp
+}
+
+export type ShareTokenData = Omit<ShareToken, 'id' | 'createdAt'> & {
+  createdAt: FieldValue
+}
+
+export interface DocumentSharingInfo {
+  document: Document
+  sharedWith: DocumentAccess[]
+  activeTokens: ShareToken[]
+}
+
 export interface AutoSaveStatus {
   status: 'saving' | 'saved' | 'error' | 'checking'
   lastSaved?: FirestoreTimestamp

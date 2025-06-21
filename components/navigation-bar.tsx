@@ -4,6 +4,7 @@ import { UserMenu } from './user-menu'
 import { AISidebarToggle } from './ai-sidebar-toggle'
 import { WritingGoalsButton } from './writing-goals-button'
 import { DocumentSharingButton } from './document-sharing-button'
+import { VersionHistoryButton } from './version-history-button'
 
 import type { User } from '@/types/navigation'
 import type { Document } from '@/types/document'
@@ -11,7 +12,6 @@ import type { WritingGoals } from '@/types/writing-goals'
 import { ThemeToggle } from './theme-toggle'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { EnhancedDocumentList } from './enhanced-document-list'
-import { VersionHistoryButton } from './version-history-button'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -75,6 +75,10 @@ export function NavigationBar({
     if (action === 'settings') {
       router.push('/settings')
     }
+  }
+
+  const handleSettingsClick = () => {
+    handleUserAction('settings')
   }
 
   const handleSignOut = async () => {
@@ -150,10 +154,13 @@ export function NavigationBar({
              />
             
             {/* Version History */}
-            <VersionHistoryButton
-              onClick={onVersionHistoryClick}
-              className="text-sm"
-            />
+            <div className="hidden md:flex items-center gap-2">
+              {onVersionHistoryClick && (
+                <VersionHistoryButton
+                  onClick={onVersionHistoryClick}
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -165,16 +172,14 @@ export function NavigationBar({
               {/* AI Sidebar Toggle - Premium positioning */}
               <AISidebarToggle
                 isOpen={isAISidebarOpen}
-                onToggle={onAISidebarToggle}
+                onToggle={onAISidebarToggle || (() => {})}
                 suggestionCount={aiSuggestionCount}
-                className="hidden md:flex"
               />
               
               {/* Distraction Free Mode */}
               <DistractionFreeToggle
                 isDistractionFree={isDistractionFree}
-                onToggle={onDistractionFreeToggle}
-                className="hidden lg:flex"
+                onToggle={onDistractionFreeToggle || (() => {})}
               />
             </>
           )}
@@ -185,7 +190,7 @@ export function NavigationBar({
           {/* User Menu - Premium design */}
           <UserMenu
             user={user}
-            onAction={handleUserAction}
+            onSettingsClick={handleSettingsClick}
             onSignOut={handleSignOut}
           />
         </div>
@@ -218,9 +223,8 @@ export function NavigationBar({
               
               <AISidebarToggle
                 isOpen={isAISidebarOpen}
-                onToggle={onAISidebarToggle}
+                onToggle={onAISidebarToggle || (() => {})}
                 suggestionCount={aiSuggestionCount}
-                size="sm"
               />
             </div>
           </div>
@@ -228,4 +232,4 @@ export function NavigationBar({
       )}
     </header>
   )
-}
+} 

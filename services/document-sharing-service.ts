@@ -13,20 +13,16 @@ import {
   arrayRemove,
 } from 'firebase/firestore'
 import { firestore } from '../lib/firebase'
-import type { Document, DocumentAccess, FirestoreTimestamp } from '@/types/document'
+import { toJSDate } from '../lib/utils'
+import type {
+  Document,
+  DocumentAccess,
+  ShareToken,
+  ShareTokenData,
+  DocumentSharingInfo,
+} from '@/types/document'
 
 // Share token interface for link-based sharing
-interface ShareToken {
-  id: string
-  documentId: string
-  createdBy: string
-  email: string
-  role: 'viewer' | 'commenter' | 'editor'
-  expiresAt?: FirestoreTimestamp
-  isUsed: boolean
-  usedAt?: FirestoreTimestamp
-  createdAt: FirestoreTimestamp
-}
 
 export class DocumentSharingService {
   /**
@@ -77,7 +73,7 @@ export class DocumentSharingService {
       }
       
       // Create new share token
-      const shareTokenData: Omit<ShareToken, 'id'> = {
+      const shareTokenData: ShareTokenData = {
         documentId,
         createdBy: ownerId,
         email,
@@ -139,11 +135,9 @@ export class DocumentSharingService {
       // Check if token has expired (if expiry was set)
       if (tokenData.expiresAt) {
         const now = Date.now()
-        const expiresAt = tokenData.expiresAt instanceof Date 
-          ? tokenData.expiresAt.getTime() 
-          : (tokenData.expiresAt as any).toMillis()
+        const expiresAt = toJSDate(tokenData.expiresAt)
         
-        if (now > expiresAt) {
+        if (expiresAt && now > expiresAt.getTime()) {
           throw new Error('This share link has expired')
         }
       }
@@ -223,11 +217,11 @@ export class DocumentSharingService {
       
       const sharedDocs: Document[] = []
       
-      querySnapshot.docs.forEach((docSnap: any) => {
+      querySnapshot.docs.forEach((docSnap) => {
         const docData = { id: docSnap.id, ...docSnap.data() } as Document
         
         // Check if user is in sharedWith array and not the owner
-        const hasAccess = docData.sharedWith.some(access => access.userId === userId)
+        const hasAccess = docData.sharedWith?.some(access => access.userId === userId)
         const isOwner = docData.ownerId === userId
         
         if (hasAccess && !isOwner) {
@@ -237,8 +231,8 @@ export class DocumentSharingService {
       
       // Sort by updatedAt descending
       sharedDocs.sort((a, b) => {
-        const timeA = a.updatedAt instanceof Date ? a.updatedAt.getTime() : (a.updatedAt as any).toMillis()
-        const timeB = b.updatedAt instanceof Date ? b.updatedAt.getTime() : (b.updatedAt as any).toMillis()
+        const timeA = toJSDate(a.updatedAt)?.getTime() ?? 0
+        const timeB = toJSDate(b.updatedAt)?.getTime() ?? 0
         return timeB - timeA
       })
       
@@ -251,11 +245,11 @@ export class DocumentSharingService {
   }
   
   /**
-   * Update permissions for a shared user
-   * @param documentId - Document ID
-   * @param userId - User ID to update permissions for
-   * @param newRole - New role to assign
-   * @param ownerId - Document owner ID (for permission verification)
+   * Update a user's permissions for a document
+   * @param documentId - ID of the document to update
+   * @param userId - ID of the user to update
+   * @param newRole - The new role to assign
+   * @param ownerId - ID of the user making the change (must be owner)
    */
   static async updateUserPermissions(
     documentId: string,
@@ -263,7 +257,7 @@ export class DocumentSharingService {
     newRole: 'viewer' | 'commenter' | 'editor',
     ownerId: string
   ): Promise<void> {
-    console.log('[DocumentSharingService] Updating user permissions:', { documentId, userId, newRole, ownerId })
+    console.log('[DocumentSharingService] Updating permissions:', { documentId, userId, newRole, ownerId })
     
     try {
       const docRef = doc(firestore, 'documents', documentId)
@@ -273,36 +267,39 @@ export class DocumentSharingService {
         throw new Error('Document not found')
       }
       
-      const docData = docSnap.data() as Document
-      
-      if (docData.ownerId !== ownerId) {
-        throw new Error('Access denied: You do not own this document')
+      const document = docSnap.data() as Document
+      if (document.ownerId !== ownerId) {
+        throw new Error('Access denied')
       }
       
-      // Find and update the user's access
-      const updatedSharedWith = docData.sharedWith.map(access => 
-        access.userId === userId 
-          ? { ...access, role: newRole, addedAt: serverTimestamp() }
-          : access
-      )
+      const userAccess = document.sharedWith.find(access => access.userId === userId)
+      if (!userAccess) {
+        throw new Error('User does not have access to this document')
+      }
       
+      const updatedAccess: DocumentAccess = { ...userAccess, role: newRole }
+      
+      // Atomically remove the old access entry and add the new one
       await updateDoc(docRef, {
-        sharedWith: updatedSharedWith,
+        sharedWith: arrayRemove(userAccess),
+      })
+      await updateDoc(docRef, {
+        sharedWith: arrayUnion(updatedAccess),
         updatedAt: serverTimestamp(),
       })
       
-      console.log('[DocumentSharingService] User permissions updated successfully')
+      console.log('[DocumentSharingService] Permissions updated successfully')
     } catch (error) {
-      console.error('[DocumentSharingService] Error updating user permissions:', error)
+      console.error('[DocumentSharingService] Error updating permissions:', error)
       throw error
     }
   }
   
   /**
-   * Remove a user's access to a document
-   * @param documentId - Document ID
-   * @param userId - User ID to remove access for
-   * @param ownerId - Document owner ID (for permission verification)
+   * Remove a user's access from a document
+   * @param documentId - ID of the document
+   * @param userId - ID of the user to remove
+   * @param ownerId - ID of the user making the change (must be owner)
    */
   static async removeUserAccess(
     documentId: string,
@@ -319,24 +316,20 @@ export class DocumentSharingService {
         throw new Error('Document not found')
       }
       
-      const docData = docSnap.data() as Document
-      
-      if (docData.ownerId !== ownerId) {
-        throw new Error('Access denied: You do not own this document')
+      const document = docSnap.data() as Document
+      if (document.ownerId !== ownerId) {
+        throw new Error('Access denied')
       }
       
-      // Remove the user from sharedWith array
-      const accessToRemove = docData.sharedWith.find(access => access.userId === userId)
-      
-      if (accessToRemove) {
+      const userAccess: DocumentAccess | undefined = document.sharedWith.find(access => access.userId === userId)
+      if (userAccess) {
         await updateDoc(docRef, {
-          sharedWith: arrayRemove(accessToRemove),
+          sharedWith: arrayRemove(userAccess),
           updatedAt: serverTimestamp(),
         })
-        
         console.log('[DocumentSharingService] User access removed successfully')
       } else {
-        console.log('[DocumentSharingService] User does not have access to this document')
+        console.warn('[DocumentSharingService] User to remove was not found in sharedWith list')
       }
     } catch (error) {
       console.error('[DocumentSharingService] Error removing user access:', error)
@@ -345,15 +338,15 @@ export class DocumentSharingService {
   }
   
   /**
-   * Get sharing information for a document
-   * @param documentId - Document ID
-   * @param ownerId - Document owner ID (for permission verification)
-   * @returns Document sharing information
+   * Get all sharing information for a document (shared users and active links)
+   * @param documentId - ID of the document
+   * @param ownerId - ID of the user requesting info (must be owner)
+   * @returns Document sharing info
    */
   static async getDocumentSharingInfo(
     documentId: string,
     ownerId: string
-  ): Promise<{ document: Document; activeTokens: ShareToken[] }> {
+  ): Promise<DocumentSharingInfo> {
     console.log('[DocumentSharingService] Getting document sharing info:', { documentId, ownerId })
     
     try {
@@ -364,38 +357,37 @@ export class DocumentSharingService {
         throw new Error('Document not found')
       }
       
-      const document = { id: docSnap.id, ...docSnap.data() } as Document
+      const docData = { id: docSnap.id, ...docSnap.data() } as Document
       
-      if (document.ownerId !== ownerId) {
+      if (docData.ownerId !== ownerId) {
         throw new Error('Access denied: You do not own this document')
       }
       
       // Get active share tokens for this document
-      const tokensQuery = query(
+      const activeTokensQuery = query(
         collection(firestore, 'shareTokens'),
-        where('documentId', '==', documentId),
-        where('isUsed', '==', false)
+        where('documentId', '==', documentId)
       )
-      const tokensSnapshot = await getDocs(tokensQuery)
-      
-      const activeTokens: ShareToken[] = tokensSnapshot.docs.map((doc: any) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as ShareToken[]
+      const tokenSnap = await getDocs(activeTokensQuery)
+      const activeTokens = tokenSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ShareToken[]
       
       console.log('[DocumentSharingService] Retrieved sharing info with', activeTokens.length, 'active tokens')
       
-      return { document, activeTokens }
+      return {
+        document: docData,
+        sharedWith: docData.sharedWith,
+        activeTokens,
+      }
     } catch (error) {
       console.error('[DocumentSharingService] Error getting document sharing info:', error)
-      throw error
+      throw new Error('Failed to retrieve sharing information')
     }
   }
   
   /**
-   * Revoke a share token (prevent it from being used)
-   * @param tokenId - Token ID to revoke
-   * @param ownerId - Document owner ID (for permission verification)
+   * Revoke a share token
+   * @param tokenId - ID of the token to revoke
+   * @param ownerId - ID of the user requesting (must match doc owner)
    */
   static async revokeShareToken(tokenId: string, ownerId: string): Promise<void> {
     console.log('[DocumentSharingService] Revoking share token:', { tokenId, ownerId })
@@ -410,16 +402,19 @@ export class DocumentSharingService {
       
       const tokenData = tokenSnap.data() as ShareToken
       
-      if (tokenData.createdBy !== ownerId) {
-        throw new Error('Access denied: You did not create this share token')
+      // Verify ownership before revoking
+      const docRef = doc(firestore, 'documents', tokenData.documentId)
+      const docSnap = await getDoc(docRef)
+      
+      if (!docSnap.exists() || (docSnap.data() as Document).ownerId !== ownerId) {
+        throw new Error('Access denied to revoke this token')
       }
       
       await deleteDoc(tokenRef)
-      
       console.log('[DocumentSharingService] Share token revoked successfully')
     } catch (error) {
       console.error('[DocumentSharingService] Error revoking share token:', error)
-      throw error
+      throw new Error('Failed to revoke share token')
     }
   }
 } 

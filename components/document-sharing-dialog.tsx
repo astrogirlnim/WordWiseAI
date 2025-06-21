@@ -7,8 +7,6 @@ import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -23,8 +21,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,37 +32,39 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Separator } from '@/components/ui/separator'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Copy,
-  Mail,
-  Shield,
   Eye,
   MessageSquare,
   Edit,
   Crown,
-  Link,
+  Link as LinkIcon,
   Trash2,
   Users,
-  Clock,
+  User,
+  MoreVertical,
+  Loader2,
 } from 'lucide-react'
-import type { Document, DocumentAccess, FirestoreTimestamp } from '@/types/document'
+import type { Document, ShareToken } from '@/types/document'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface DocumentSharingDialogProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   document: Document | null
-}
-
-interface ShareToken {
-  id: string
-  documentId: string
-  createdBy: string
-  email: string
-  role: 'viewer' | 'commenter' | 'editor'
-  expiresAt?: FirestoreTimestamp
-  isUsed: boolean
-  usedAt?: FirestoreTimestamp
-  createdAt: FirestoreTimestamp
 }
 
 export function DocumentSharingDialog({
@@ -76,39 +74,22 @@ export function DocumentSharingDialog({
 }: DocumentSharingDialogProps) {
   const { user } = useAuth()
   const { toast } = useToast()
-  
-  // Form state for generating new share links
+
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'viewer' | 'commenter' | 'editor'>('viewer')
   const [isGenerating, setIsGenerating] = useState(false)
-  
-  // Current sharing state
   const [shareTokens, setShareTokens] = useState<ShareToken[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  
-  // Permission management state
-  const [userToRemove, setUserToRemove] = useState<string | null>(null)
-  const [updatingPermissions, setUpdatingPermissions] = useState<string | null>(null)
-
-  console.log('[DocumentSharingDialog] Rendered with document:', document?.id, 'isOpen:', isOpen)
 
   const loadSharingInfo = useCallback(async () => {
-    if (!document || !user) {
-      console.log('[DocumentSharingDialog] Missing document or user for loading sharing info')
-      return
-    }
-
-    console.log('[DocumentSharingDialog] Loading sharing info for document:', document.id)
+    if (!document || !user) return
     setIsLoading(true)
-    
     try {
       const { activeTokens } = await DocumentSharingService.getDocumentSharingInfo(
         document.id,
         user.uid
       )
-      
-      console.log('[DocumentSharingDialog] Loaded', activeTokens.length, 'active share tokens')
-      setShareTokens(activeTokens as unknown as ShareToken[])
+      setShareTokens(activeTokens)
     } catch (error) {
       console.error('[DocumentSharingDialog] Error loading sharing info:', error)
       toast({
@@ -121,7 +102,6 @@ export function DocumentSharingDialog({
     }
   }, [document, user, toast])
 
-  // Load sharing information when dialog opens
   useEffect(() => {
     if (isOpen && document && user) {
       loadSharingInfo()
@@ -129,14 +109,8 @@ export function DocumentSharingDialog({
   }, [isOpen, document, user, loadSharingInfo])
 
   const handleGenerateLink = async () => {
-    if (!document || !user || !email.trim()) {
-      console.log('[DocumentSharingDialog] Missing required data for link generation')
-      return
-    }
-
-    console.log('[DocumentSharingDialog] Generating share link for:', { email, role, documentId: document.id })
+    if (!document || !user || !email.trim()) return
     setIsGenerating(true)
-    
     try {
       const { url } = await DocumentSharingService.generateShareLink(
         document.id,
@@ -144,22 +118,13 @@ export function DocumentSharingDialog({
         role,
         user.uid
       )
-      
-      console.log('[DocumentSharingDialog] Share link generated:', url)
-      
-      // Copy to clipboard
       await navigator.clipboard.writeText(url)
-      
-      // Reset form
       setEmail('')
       setRole('viewer')
-      
-      // Reload sharing info to show new token
       await loadSharingInfo()
-      
       toast({
         title: 'Share Link Generated!',
-        description: `Link copied to clipboard. Send it to ${email} to grant ${role} access.`,
+        description: `Link for ${email} copied to clipboard.`,
       })
     } catch (error) {
       console.error('[DocumentSharingDialog] Error generating share link:', error)
@@ -174,11 +139,11 @@ export function DocumentSharingDialog({
   }
 
   const handleCopyLink = async (token: ShareToken) => {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://your-app.com'
+    const baseUrl =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://your-app.com'
     const shareUrl = `${baseUrl}/share/${token.id}`
-    
-    console.log('[DocumentSharingDialog] Copying share URL to clipboard:', shareUrl)
-    
     try {
       await navigator.clipboard.writeText(shareUrl)
       toast({
@@ -196,19 +161,10 @@ export function DocumentSharingDialog({
   }
 
   const handleRevokeToken = async (tokenId: string) => {
-    if (!document || !user) {
-      console.log('[DocumentSharingDialog] Missing document or user for token revocation')
-      return
-    }
-
-    console.log('[DocumentSharingDialog] Revoking share token:', tokenId)
-    
+    if (!document || !user) return
     try {
       await DocumentSharingService.revokeShareToken(tokenId, user.uid)
-      
-      // Reload sharing info
       await loadSharingInfo()
-      
       toast({
         title: 'Link Revoked',
         description: 'The share link has been revoked and can no longer be used.',
@@ -223,15 +179,11 @@ export function DocumentSharingDialog({
     }
   }
 
-  const handleUpdatePermissions = async (userId: string, newRole: 'viewer' | 'commenter' | 'editor') => {
-    if (!document || !user) {
-      console.log('[DocumentSharingDialog] Missing document or user for permission update')
-      return
-    }
-
-    console.log('[DocumentSharingDialog] Updating permissions for user:', userId, 'to role:', newRole)
-    setUpdatingPermissions(userId)
-    
+  const handleUpdatePermissions = async (
+    userId: string,
+    newRole: 'viewer' | 'commenter' | 'editor'
+  ) => {
+    if (!document || !user) return
     try {
       await DocumentSharingService.updateUserPermissions(
         document.id,
@@ -239,14 +191,11 @@ export function DocumentSharingDialog({
         newRole,
         user.uid
       )
-      
       toast({
         title: 'Permissions Updated',
         description: `User permissions have been updated to ${newRole}.`,
       })
-      
-      // In a real app, we'd need to refresh the document data to see updated sharedWith array
-      // For now, we'll just show the success message
+      // This part would ideally trigger a refresh of the document data from the parent component
     } catch (error) {
       console.error('[DocumentSharingDialog] Error updating permissions:', error)
       toast({
@@ -254,31 +203,20 @@ export function DocumentSharingDialog({
         description: 'Please try again.',
         variant: 'destructive',
       })
-    } finally {
-      setUpdatingPermissions(null)
     }
   }
 
-  const handleRemoveUser = async (userId: string) => {
-    if (!document || !user) {
-      console.log('[DocumentSharingDialog] Missing document or user for user removal')
-      return
-    }
-
-    console.log('[DocumentSharingDialog] Removing user access:', userId)
-    
+  const handleRemoveAccess = async (userId: string) => {
+    if (!document || !user) return
     try {
       await DocumentSharingService.removeUserAccess(document.id, userId, user.uid)
-      
       toast({
         title: 'Access Removed',
-        description: 'User access has been removed from this document.',
+        description: `User access has been successfully removed.`,
       })
-      
-      // In a real app, we'd need to refresh the document data
-      setUserToRemove(null)
+      // This part would ideally trigger a refresh of the document data from the parent component
     } catch (error) {
-      console.error('[DocumentSharingDialog] Error removing user:', error)
+      console.error('[DocumentSharingDialog] Error removing access:', error)
       toast({
         title: 'Error Removing Access',
         description: 'Please try again.',
@@ -287,337 +225,198 @@ export function DocumentSharingDialog({
     }
   }
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return <Crown className="h-4 w-4 text-yellow-500" />
-      case 'editor':
-        return <Edit className="h-4 w-4 text-blue-500" />
-      case 'commenter':
-        return <MessageSquare className="h-4 w-4 text-green-500" />
-      case 'viewer':
-        return <Eye className="h-4 w-4 text-gray-500" />
-      default:
-        return <Shield className="h-4 w-4" />
-    }
-  }
-
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return 'default'
-      case 'editor':
-        return 'secondary'
-      case 'commenter':
-        return 'outline'
-      case 'viewer':
-        return 'outline'
-      default:
-        return 'outline'
-    }
-  }
-
-  const formatDate = (timestamp: FirestoreTimestamp) => {
-    if (!timestamp) return 'N/A'
-    
-    let date: Date;
-    if (timestamp instanceof Date) {
-      date = timestamp
-    } else if (typeof timestamp === 'number') {
-      date = new Date(timestamp)
-    } else if (typeof (timestamp as any)?.toMillis === 'function') {
-      date = new Date((timestamp as any).toMillis())
-    } else {
-      return 'Invalid date'
-    }
-
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  if (!document) {
-    return null
-  }
-
-  const isOwner = document.ownerId === user?.uid
+  if (!isOpen) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Share &quot;{document.title}&quot;
+      <DialogContent className="max-w-4xl p-0">
+        <DialogHeader className="p-6 pb-4">
+          <DialogTitle className="text-2xl font-bold">
+            Share &quot;{document?.title}&quot;
           </DialogTitle>
-          <DialogDescription>
-            Manage who can access this document and their permission levels.
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Generate New Share Link Section */}
-          {isOwner && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Link className="h-4 w-4" />
-                  Generate Share Link
-                </CardTitle>
-                <CardDescription>
-                  Create a secure link to invite someone to collaborate on this document.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="colleague@company.com"
-                      value={email}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                      disabled={isGenerating}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Permission Level</Label>
-                    <Select value={role} onValueChange={(value: any) => setRole(value)} disabled={isGenerating}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="viewer">
-                          <div className="flex items-center gap-2">
-                            <Eye className="h-4 w-4" />
-                            Viewer - Can read only
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="commenter">
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            Commenter - Can read and comment
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="editor">
-                          <div className="flex items-center gap-2">
-                            <Edit className="h-4 w-4" />
-                            Editor - Can read, comment, and edit
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button 
-                  onClick={handleGenerateLink}
-                  disabled={!email.trim() || isGenerating}
-                  className="w-full"
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+          {/* Left Section: Generate Link */}
+          <div className="col-span-1 md:col-span-1 p-6 border-r border-border">
+            <h3 className="text-lg font-semibold mb-4">Generate a New Share Link</h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Permission Level</Label>
+                <Select
+                  value={role}
+                  onValueChange={(value: 'viewer' | 'commenter' | 'editor') =>
+                    setRole(value)
+                  }
                 >
-                  {isGenerating ? (
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Generating Link...
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Link className="h-4 w-4" />
-                      Generate & Copy Link
-                    </div>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Active Share Tokens Section */}
-          {isOwner && shareTokens.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Pending Invitations ({shareTokens.length})
-                </CardTitle>
-                <CardDescription>
-                  Links that have been generated but not yet used.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {shareTokens.map((token) => (
-                    <div key={token.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          {getRoleIcon(token.role)}
-                          <div>
-                            <p className="font-medium">{token.email}</p>
-                            <p className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Created {formatDate(token.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant={getRoleBadgeVariant(token.role)}>
-                          {token.role}
-                        </Badge>
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">
+                      <div className="flex items-center">
+                        <Eye className="h-4 w-4 mr-2" />
+                        Viewer
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopyLink(token)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Revoke Share Link?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will prevent the link from being used. If {token.email} has already 
-                                used the link, you&apos;ll need to remove their access separately.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleRevokeToken(token.id)}>
-                                Revoke Link
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                    </SelectItem>
+                    <SelectItem value="commenter">
+                      <div className="flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Commenter
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Current Collaborators Section */}
-          {(document.sharedWith.length > 0 || isOwner) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Current Collaborators ({document.sharedWith.length + 1})
-                </CardTitle>
-                <CardDescription>
-                  People who currently have access to this document.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {/* Document Owner */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <Crown className="h-4 w-4 text-yellow-500" />
-                        <div>
-                          <p className="font-medium">
-                            {user?.uid === document.ownerId ? 'You' : 'Document Owner'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Owner of this document</p>
-                        </div>
+                    </SelectItem>
+                    <SelectItem value="editor">
+                      <div className="flex items-center">
+                        <Edit className="h-4 w-4 mr-2" />
+                        Editor
                       </div>
-                      <Badge variant="default">owner</Badge>
-                    </div>
-                  </div>
-
-                  {/* Shared Users */}
-                  {document.sharedWith.map((access: DocumentAccess) => (
-                    <div key={access.userId} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          {getRoleIcon(access.role)}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleGenerateLink} disabled={isGenerating || !email.trim()} className="w-full">
+                {isGenerating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                )}
+                Generate & Copy Link
+              </Button>
+            </div>
+          </div>
+          
+          {/* Right Section: Manage Access */}
+          <div className="col-span-1 md:col-span-2 p-6">
+            <div className="space-y-6">
+              {/* People with Access */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <Users className="h-5 w-5 mr-3 text-primary" />
+                  People with Access
+                </h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {document?.sharedWith && document.sharedWith.length > 0 ? (
+                    document.sharedWith.map(access => (
+                      <div key={access.userId} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted">
+                        <div className="flex items-center">
+                          <Avatar className="h-8 w-8 mr-3">
+                            <AvatarImage src={`https://avatar.vercel.sh/${access.email}.png`} />
+                            <AvatarFallback>{access.email.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
                           <div>
                             <p className="font-medium">{access.email}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Added {formatDate(access.addedAt)}
+                            <p className="text-xs text-muted-foreground">
+                              {access.userId === document.ownerId ? 'Owner' : access.role}
                             </p>
                           </div>
                         </div>
-                        <Badge variant={getRoleBadgeVariant(access.role)}>
-                          {access.role}
-                        </Badge>
+                        {access.userId === document.ownerId ? (
+                          <Badge variant="secondary" className="text-xs">Owner</Badge>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8">
+                                <span className="capitalize">{access.role}</span>
+                                <MoreVertical className="h-4 w-4 ml-2" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleUpdatePermissions(access.userId, 'viewer')}>Viewer</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleUpdatePermissions(access.userId, 'commenter')}>Commenter</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleUpdatePermissions(access.userId, 'editor')}>Editor</DropdownMenuItem>
+                              <Separator />
+                              <DropdownMenuItem className="text-red-500" onClick={() => handleRemoveAccess(access.userId)}>
+                                Remove Access
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
-                      
-                      {isOwner && (
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-2">Only you have access to this document.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Share Links */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <LinkIcon className="h-5 w-5 mr-3 text-primary" />
+                  Active Share Links
+                </h3>
+                {isLoading ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : shareTokens.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {shareTokens.map(token => (
+                      <div key={token.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted">
+                        <div className="flex items-center">
+                          <Avatar className="h-8 w-8 mr-3">
+                             <AvatarFallback>
+                              <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{token.email}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{token.role} Link</p>
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Select
-                            value={access.role}
-                            onValueChange={(newRole: any) => handleUpdatePermissions(access.userId, newRole)}
-                            disabled={updatingPermissions === access.userId}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                              <SelectItem value="commenter">Commenter</SelectItem>
-                              <SelectItem value="editor">Editor</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          
-                          <AlertDialog open={userToRemove === access.userId} onOpenChange={(open: boolean) => !open && setUserToRemove(null)}>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyLink(token)}>
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Copy Link</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setUserToRemove(access.userId)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
+                              <Button variant="destructive" size="icon" className="h-8 w-8">
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Access?</AlertDialogTitle>
+                                <AlertDialogTitle>Revoke Share Link?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will remove {access.email}&apos;s access to this document. 
-                                  They will no longer be able to view, comment, or edit.
+                                  Are you sure you want to revoke this link for {token.email}? They will no longer be able to access the document with this link.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleRemoveUser(access.userId)}>
-                                  Remove Access
+                                <AlertDialogAction onClick={() => handleRevokeToken(token.id)}>
+                                  Revoke
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <span>Loading sharing information...</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground p-2">No active share links have been generated.</p>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
