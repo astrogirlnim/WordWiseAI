@@ -34,6 +34,7 @@ import { AuditService, AuditEvent } from '@/services/audit-service'
 import { useMarkdownPreview } from '@/hooks/use-markdown-preview'
 import { MarkdownPreviewPanel } from './markdown-preview-panel'
 import { MarkdownPreviewToggle } from './markdown-preview-toggle'
+import { DocumentDownloadButton } from './document-download-button'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import { useAISuggestions } from '@/hooks/use-ai-suggestions'
 import type { AISuggestion } from '@/types/ai-features'
@@ -943,18 +944,25 @@ export function DocumentEditor({
             />
           </div>
           
-          {/* Markdown Preview Toggle */}
-          <div className="flex items-center gap-2">
+          {/* Header Action Buttons */}
+          <div className="flex items-center gap-3">
+            {/* Markdown Preview Toggle */}
             <MarkdownPreviewToggle
               isPreviewOpen={isPreviewOpen}
               isMarkdownDetected={isMarkdownDetected}
               onToggle={togglePreview}
-              className="mr-2"
             />
-          </div>
-          
-          {/* Enhanced full document check button */}
-          <div className="flex items-center gap-3">
+            
+            {/* Document Download Button */}
+            <DocumentDownloadButton
+              documentId={documentId}
+              title={title}
+              content={fullContentHtml}
+              author={user?.email || user?.displayName}
+              disabled={isFullDocumentChecking}
+            />
+            
+            {/* Full Document Check Button */}
             <Dialog open={isFullDocCheckDialogOpen} onOpenChange={setIsFullDocCheckDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
