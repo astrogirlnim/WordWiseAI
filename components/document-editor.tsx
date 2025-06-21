@@ -244,6 +244,35 @@ export function DocumentEditor({
         allowBasicFormatting: false
       }),
     ],
+    // **UNDO FUNCTIONALITY: Add keyboard shortcut for grammar suggestion undo**
+    editorProps: {
+      handleKeyDown: (view, event) => {
+        // Handle Ctrl+Z (or Cmd+Z on Mac) for undoing grammar suggestions
+        if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+          console.log('[DocumentEditor] UNDO: Ctrl+Z pressed, attempting to undo last grammar suggestion');
+          
+          // Check if there are any grammar suggestions to undo
+          import('@/utils/harper-wrapper').then(({ undoLastGrammarSuggestion, getUndoStackSize }) => {
+            const undoStackSize = getUndoStackSize();
+            console.log('[DocumentEditor] UNDO: Undo stack size:', undoStackSize);
+            
+            if (undoStackSize > 0) {
+              const success = undoLastGrammarSuggestion(view);
+              if (success) {
+                console.log('[DocumentEditor] UNDO: ✅ Grammar suggestion undone');
+                event.preventDefault();
+                event.stopPropagation();
+                return true; // Prevent default undo
+              }
+            }
+          }).catch(error => {
+            console.error('[DocumentEditor] UNDO: Error undoing grammar suggestion:', error);
+          });
+        }
+        
+        return false; // Allow other key handlers to process
+      }
+    },
     content: pageContent, // Use paginated content
     onUpdate: ({ editor }) => {
       // CRITICAL FIX: Only log errors during typing, remove excessive logging
@@ -308,6 +337,15 @@ export function DocumentEditor({
   const handlePageChange = useCallback((newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage)
+      
+      // **UNDO CLEANUP: Clear grammar undo stack when changing pages**
+      // Positions become invalid across page boundaries
+      import('@/utils/harper-wrapper').then(({ clearGrammarUndoStack }) => {
+        clearGrammarUndoStack();
+        console.log('[DocumentEditor] UNDO: Cleared undo stack for page change to', newPage);
+      }).catch(error => {
+        console.error('[DocumentEditor] UNDO: Error clearing undo stack on page change:', error);
+      });
     }
   }, [totalPages])
 
@@ -348,7 +386,7 @@ export function DocumentEditor({
               `page-change-${currentPage}`,
               {
                 pageInfo: { currentPage, totalPages },
-                onStateUpdate: (content: string) => {
+                onStateUpdate: (_content: string) => {
                   // Page changes managed by coordinator
                   console.log(`[DocumentEditor] Phase 1: Page ${currentPage} state updated via coordinator`)
                 }
@@ -634,33 +672,58 @@ export function DocumentEditor({
   const handleApplySuggestion = useCallback(
     async (error: GrammarError, suggestion: string) => {
       if (!editor || !user) return;
-      console.log(`[DocumentEditor] Applying Harper.js suggestion: "${suggestion}" for error: "${error.error}"`);
-      console.log(`[DocumentEditor] Error span: ${error.start}-${error.end}, Suggestion index: ${error.suggestions.indexOf(suggestion)}`);
-  
-      // **GRAMMAR CHECKER FIX: Apply suggestion directly to editor content**
-      // Instead of manipulating the full document HTML, apply the suggestion to the current editor content
+      console.log(`[DocumentEditor] POSITION_FIX: Applying Harper.js suggestion: "${suggestion}" for error: "${error.error}"`);
+      console.log(`[DocumentEditor] POSITION_FIX: Harper error span (plain text): ${error.start}-${error.end}`);
+
       try {
-        // Calculate the position relative to the current page
-        const relativeStart = error.start - pageOffset;
-        const relativeEnd = error.end - pageOffset;
+        // **CRITICAL POSITION FIX: Create position mapping between plain text and editor**
+        const { createPositionMapping, addGrammarUndoAction } = await import('@/utils/harper-wrapper');
+        const positionMap = createPositionMapping(editor, grammarPlainText);
         
-        console.log(`[DocumentEditor] Applying suggestion at relative positions: ${relativeStart}-${relativeEnd}`);
+        // Convert Harper.js plain text positions to editor positions
+        const editorStart = positionMap.plainTextToEditorPosition(error.start);
+        const editorEnd = positionMap.plainTextToEditorPosition(error.end);
         
-        // Validate that the error is within the current page bounds
-        if (relativeStart >= 0 && relativeEnd <= editor.state.doc.content.size) {
-          // Get the current text at the error position to verify it matches
-          const currentText = editor.state.doc.textBetween(relativeStart, relativeEnd);
-          console.log(`[DocumentEditor] Current text at error position: "${currentText}"`);
+        console.log(`[DocumentEditor] POSITION_FIX: Mapped positions - Plain: ${error.start}-${error.end} -> Editor: ${editorStart}-${editorEnd}`);
+        
+        // Validate editor positions
+        const maxEditorPos = editor.state.doc.content.size;
+        if (editorStart < 0 || editorEnd > maxEditorPos || editorStart >= editorEnd) {
+          console.warn(`[DocumentEditor] POSITION_FIX: ⚠️ Invalid editor positions ${editorStart}-${editorEnd} (max: ${maxEditorPos})`);
+          return;
+        }
+        
+        // Get the current text at the mapped editor position to verify it matches
+        const currentText = editor.state.doc.textBetween(editorStart, editorEnd);
+        console.log(`[DocumentEditor] POSITION_FIX: Text at mapped position: "${currentText}"`);
+        console.log(`[DocumentEditor] POSITION_FIX: Expected error text: "${error.error}"`);
+        
+        // Verify text match (with some tolerance for whitespace differences)
+        const normalizedCurrent = currentText.trim().toLowerCase();
+        const normalizedError = error.error.trim().toLowerCase();
+        
+        if (normalizedCurrent === normalizedError || normalizedCurrent.includes(normalizedError)) {
+          console.log(`[DocumentEditor] POSITION_FIX: ✅ Text match verified, applying suggestion`);
           
-          // Apply the suggestion using editor commands
+          // **UNDO TRACKING: Add to undo stack before applying**
+          addGrammarUndoAction({
+            type: 'grammar_suggestion',
+            originalText: currentText,
+            replacementText: suggestion,
+            startPosition: editorStart,
+            endPosition: editorEnd,
+            errorId: error.id
+          });
+          
+          // Apply the suggestion using editor commands with correct positions
           editor
             .chain()
             .focus()
-            .setTextSelection({ from: relativeStart, to: relativeEnd })
+            .setTextSelection({ from: editorStart, to: editorEnd })
             .insertContent(suggestion)
             .run();
             
-          console.log(`[DocumentEditor] ✅ Suggestion "${suggestion}" applied successfully to editor`);
+          console.log(`[DocumentEditor] POSITION_FIX: ✅ Suggestion "${suggestion}" applied at positions ${editorStart}-${editorEnd}`);
           
           // Log audit event
           AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
@@ -676,14 +739,53 @@ export function DocumentEditor({
           setContextMenu(null);
           
         } else {
-          console.warn(`[DocumentEditor] ⚠️ Error position ${relativeStart}-${relativeEnd} is outside current page bounds (0-${editor.state.doc.content.size})`);
+          console.warn(`[DocumentEditor] POSITION_FIX: ⚠️ Text mismatch at mapped position`);
+          console.warn(`[DocumentEditor] POSITION_FIX: Found: "${currentText}"`);
+          console.warn(`[DocumentEditor] POSITION_FIX: Expected: "${error.error}"`);
+          
+          // Try fuzzy matching within a small range
+          const searchRange = 20; // characters to search around the position
+          const searchStart = Math.max(0, editorStart - searchRange);
+          const searchEnd = Math.min(maxEditorPos, editorEnd + searchRange);
+          const searchText = editor.state.doc.textBetween(searchStart, searchEnd);
+          
+          const errorIndex = searchText.toLowerCase().indexOf(normalizedError);
+          if (errorIndex !== -1) {
+            const fuzzyStart = searchStart + errorIndex;
+            const fuzzyEnd = fuzzyStart + error.error.length;
+            
+            console.log(`[DocumentEditor] POSITION_FIX: 🔍 Found fuzzy match at ${fuzzyStart}-${fuzzyEnd}`);
+            
+            // Apply suggestion at fuzzy position
+            addGrammarUndoAction({
+              type: 'grammar_suggestion',
+              originalText: error.error,
+              replacementText: suggestion,
+              startPosition: fuzzyStart,
+              endPosition: fuzzyEnd,
+              errorId: error.id
+            });
+            
+            editor
+              .chain()
+              .focus()
+              .setTextSelection({ from: fuzzyStart, to: fuzzyEnd })
+              .insertContent(suggestion)
+              .run();
+              
+            console.log(`[DocumentEditor] POSITION_FIX: ✅ Fuzzy suggestion applied at ${fuzzyStart}-${fuzzyEnd}`);
+            removeError(error.id);
+            setContextMenu(null);
+          } else {
+            console.error(`[DocumentEditor] POSITION_FIX: ❌ Could not find error text anywhere near expected position`);
+          }
         }
         
       } catch (err) {
-        console.error('[DocumentEditor] ❌ Error applying suggestion:', err);
+        console.error('[DocumentEditor] POSITION_FIX: ❌ Error applying suggestion:', err);
       }
     },
-    [editor, user, documentId, removeError, pageOffset]
+    [editor, user, documentId, removeError, grammarPlainText]
   );
 
   const handleIgnoreError = useCallback(
@@ -724,6 +826,14 @@ export function DocumentEditor({
     if (initialDocument.title) {
       setTitle(initialDocument.title)
     }
+    
+    // **UNDO CLEANUP: Clear grammar undo stack when document changes**
+    import('@/utils/harper-wrapper').then(({ clearGrammarUndoStack }) => {
+      clearGrammarUndoStack();
+      console.log('[DocumentEditor] UNDO: Cleared undo stack for new document');
+    }).catch(error => {
+      console.error('[DocumentEditor] UNDO: Error clearing undo stack:', error);
+    });
   }, [documentId, initialDocument.title]) // Include initialDocument.title to satisfy linter but effect behavior unchanged since documentId changes trigger this
 
   // **Phase 1 Integration: Version Restore with Content Coordinator**

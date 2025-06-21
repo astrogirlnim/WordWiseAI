@@ -441,4 +441,166 @@ export function getHarperCategoryAnalysis(): {
       ? (detectedArray.length - unmappedCategories.length) / detectedArray.length
       : 1,
   };
+}
+
+/**
+ * Position mapping utility to convert plain text positions to TipTap editor positions
+ * This solves the critical position misalignment issue between Harper.js and TipTap editor
+ */
+export interface PositionMap {
+  plainTextToEditorPosition: (plainTextPos: number) => number;
+  editorToPlainTextPosition: (editorPos: number) => number;
+}
+
+/**
+ * Create a position mapping between plain text and TipTap editor content
+ * This is essential for accurate grammar error positioning
+ */
+export function createPositionMapping(editor: any, plainText: string): PositionMap {
+  console.log('[HarperWrapper] POSITION_FIX: Creating position mapping');
+  console.log('[HarperWrapper] POSITION_FIX: Plain text length:', plainText.length);
+  console.log('[HarperWrapper] POSITION_FIX: Editor doc size:', editor.state.doc.content.size);
+  
+  // Build mapping arrays by walking through both representations
+  const plainToEditor: number[] = [];
+  const editorToPlain: number[] = [];
+  
+  let plainIndex = 0;
+  
+  // Walk through the editor document node by node
+  editor.state.doc.descendants((node: any, pos: number) => {
+    if (node.isText) {
+      const text = node.text;
+      for (let i = 0; i < text.length; i++) {
+        if (plainIndex < plainText.length) {
+          // Map plain text position to editor position
+          plainToEditor[plainIndex] = pos + i;
+          editorToPlain[pos + i] = plainIndex;
+          plainIndex++;
+        }
+      }
+    }
+    // For non-text nodes, editor position advances but plain text doesn't
+    if (!node.isText && node.nodeSize > 0) {
+      // Record current plain position for these editor positions
+      for (let i = 0; i < node.nodeSize; i++) {
+        editorToPlain[pos + i] = plainIndex;
+      }
+    }
+  });
+  
+  console.log('[HarperWrapper] POSITION_FIX: Position mapping created');
+  console.log('[HarperWrapper] POSITION_FIX: Plain->Editor mappings:', plainToEditor.length);
+  console.log('[HarperWrapper] POSITION_FIX: Editor->Plain mappings:', editorToPlain.length);
+  
+  return {
+    plainTextToEditorPosition: (plainPos: number): number => {
+      const editorPos = plainToEditor[plainPos];
+      console.log(`[HarperWrapper] POSITION_FIX: Plain ${plainPos} -> Editor ${editorPos}`);
+      return editorPos !== undefined ? editorPos : plainPos; // Fallback to original position
+    },
+    editorToPlainTextPosition: (editorPos: number): number => {
+      const plainPos = editorToPlain[editorPos];
+      console.log(`[HarperWrapper] POSITION_FIX: Editor ${editorPos} -> Plain ${plainPos}`);
+      return plainPos !== undefined ? plainPos : editorPos; // Fallback to original position
+    }
+  };
+}
+
+/**
+ * Undo stack for grammar suggestions
+ */
+interface GrammarUndoAction {
+  id: string;
+  type: 'grammar_suggestion';
+  timestamp: number;
+  originalText: string;
+  replacementText: string;
+  startPosition: number;
+  endPosition: number;
+  errorId: string;
+}
+
+let grammarUndoStack: GrammarUndoAction[] = [];
+const MAX_UNDO_ACTIONS = 50;
+
+/**
+ * Add an undo action to the stack
+ */
+export function addGrammarUndoAction(action: Omit<GrammarUndoAction, 'id' | 'timestamp'>): void {
+  const undoAction: GrammarUndoAction = {
+    ...action,
+    id: `undo-${Date.now()}-${Math.random()}`,
+    timestamp: Date.now()
+  };
+  
+  grammarUndoStack.push(undoAction);
+  
+  // Keep only the most recent actions
+  if (grammarUndoStack.length > MAX_UNDO_ACTIONS) {
+    grammarUndoStack = grammarUndoStack.slice(-MAX_UNDO_ACTIONS);
+  }
+  
+  console.log('[HarperWrapper] UNDO: Added action to stack:', undoAction.id);
+  console.log('[HarperWrapper] UNDO: Stack size:', grammarUndoStack.length);
+}
+
+/**
+ * Undo the last grammar suggestion
+ */
+export function undoLastGrammarSuggestion(editor: any): boolean {
+  if (grammarUndoStack.length === 0) {
+    console.log('[HarperWrapper] UNDO: No actions to undo');
+    return false;
+  }
+  
+  const lastAction = grammarUndoStack.pop()!;
+  console.log('[HarperWrapper] UNDO: Undoing action:', lastAction.id);
+  
+  try {
+    // Get current text at the position to verify it matches what we expect
+    const currentText = editor.state.doc.textBetween(
+      lastAction.startPosition, 
+      lastAction.startPosition + lastAction.replacementText.length
+    );
+    
+    if (currentText === lastAction.replacementText) {
+      // Restore the original text
+      editor
+        .chain()
+        .focus()
+        .setTextSelection({ 
+          from: lastAction.startPosition, 
+          to: lastAction.startPosition + lastAction.replacementText.length 
+        })
+        .insertContent(lastAction.originalText)
+        .run();
+        
+      console.log('[HarperWrapper] UNDO: ✅ Successfully undone grammar suggestion');
+      return true;
+    } else {
+      console.warn('[HarperWrapper] UNDO: ⚠️ Text mismatch, cannot safely undo');
+      console.warn('[HarperWrapper] UNDO: Expected:', lastAction.replacementText);
+      console.warn('[HarperWrapper] UNDO: Found:', currentText);
+      return false;
+    }
+  } catch (error) {
+    console.error('[HarperWrapper] UNDO: ❌ Error undoing suggestion:', error);
+    return false;
+  }
+}
+
+/**
+ * Get the number of available undo actions
+ */
+export function getUndoStackSize(): number {
+  return grammarUndoStack.length;
+}
+
+/**
+ * Clear the undo stack
+ */
+export function clearGrammarUndoStack(): void {
+  grammarUndoStack = [];
+  console.log('[HarperWrapper] UNDO: Undo stack cleared');
 } 
