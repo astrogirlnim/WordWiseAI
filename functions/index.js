@@ -1,4 +1,4 @@
-/* eslint-disable max-len, indent, comma-dangle */
+ 
 /**
  * Import function triggers from their respective submodules:
  *
@@ -72,7 +72,7 @@ exports.generateSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (reque
 
   if (userEntry.count > rateLimit.maxCalls) {
     logger.warn("Rate limit exceeded", {userId, count: userEntry.count});
-    // eslint-disable-next-line max-len
+     
     throw new HttpsError(
       "resource-exhausted",
       "Rate limit exceeded. Please try again later."
@@ -226,7 +226,7 @@ exports.pruneOldVersions = onSchedule(
       schedule: "every day 00:00",
       secrets: ["OPENAI_API_KEY"],
     },
-    async (event) => {
+    async (_event) => {
       logger.log("pruneOldVersions scheduled function triggered");
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -794,7 +794,7 @@ ${currentDraft && currentDraft.trim() ? `\nCurrent Draft Context (use this to in
 
     // Enhance suggestions with consistent metadata and unique IDs
     const timestamp = Date.now();
-    const enhancedSuggestions = suggestions.map((suggestion, index) => ({
+    const enhancedSuggestions = suggestions.map((suggestion) => ({
       ...suggestion,
       id: `funnel_${documentId}_${timestamp}_${suggestion.type}`, // Use type in ID for uniqueness
       documentId,

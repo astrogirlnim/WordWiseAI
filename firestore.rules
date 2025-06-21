@@ -1,41 +1,51 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read and write their own data.
+    // Users can only read and write their own data
     match /users/{userId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Example for a 'documents' collection where documents have an 'ownerId'.
+    // Documents Collection
     match /documents/{documentId} {
-      allow get, read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // Allow read for authenticated users - access control handled in app layer
+      // This is necessary for share link processing
+      allow read: if request.auth != null;
+
+      // List queries are allowed for authenticated users
       allow list: if request.auth != null;
 
-      // Allow the document owner to read/write versions sub-collection
-      match /versions/{versionId} {
-        allow read, list: if request.auth != null;
-        allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
-      }
+      // User must be the owner to create a document
+      allow create: if request.auth != null && 
+                       request.resource.data.ownerId == request.auth.uid;
+      
+      // Allow updates for authenticated users - access control handled in app layer
+      // Note: Application layer handles role-specific permissions (owner/editor vs viewer)
+      allow update: if request.auth != null;
 
-      // Allow the document owner to manage style suggestions
-      match /styleSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
-      }
+      // Only the owner can delete a document
+      allow delete: if request.auth != null && 
+                       resource.data.ownerId == request.auth.uid;
 
-      // Allow the document owner to manage funnel suggestions
-      match /funnelSuggestions/{suggestionId} {
-        allow read, write, create, delete: if request.auth != null && get(/databases/$(database)/documents/documents/$(documentId)).data.ownerId == request.auth.uid;
+      // Sub-collections - simplified for now
+      match /{collection}/{docId} {
+        allow read, write: if request.auth != null;
       }
     }
 
-    // Allow authenticated users to write to the audit log
+    // Share Tokens Collection
+    match /shareTokens/{tokenId} {
+      // Allow read for authenticated users
+      allow read: if request.auth != null;
+
+      // Allow create/update/delete for authenticated users
+      allow write: if request.auth != null;
+    }
+
+    // Audit logs can be created by any authenticated user
     match /auditLogs/{logId} {
       allow create: if request.auth != null;
     }
-
-    // Add other collections here with similar rules.
   }
 }

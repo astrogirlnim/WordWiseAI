@@ -49,6 +49,17 @@ module.exports = [
       // Make strict rules warnings instead of errors for now
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-expressions': 'warn',
+      
+      // Disable prop-types for TypeScript files since TypeScript provides type checking
+      'react/prop-types': 'off',
+    },
+  },
+  
+  // Disable prop-types for TypeScript components
+  {
+    files: ['**/*.tsx'],
+    rules: {
+      'react/prop-types': 'off',
     },
   },
   

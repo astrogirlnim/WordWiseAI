@@ -18,7 +18,6 @@
     "emulators:status": "ps aux | grep firebase | grep -v grep || echo 'No Firebase processes running'"
   },
   "dependencies": {
-    "@google-cloud/opentelemetry-cloud-trace-exporter": "^2.4.1",
     "@hookform/resolvers": "^3.9.1",
     "@opentelemetry/api-logs": "^0.202.0",
     "@opentelemetry/auto-instrumentations-node": "^0.60.1",
@@ -54,7 +53,6 @@
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
-    "@sentry/nextjs": "^9.30.0",
     "@tiptap/core": "^2.14.0",
     "@tiptap/extension-collaboration": "^2.14.0",
     "@tiptap/extension-collaboration-cursor": "^2.14.0",
@@ -66,7 +64,6 @@
     "@tiptap/starter-kit": "^2.14.0",
     "@types/diff-match-patch": "^1.0.36",
     "@types/lodash": "^4.17.17",
-    "@vercel/otel": "^1.13.0",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -100,7 +97,7 @@
     "prosemirror-transform": "^1.10.4",
     "prosemirror-view": "^1.40.0",
     "react": "^19",
-    "react-day-picker": "8.10.1",
+    "react-day-picker": "9.7.0",
     "react-dom": "^19",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.54.1",
@@ -112,7 +109,7 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "text-statistics": "^0.1.1",
-    "vaul": "^0.9.6",
+    "vaul": "^1.1.2",
     "y-protocols": "^1.0.6",
     "zod": "^3.24.1"
   },

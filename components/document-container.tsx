@@ -16,7 +16,6 @@ import type { AutoSaveStatus } from '@/types/document'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
-import { useAutoSave } from '@/hooks/use-auto-save'
 import { AuditService, AuditEvent } from '@/services/audit-service'
 
 
@@ -28,13 +27,27 @@ const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod
 export function DocumentContainer() {
   const { user } = useAuth()
   const {
+    // Document lists
     documents,
+    ownedDocuments,
+    sharedDocuments,
+    
+    // State
     loading,
+    
+    // Actions
     createDocument,
     updateDocument,
-    restoreDocumentVersion,
     deleteDocument,
+    restoreDocumentVersion,
+    reloadDocuments,
+    
+    // Permission helpers
+    canEdit,
+    canComment,
+    getUserPermission,
   } = useDocuments()
+  
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
   const { versions, loading: versionsLoading, error: versionsError, reloadVersions, deleteVersion } = useDocumentVersions(activeDocumentId || null)
   const { toast } = useToast()
@@ -57,12 +70,67 @@ export function DocumentContainer() {
   })
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
 
+  console.log('[DocumentContainer] Rendered with:', {
+    totalDocs: documents.length,
+    ownedDocs: ownedDocuments.length,
+    sharedDocs: sharedDocuments.length,
+    activeDocumentId,
+    user: user?.uid
+  })
+
   // Set active document when documents load
   useEffect(() => {
     if (documents.length > 0 && !activeDocumentId) {
       setActiveDocumentId(documents[0].id)
+      console.log('[DocumentContainer] Auto-selected first document:', documents[0].id)
     }
   }, [documents, activeDocumentId])
+
+  // Check for document ID in URL query params (for shared links)
+  useEffect(() => {
+    let isMounted = true
+    
+    const urlParams = new URLSearchParams(window.location.search)
+    const documentIdParam = urlParams.get('documentId')
+    const refreshParam = urlParams.get('refresh')
+    
+    if (documentIdParam && documents.length > 0) {
+      const targetDocument = documents.find(doc => doc.id === documentIdParam)
+      if (targetDocument) {
+        console.log('[DocumentContainer] Loading document from URL:', documentIdParam)
+        if (isMounted) {
+          setActiveDocumentId(documentIdParam)
+          // Clear the URL parameters
+          window.history.replaceState({}, '', window.location.pathname)
+        }
+      } else if (refreshParam) {
+        // If document not found but refresh param present, force reload documents
+        console.log('[DocumentContainer] Document not found, forcing reload for shared document:', documentIdParam)
+        reloadDocuments().then(() => {
+          if (!isMounted) return
+          
+          // After reload, try to find the document again
+          const reloadedDocument = documents.find(doc => doc.id === documentIdParam)
+          if (reloadedDocument) {
+            console.log('[DocumentContainer] Found document after reload:', documentIdParam)
+            setActiveDocumentId(documentIdParam)
+          } else {
+            console.warn('[DocumentContainer] Document still not found after reload:', documentIdParam)
+          }
+          // Clear URL parameters
+          window.history.replaceState({}, '', window.location.pathname)
+        }).catch(error => {
+          if (isMounted) {
+            console.error('[DocumentContainer] Error reloading documents:', error)
+          }
+        })
+      }
+    }
+    
+    return () => {
+      isMounted = false
+    }
+  }, [documents, reloadDocuments])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -76,6 +144,7 @@ export function DocumentContainer() {
 
   const handleDocumentSelect = useCallback(
     (documentId: string) => {
+      console.log('[DocumentContainer] Document selected:', documentId)
       setActiveDocumentId(documentId)
     },
     [],
@@ -139,46 +208,52 @@ export function DocumentContainer() {
         console.log('[handleRestoreVersion] Success toast displayed')
 
       } catch (error) {
-        console.error('[handleRestoreVersion] Error during version restore:', error)
-        console.error('[handleRestoreVersion] - Document ID:', activeDocumentId)
-        console.error('[handleRestoreVersion] - Version ID:', versionId)
-        console.error('[handleRestoreVersion] - Error details:', error instanceof Error ? error.message : String(error))
-
-        // Clear restoring state and update UI to show error
+        console.error('[handleRestoreVersion] Error during restore:', error)
+        
+        // Clear restoring state
         setRestoringVersionId(null)
-        setSaveStatus({ status: 'error' })
-        console.log('[handleRestoreVersion] Cleared restoring state due to error')
-
-        // Show error toast
+        setSaveStatus({ status: 'saved' })
+        
         toast({
-          title: 'Restore Failed',
-          description: 'Failed to restore the document version. Please try again.',
+          title: 'Error Restoring Version',
+          description: error instanceof Error ? error.message : 'Please try again.',
           variant: 'destructive',
         })
-        console.log('[handleRestoreVersion] Error toast displayed')
-
-        // Keep version history open so user can try again
-        console.log('[handleRestoreVersion] Keeping version history sidebar open for retry')
       }
     },
-    [activeDocumentId, restoreDocumentVersion, reloadVersions, documents, toast],
+    [activeDocumentId, documents, restoreDocumentVersion, reloadVersions, toast],
   )
 
   const handleViewVersion = useCallback(
-    (versionContent: string) => {
-      const currentDoc = documents.find((d) => d.id === activeDocumentId)
-      if (currentDoc) {
-        setDiffContent({
-          oldContent: versionContent,
-          newContent: currentDoc.content,
-        })
+    (versionId: string) => {
+      console.log('[DocumentContainer] View version requested:', versionId)
+      
+      if (!activeDocumentId) {
+        console.error('[handleViewVersion] No active document')
+        return
       }
+
+      const currentDocument = documents.find(d => d.id === activeDocumentId)
+             const versionToView = versions.find((v) => v.id === versionId)
+      
+      if (!currentDocument || !versionToView) {
+        console.error('[handleViewVersion] Document or version not found')
+        return
+      }
+
+      setDiffContent({
+        oldContent: versionToView.content,
+        newContent: currentDocument.content,
+      })
     },
-    [activeDocumentId, documents],
+    [activeDocumentId, documents, versions],
   )
 
   const handleNewDocument = useCallback(async () => {
-    if (!user?.uid) return
+    if (!user?.uid) {
+      console.log('[DocumentContainer] No user available for new document creation')
+      return
+    }
 
     console.log('[DocumentContainer] Starting new document creation flow')
     
@@ -201,17 +276,35 @@ export function DocumentContainer() {
 
   const handleDeleteDocument = useCallback(
     async (documentId: string) => {
-      if (!deleteDocument) return
+      if (!deleteDocument) {
+        console.log('[DocumentContainer] Delete function not available')
+        return
+      }
 
       const docToDelete = documents.find((d) => d.id === documentId)
-      if (!docToDelete) return
+      if (!docToDelete) {
+        console.log('[DocumentContainer] Document to delete not found:', documentId)
+        return
+      }
+
+      // Check if user can delete (only owners can delete)
+      if (docToDelete.ownerId !== user?.uid) {
+        toast({
+          title: 'Cannot Delete Document',
+          description: 'Only the document owner can delete it.',
+          variant: 'destructive',
+        })
+        return
+      }
 
       try {
+        console.log('[DocumentContainer] Deleting document:', documentId)
         await deleteDocument(documentId)
 
         if (activeDocumentId === documentId) {
           const remainingDocs = documents.filter((d) => d.id !== documentId)
           setActiveDocumentId(remainingDocs.length > 0 ? remainingDocs[0].id : null)
+          console.log('[DocumentContainer] Active document was deleted, switched to:', remainingDocs[0]?.id || 'none')
         }
 
         toast({
@@ -227,130 +320,76 @@ export function DocumentContainer() {
         })
       }
     },
-    [deleteDocument, documents, activeDocumentId, toast],
+    [deleteDocument, documents, activeDocumentId, toast, user?.uid],
   )
 
+  const handleSaveWritingGoals = useCallback(
+    async (goals: WritingGoals, title?: string) => {
+      console.log('[DocumentContainer] Saving writing goals:', goals, 'title:', title)
+      setWritingGoals(goals)
+      
+      if (isCreatingNewDocument && title) {
+        // Create new document with the provided title
+        console.log('[DocumentContainer] Creating new document with title:', title)
+        const newDocId = await createDocument(title)
+        if (newDocId) {
+          setActiveDocumentId(newDocId)
+          console.log('[DocumentContainer] New document created with ID:', newDocId)
+          
+          // Reset new document creation state
+          setIsCreatingNewDocument(false)
+          setNewDocumentTitle('Untitled Document')
+        }
+      }
+      
+      setIsGoalsModalOpen(false)
+    },
+    [isCreatingNewDocument, createDocument]
+  )
 
+  const handleSave = useCallback(
+    async (content: string, title: string) => {
+      if (!activeDocumentId || !updateDocument) {
+        console.log('[DocumentContainer] Cannot save - missing activeDocumentId or updateDocument')
+        return
+      }
+
+      console.log('[DocumentContainer] Saving document:', activeDocumentId)
+      setSaveStatus({ status: 'saving' })
+
+      try {
+        const success = await updateDocument(activeDocumentId, { content, title })
+        
+        if (success) {
+          setSaveStatus({ status: 'saved' })
+          console.log('[DocumentContainer] Document saved successfully')
+        } else {
+          setSaveStatus({ status: 'error' })
+          console.error('[DocumentContainer] Document save failed')
+        }
+      } catch (error) {
+        console.error('[DocumentContainer] Save error:', error)
+        setSaveStatus({ status: 'error' })
+      }
+    },
+    [activeDocumentId, updateDocument]
+  )
 
   const handleUserAction = useCallback((action: string) => {
-    switch (action) {
-      case 'profile':
-        console.log('Opening profile...')
-        break
-      case 'settings':
-        console.log('Opening settings...')
-        break
-      case 'billing':
-        console.log('Opening billing...')
-        break
-      case 'help':
-        console.log('Opening help...')
-        break
-      case 'signout':
-        console.log('Signing out...')
-        break
-      default:
-        console.log('Unknown action:', action)
-    }
+    console.log('[DocumentContainer] User action:', action)
   }, [])
 
   const handleAISidebarToggle = useCallback(() => {
-    setIsAISidebarOpen((prev) => !prev)
-  }, [])
-
-  const handleDistractionFreeToggle = useCallback(() => {
-    setIsDistractionFree((prev) => !prev)
+    setIsAISidebarOpen((prev: boolean) => !prev)
   }, [])
 
   const handleWritingGoalsClick = useCallback(() => {
     setIsGoalsModalOpen(true)
   }, [])
 
-  const handleSaveWritingGoals = useCallback(async (newGoals: WritingGoals, title?: string) => {
-    console.log('[DocumentContainer] Saving writing goals:', { 
-      newGoals, 
-      title, 
-      isCreatingNewDocument 
-    })
-
-    // Always save the goals
-    setWritingGoals(newGoals)
-
-    // If we're creating a new document, create it with the provided title
-    if (isCreatingNewDocument && title && user?.uid) {
-      console.log('[DocumentContainer] Creating new document with title:', title)
-      try {
-        const newDocId = await createDocument(title.trim() || 'Untitled Document')
-        if (newDocId) {
-          setActiveDocumentId(newDocId)
-          console.log('[DocumentContainer] New document created successfully with ID:', newDocId, 'and title:', title)
-        }
-      } catch (error) {
-        console.error('[DocumentContainer] Failed to create new document:', error)
-        toast({
-          title: 'Error Creating Document',
-          description: 'Failed to create the new document. Please try again.',
-          variant: 'destructive',
-        })
-      } finally {
-        // Reset new document creation state
-        setIsCreatingNewDocument(false)
-        setNewDocumentTitle('Untitled Document')
-      }
-    } else {
-      console.log('[DocumentContainer] Just updating goals for existing workflow')
-    }
-  }, [isCreatingNewDocument, createDocument, user?.uid, toast])
-
-  const activeDocument =
-    documents.find((doc) => doc.id === activeDocumentId) || null
-
-  // Memoize initialDocument to prevent unnecessary re-renders that cause title reset
-  const initialDocument = useMemo(() => {
-    if (!activeDocument) return null
-    console.log('[DocumentContainer] Memoizing initialDocument for', activeDocument.title)
-    return {
-      ...activeDocument,
-      content: activeDocument.content || ''
-    }
-  }, [activeDocument]) // Depend on activeDocument to satisfy linter
-
-  const mockUser = {
-    id: user?.uid || '',
-    name: user?.displayName || 'User',
-    email: user?.email || '',
-    plan: 'pro' as const,
-  }
-
-  const handleSave = useAutoSave(
-    async (content: string, title: string) => {
-      if (!activeDocumentId) return
-      console.log('[DocumentContainer] handleSave called. Content length:', content.length, 'Title:', title)
-      setSaveStatus({ status: 'saving' })
-      try {
-        await updateDocument(activeDocumentId, {
-          content,
-          title,
-          wordCount: content.trim().split(/\s+/).filter(Boolean).length,
-          characterCount: content.length,
-        })
-        setSaveStatus({ status: 'saved' })
-        console.log('[DocumentContainer] Save completed successfully for title:', title)
-      } catch (error) {
-        console.error('[DocumentContainer] Failed to save document', error)
-        setSaveStatus({ status: 'error' })
-      }
-    },
-    2000,
-    {
-      compareArgs: (prev, current) => {
-        // Compare content and title to avoid unnecessary saves
-        const isSame = prev[0] === current[0] && prev[1] === current[1]
-        console.log('[DocumentContainer] Comparing save args. Same?', isSame, 'Title changed?', prev[1] !== current[1])
-        return isSame
-      }
-    }
-  )
+  const handleDistractionFreeToggle = useCallback(() => {
+    setIsDistractionFree((prev: boolean) => !prev)
+  }, [])
 
   const handleDeleteVersion = useCallback(
     async (versionId: string) => {
@@ -381,6 +420,50 @@ export function DocumentContainer() {
     [activeDocumentId, deleteVersion, toast, user?.uid],
   )
 
+  // Get the active document and user's permission level
+  const activeDocument = useMemo(() => {
+    return documents.find(doc => doc.id === activeDocumentId) || null
+  }, [documents, activeDocumentId])
+
+  const userPermission = useMemo(() => {
+    return activeDocument ? getUserPermission(activeDocument) : null
+  }, [activeDocument, getUserPermission])
+
+  const canUserEdit = useMemo(() => {
+    return activeDocument ? canEdit(activeDocument) : false
+  }, [activeDocument, canEdit])
+
+  const canUserComment = useMemo(() => {
+    return activeDocument ? canComment(activeDocument) : false
+  }, [activeDocument, canComment])
+
+  // Prepare initial document data for the editor
+  const initialDocument = useMemo(() => {
+    if (!activeDocument) return { content: '', title: 'Untitled Document' }
+    
+    return {
+      content: activeDocument.content || '',
+      title: activeDocument.title || 'Untitled Document',
+    }
+  }, [activeDocument])
+
+  // Mock user data for NavigationBar (keeping existing interface)
+  const mockUser = useMemo(() => ({
+    id: user?.uid || '',
+    name: user?.displayName || 'User',
+    email: user?.email || '',
+    avatar: user?.photoURL || '',
+    plan: 'free' as const,
+  }), [user])
+
+  console.log('[DocumentContainer] Active document permissions:', {
+    documentId: activeDocumentId,
+    userPermission,
+    canEdit: canUserEdit,
+    canComment: canUserComment,
+    isOwner: activeDocument?.ownerId === user?.uid
+  })
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -399,6 +482,8 @@ export function DocumentContainer() {
         <NavigationBar
           user={mockUser}
           documents={documents}
+          ownedDocuments={ownedDocuments}
+          sharedDocuments={sharedDocuments}
           activeDocumentId={activeDocumentId || ''}
           isAISidebarOpen={isAISidebarOpen}
           aiSuggestionCount={0}
@@ -428,6 +513,7 @@ export function DocumentContainer() {
               />
             </div>
           )}
+          
           {activeDocument && initialDocument && user?.uid ? (
             <DocumentEditor
               key={activeDocumentId}
@@ -435,7 +521,7 @@ export function DocumentContainer() {
               initialDocument={initialDocument}
               onSave={handleSave}
               saveStatus={saveStatus}
-
+              readOnly={!canUserEdit}
             />
           ) : (
             <div className="flex h-full items-center justify-center">

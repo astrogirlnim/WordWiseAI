@@ -1,11 +1,9 @@
-import { getDatabase, ref, onValue, set, onDisconnect, get } from 'firebase/database';
-import { getAuth } from 'firebase/auth';
+import { getDatabase, ref, onValue, set, onDisconnect } from 'firebase/database';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 import app from '../lib/firebase';
 
 const db = getDatabase(app);
-const auth = getAuth(app);
 
 export class CollaborationService {
   /**
@@ -109,7 +107,7 @@ export class CollaborationService {
    * @param callback - Callback to receive presence updates
    * @returns Unsubscribe function
    */
-  static subscribeToPresence(docId: string, callback: (presence: Record<string, any>) => void): () => void {
+  static subscribeToPresence(docId: string, callback: (presence: Record<string, unknown>) => void): () => void {
     console.log('[CollaborationService] Subscribing to presence for document:', docId);
     
     const presenceRef = ref(db, `/documents/${docId}/presence`);

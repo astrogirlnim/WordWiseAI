@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AIService } from '@/services/ai-service';
 import type { GrammarError } from '@/types/grammar';
 import { TextChunker, type TextChunk } from '@/utils/text-chunker';
@@ -110,7 +110,7 @@ export function useGrammarChecker(
 
       console.log(`[useGrammarChecker] Chunk ${chunk.chunkIndex + 1} completed with ${mappedErrors.length} errors for session ${sessionId}`);
       return mappedErrors;
-    } catch (error: any) {
+    } catch (error) {
       console.error(`[useGrammarChecker] Error processing chunk ${chunk.chunkIndex + 1} for session ${sessionId}:`, error);
       return [];
     }
@@ -248,7 +248,7 @@ export function useGrammarChecker(
    * Main grammar checking function with pagination-scoped processing
    * Phase 6.1: Only processes visible page text, no background processing
    */
-  const checkGrammar = useCallback(debounce(async (currentText: string) => {
+  const checkGrammar = useMemo(() => debounce(async (currentText: string) => {
     console.log(`[useGrammarChecker] Starting grammar check for text length: ${currentText.length}`);
     
     // Phase 6.1: Extract only visible page text
@@ -345,7 +345,7 @@ export function useGrammarChecker(
           console.log(`[useGrammarChecker] Chunked processing completed but session ${sessionId} was cancelled, discarding results`);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(`[useGrammarChecker] Failed to check grammar for session ${sessionId}:`, error);
       setChunkProgress(prev => ({
         ...prev,
@@ -481,7 +481,7 @@ export function useGrammarChecker(
           console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed but session ${sessionId} was cancelled, discarding results`);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(`[useGrammarChecker] Phase 6.1: Failed to check full document for session ${sessionId}:`, error);
       setChunkProgress(prev => ({
         ...prev,

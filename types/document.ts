@@ -21,6 +21,8 @@ export interface Document {
   status: 'draft' | 'review' | 'final' | 'archived'
   // Access control list
   sharedWith: DocumentAccess[]
+  // Flat list of user IDs for efficient querying (optional for backward compatibility)
+  sharedWithUids?: string[]
   // Sharing settings
   isPublic: boolean
   publicViewMode: 'view' | 'comment' | 'disabled'
@@ -52,6 +54,28 @@ export interface Document {
   characterCount: number
   createdAt: FirestoreTimestamp
   updatedAt: FirestoreTimestamp
+}
+
+export interface ShareToken {
+  id: string
+  documentId: string
+  createdBy: string
+  email: string
+  role: 'viewer' | 'commenter' | 'editor'
+  expiresAt?: FirestoreTimestamp
+  isUsed: boolean
+  usedAt?: FirestoreTimestamp
+  createdAt: FirestoreTimestamp
+}
+
+export type ShareTokenData = Omit<ShareToken, 'id' | 'createdAt'> & {
+  createdAt: FieldValue
+}
+
+export interface DocumentSharingInfo {
+  document: Document
+  sharedWith: DocumentAccess[]
+  activeTokens: ShareToken[]
 }
 
 export interface AutoSaveStatus {
