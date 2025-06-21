@@ -59,6 +59,16 @@ export function useGrammarChecker(
 
   // Pre-warm Harper.js on first load
   useEffect(() => {
+    console.log('[useGrammarChecker] Phase 5: Pre-warming useEffect triggered');
+    console.log('[useGrammarChecker] Phase 5: Window available:', typeof window !== 'undefined');
+    console.log('[useGrammarChecker] Phase 5: Initialization attempted:', initializationAttempted.current);
+    
+    // Ensure we're in the browser
+    if (typeof window === 'undefined') {
+      console.warn('[useGrammarChecker] Phase 5: Skipping Harper.js pre-warm - server side');
+      return;
+    }
+    
     if (!initializationAttempted.current) {
       initializationAttempted.current = true;
       console.log('[useGrammarChecker] Phase 5: Pre-warming Harper.js...');
@@ -67,11 +77,29 @@ export function useGrammarChecker(
         .then((success) => {
           console.log(`[useGrammarChecker] Phase 5: Harper.js pre-warm ${success ? 'successful' : 'failed'}`);
           setIsHarperReady(success);
+          
+          // If failed, try once more after a short delay
+          if (!success) {
+            console.log('[useGrammarChecker] Phase 5: Retrying Harper.js initialization in 1 second...');
+            setTimeout(() => {
+              preWarmHarper()
+                .then((retrySuccess) => {
+                  console.log(`[useGrammarChecker] Phase 5: Harper.js retry ${retrySuccess ? 'successful' : 'failed'}`);
+                  setIsHarperReady(retrySuccess);
+                })
+                .catch((retryError) => {
+                  console.error('[useGrammarChecker] Phase 5: Harper.js retry error:', retryError);
+                  setIsHarperReady(false);
+                });
+            }, 1000);
+          }
         })
         .catch((error) => {
           console.error('[useGrammarChecker] Phase 5: Harper.js pre-warm error:', error);
           setIsHarperReady(false);
         });
+    } else {
+      console.log('[useGrammarChecker] Phase 5: Harper.js initialization already attempted');
     }
   }, []);
 
@@ -96,6 +124,7 @@ export function useGrammarChecker(
    */
   const performGrammarCheck = useCallback(async (textToCheck: string): Promise<GrammarError[]> => {
     console.log(`[useGrammarChecker] Phase 5: Performing Harper.js grammar check on ${textToCheck.length} characters`);
+    console.log(`[useGrammarChecker] Phase 5: Text sent to Harper.js (first 200 chars):`, textToCheck.substring(0, 200));
     
     try {
       setIsChecking(true);
@@ -116,7 +145,8 @@ export function useGrammarChecker(
 
       const duration = Math.round(performance.now() - startTime);
       
-      console.log(`[useGrammarChecker] Phase 5: ✅ Harper.js check completed in ${duration}ms - Found ${grammarErrors.length} errors`);
+      console.log(`[useGrammarChecker] Phase 5: \u2705 Harper.js check completed in ${duration}ms - Found ${grammarErrors.length} errors`);
+      console.log(`[useGrammarChecker] Phase 5: Errors returned from Harper.js:`, grammarErrors);
       
       // Log error breakdown by type
       const errorTypes = grammarErrors.reduce((acc, error) => {
@@ -136,7 +166,7 @@ export function useGrammarChecker(
       return grammarErrors;
       
     } catch (error) {
-      console.error('[useGrammarChecker] Phase 5: ❌ Harper.js grammar check failed:', error);
+      console.error('[useGrammarChecker] Phase 5: \u274c Harper.js grammar check failed:', error);
       
       setChunkProgress({
         totalChunks: 1,
@@ -151,34 +181,46 @@ export function useGrammarChecker(
     }
   }, []);
 
-  /**
-   * Debounced grammar checking for real-time editing
-   */
-  const checkGrammar = useMemo(() => debounce(async (currentText: string) => {
-    console.log(`[useGrammarChecker] Phase 5: Debounced grammar check triggered - Text length: ${currentText.length}`);
-    
-    if (currentText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Phase 5: Text too short, clearing errors');
+  // --- FIX: Use useRef for stable debounced function ---
+  const performGrammarCheckRef = useRef(performGrammarCheck);
+  useEffect(() => {
+    performGrammarCheckRef.current = performGrammarCheck;
+  }, [performGrammarCheck]);
+
+  const checkGrammarRef = useRef<((currentText: string) => void) | null>(null);
+  if (!checkGrammarRef.current) {
+    checkGrammarRef.current = debounce(async (currentText: string) => {
+      console.log(`[useGrammarChecker] Phase 5: Debounced grammar check triggered - Text length: ${currentText.length}`);
+      if (currentText.length < MIN_TEXT_LENGTH) {
+        console.log('[useGrammarChecker] Phase 5: Text too short, clearing errors');
+        setErrors([]);
+        setChunkProgress({
+          totalChunks: 0,
+          completedChunks: 0,
+          processingChunks: 0,
+          isProcessing: false
+        });
+        return;
+      }
+      // Check Harper.js status
+      const harperStatus = getHarperStatus();
+      if (!harperStatus.isInitialized && !harperStatus.isInitializing) {
+        console.warn('[useGrammarChecker] Phase 5: Harper.js not initialized, skipping check');
+        return;
+      }
+      const grammarErrors = await performGrammarCheckRef.current(currentText);
+      setErrors(grammarErrors);
+    }, DEBOUNCE_DELAY);
+  }
+
+  // --- FIX: Effect only depends on plainText and isHarperReady ---
+  useEffect(() => {
+    if (plainText.length >= MIN_TEXT_LENGTH && isHarperReady) {
+      checkGrammarRef.current && checkGrammarRef.current(plainText);
+    } else {
       setErrors([]);
-      setChunkProgress({
-        totalChunks: 0,
-        completedChunks: 0,
-        processingChunks: 0,
-        isProcessing: false
-      });
-      return;
     }
-
-    // Check Harper.js status
-    const harperStatus = getHarperStatus();
-    if (!harperStatus.isInitialized && !harperStatus.isInitializing) {
-      console.warn('[useGrammarChecker] Phase 5: Harper.js not initialized, skipping check');
-      return;
-    }
-
-    const grammarErrors = await performGrammarCheck(currentText);
-    setErrors(grammarErrors);
-  }, DEBOUNCE_DELAY), [performGrammarCheck]);
+  }, [plainText, isHarperReady]);
 
   /**
    * Immediate grammar checking (cancels debounced check)
@@ -186,20 +228,9 @@ export function useGrammarChecker(
   const checkGrammarImmediately = useCallback(async (currentText: string) => {
     console.log(`[useGrammarChecker] Phase 5: Immediate grammar check requested - Text length: ${currentText.length}`);
     
-    if (currentText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Phase 5: Text too short for immediate check, clearing errors');
-      setErrors([]);
-      setChunkProgress({
-        totalChunks: 0,
-        completedChunks: 0,
-        processingChunks: 0,
-        isProcessing: false
-      });
-      return;
+    if (checkGrammarRef.current && typeof (checkGrammarRef.current as any).cancel === 'function') {
+      (checkGrammarRef.current as any).cancel();
     }
-
-    // Cancel any pending debounced checks
-    checkGrammar.cancel();
     
     // Check Harper.js status
     const harperStatus = getHarperStatus();
@@ -210,7 +241,7 @@ export function useGrammarChecker(
 
     const grammarErrors = await performGrammarCheck(currentText);
     setErrors(grammarErrors);
-  }, [checkGrammar, performGrammarCheck]);
+  }, [performGrammarCheck]);
 
   /**
    * Full document grammar checking
@@ -247,25 +278,15 @@ export function useGrammarChecker(
     // The TipTap extension will handle visibility based on the range
   }, [visibleRange]);
 
-  // Automatic grammar checking on text changes
-  useEffect(() => {
-    console.log(`[useGrammarChecker] Phase 5: Text changed (${plainText.length} chars), triggering debounced check`);
-    
-    if (plainText.length >= MIN_TEXT_LENGTH && isHarperReady) {
-      checkGrammar(plainText);
-    } else if (plainText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Phase 5: Text below minimum length, clearing errors');
-      setErrors([]);
-    }
-  }, [plainText, checkGrammar, isHarperReady]);
-
   // Cleanup function to cancel any pending debounced calls
   useEffect(() => {
     return () => {
       console.log('[useGrammarChecker] Phase 5: Cleaning up debounced grammar checks');
-      checkGrammar.cancel();
+      if (checkGrammarRef.current && typeof (checkGrammarRef.current as any).cancel === 'function') {
+        (checkGrammarRef.current as any).cancel();
+      }
     };
-  }, [checkGrammar]);
+  }, []);
 
   // Log current state for debugging
   useEffect(() => {
@@ -280,7 +301,7 @@ export function useGrammarChecker(
     isChecking,
     isGrammarCheckReady: isHarperReady,
     chunkProgress,
-    checkGrammar,
+    checkGrammar: checkGrammarRef.current,
     checkGrammarImmediately,
     removeError,
     ignoreError,

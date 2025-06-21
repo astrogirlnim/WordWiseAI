@@ -522,6 +522,7 @@ export function DocumentContainer() {
               onSave={handleSave}
               saveStatus={saveStatus}
               readOnly={!canUserEdit}
+              grammarCheckEnabled={true}
             />
           ) : (
             <div className="flex h-full items-center justify-center">

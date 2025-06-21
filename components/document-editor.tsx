@@ -37,6 +37,7 @@ import { MarkdownPreviewToggle } from './markdown-preview-toggle'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import { useAISuggestions } from '@/hooks/use-ai-suggestions'
 import type { AISuggestion } from '@/types/ai-features'
+import { applySuggestionWithHarper } from '@/utils/harper-wrapper'
 
 // Phase 1 Integration: Import Phase 1 solutions
 import { EditorContentCoordinator } from '@/utils/editor-content-coordinator'
@@ -55,6 +56,7 @@ interface DocumentEditorProps {
   onContentChange?: (content: string) => void
   saveStatus: AutoSaveStatus
   readOnly?: boolean
+  grammarCheckEnabled?: boolean
   onAISuggestionsChange?: (suggestions: AISuggestion[]) => void
 
 }
@@ -66,6 +68,7 @@ export function DocumentEditor({
   onContentChange,
   saveStatus,
   readOnly = false,
+  grammarCheckEnabled = false,
   onAISuggestionsChange,
 
 }: DocumentEditorProps) {
@@ -119,8 +122,13 @@ export function DocumentEditor({
       // It's not ideal for performance but necessary for the grammar checker.
       const div = document.createElement('div')
       div.innerHTML = fullContentHtml
-      return div.textContent || ''
+      const plainText = div.textContent || ''
+      console.log(`[DocumentEditor] Phase 5: Plain text for grammar check (${plainText.length} chars):`, plainText.substring(0, 200))
+      return plainText
   }, [fullContentHtml])
+
+  console.log(`[DocumentEditor] Phase 5: grammarCheckEnabled:`, grammarCheckEnabled)
+  console.log(`[DocumentEditor] Phase 5: Passing plainText to useGrammarChecker (first 200 chars):`, grammarCheckEnabled ? fullPlainText.substring(0, 200) : '[DISABLED]')
 
   const visibleRange = useMemo(() => ({
     start: pageOffset,
@@ -132,7 +140,7 @@ export function DocumentEditor({
   // Phase 2: Pass coordinator reference to grammar checker for typing lock detection
   const { errors, removeError, checkFullDocument } = useGrammarChecker(
     documentId, 
-    fullPlainText,
+    grammarCheckEnabled ? fullPlainText : '',
     visibleRange,
     contentCoordinatorRef // Phase 2: Add coordinator reference
   )
@@ -595,95 +603,51 @@ export function DocumentEditor({
   }, [handleApplyAISuggestion])
 
   const handleApplySuggestion = useCallback(
-    (error: GrammarError, suggestion: string) => {
-      if (!editor || !user) return
-
-      // Adjust error positions to be relative to the current page
-      const relativeStart = error.start - pageOffset
-      const relativeEnd = error.end - pageOffset
-
-      // Check if the error is on the current page
-      if (relativeStart < 0 || relativeEnd > editor.state.doc.content.size) {
-          console.warn(`[DocumentEditor] Attempted to apply suggestion for an error not on the current page. Error ID: ${error.id}`)
-          // Future enhancement: automatically switch to the page with the error.
-          return
-      }
-
-      let replacementRange = { from: relativeStart, to: relativeEnd }
-
-      const textInDoc = editor.state.doc.textBetween(
-        replacementRange.from,
-        replacementRange.to,
-      )
-
-      if (textInDoc !== error.error) {
-        console.warn(
-          `[DocumentEditor] Mismatch detected. Expected: "${error.error}", Found: "${textInDoc}". Searching for correct position.`,
-        )
-
-        const potentialRanges: { from: number; to: number }[] = []
-        editor.state.doc.nodesBetween(
-          0,
-          editor.state.doc.content.size,
-          (node, pos) => {
-            if (!node.isText || !node.text) {
-              return
+    async (error: GrammarError, suggestion: string) => {
+      if (!editor || !user) return;
+      console.log(`[DocumentEditor] Applying Harper.js suggestion: "${suggestion}" for error: "${error.error}"`);
+  
+      const newText = await applySuggestionWithHarper(fullPlainText, error, error.suggestions.indexOf(suggestion));
+  
+      if (newText !== fullPlainText) {
+        setFullContentHtml(newText);
+  
+        // Phase 1: Use coordinator for ALL content updates, including React state
+        if (contentCoordinatorRef.current) {
+          const newPageContent = newText.substring(pageOffset, Math.min(pageOffset + PAGE_SIZE_CHARS, newText.length));
+          contentCoordinatorRef.current.updateContent(
+            'grammar',
+            newPageContent,
+            `grammar-suggestion-${error.id}`,
+            {
+              fullContent: newText,
+              onStateUpdate: (content: string) => {
+                setFullContentHtml(content);
+                if (onContentChange) onContentChange(content);
+                if (onSave) onSave(content, title);
+              }
             }
-
-            let index
-            const text = node.text
-            let offset = 0
-
-            while ((index = text.indexOf(error.error, offset)) !== -1) {
-              const from = pos + index
-              const to = from + error.error.length
-              potentialRanges.push({ from, to })
-              offset = index + error.error.length
-            }
-          },
-        )
-
-        if (potentialRanges.length > 0) {
-          const bestMatch = potentialRanges.reduce((prev, curr) => {
-            const prevDist = Math.abs(prev.from - error.start)
-            const currDist = Math.abs(curr.from - error.start)
-            return currDist < prevDist ? curr : prev
-          })
-          replacementRange = bestMatch
-          console.log(
-            `[DocumentEditor] Found closest match. New range: [${replacementRange.from}, ${replacementRange.to}]`,
-          )
-        } else {
-          console.error(
-            `[DocumentEditor] Could not find text "${error.error}" in document to apply suggestion. Aborting.`,
-          )
-          return
+          ).then(() => {
+            console.log('[DocumentEditor] Phase 5: Grammar suggestion processed through coordinator');
+          }).catch(err => {
+            console.error('[DocumentEditor] Phase 5: Error processing grammar suggestion:', err);
+          });
         }
       }
-
-      editor
-        .chain()
-        .focus()
-        .deleteRange(replacementRange)
-        .insertContentAt(replacementRange.from, suggestion)
-        .run()
-
-      // CRITICAL FIX: Let debounced grammar checking handle the re-check after suggestion
-      // onUpdate will trigger normal debounced grammar checking automatically
-
+  
       AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
         documentId,
         errorId: error.id,
         errorText: error.error,
         suggestion,
         msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
-      })
-
-      removeError(error.id)
-      setContextMenu(null)
+      });
+  
+      removeError(error.id);
+      setContextMenu(null);
     },
-    [editor, user, documentId, removeError, pageOffset],
-  )
+    [editor, user, documentId, removeError, pageOffset, fullPlainText, onSave, title, onContentChange]
+  );
 
   const handleIgnoreError = useCallback(
     (error: GrammarError) => {
@@ -776,6 +740,7 @@ export function DocumentEditor({
   // Enhanced error synchronization with comprehensive debug logging
   useEffect(() => {
     console.log(`[DocumentEditor] Phase 6.1: Error sync triggered. Total errors: ${errors.length}, Page offset: ${pageOffset}`);
+    console.log(`[DocumentEditor] Phase 6.1: Original errors array:`, errors);
     
     if (!editor || editor.isDestroyed) {
       console.warn('[DocumentEditor] Phase 6.1: Editor not available or destroyed, skipping error sync');
@@ -833,6 +798,7 @@ export function DocumentEditor({
         .filter((e): e is GrammarError => e !== null);
 
     console.log(`[DocumentEditor] BUGFIX: Filtered ${relativeErrors.length} page-relative errors from ${errors.length} total errors`);
+    console.log(`[DocumentEditor] BUGFIX: relativeErrors array:`, relativeErrors);
 
     // **PHASE 6.1: Always dispatch errors to ensure GrammarExtension receives updates**
     const { tr } = editor.state;
@@ -1031,8 +997,8 @@ export function DocumentEditor({
                 </ContextMenuPrimitive.Trigger>
                 {contextMenu && (
                   <ContextMenuContent className="awwwards-card min-w-[200px]">
-                    <ContextMenuLabel className="text-retro-primary font-medium">
-                      Spelling: &quot;{contextMenu.error.error}&quot;
+                    <ContextMenuLabel className="text-retro-primary font-medium capitalize">
+                      {contextMenu.error.type}: &quot;{contextMenu.error.error}&quot;
                     </ContextMenuLabel>
                     {contextMenu.error.suggestions.map((suggestion, index) => (
                       <ContextMenuItem
@@ -1083,8 +1049,8 @@ export function DocumentEditor({
         </ContextMenuPrimitive.Trigger>
         {contextMenu && (
           <ContextMenuContent className="awwwards-card min-w-[200px]">
-            <ContextMenuLabel className="text-retro-primary font-medium">
-              Spelling: &quot;{contextMenu.error.error}&quot;
+            <ContextMenuLabel className="text-retro-primary font-medium capitalize">
+              {contextMenu.error.type}: &quot;{contextMenu.error.error}&quot;
             </ContextMenuLabel>
             {contextMenu.error.suggestions.map((suggestion, index) => (
               <ContextMenuItem

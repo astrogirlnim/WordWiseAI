@@ -54,41 +54,73 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
  * This handles the asynchronous loading of the WebAssembly binary
  */
 async function initializeHarper(): Promise<void> {
+  console.log('[HarperWrapper] Phase 5: initializeHarper called');
+  
   // Ensure this only runs in the browser
   if (typeof window === 'undefined') {
     console.warn('[HarperWrapper] Phase 5: Attempted to initialize on the server. Skipping.');
     return;
   }
-  if (isInitialized) return;
-  if (initializationPromise) return initializationPromise;
+  
+  console.log('[HarperWrapper] Phase 5: Browser environment confirmed');
+  
+  if (isInitialized) {
+    console.log('[HarperWrapper] Phase 5: Already initialized, skipping');
+    return;
+  }
+  
+  if (initializationPromise) {
+    console.log('[HarperWrapper] Phase 5: Initialization already in progress, waiting...');
+    return initializationPromise;
+  }
 
   console.log('[HarperWrapper] Phase 5: Initializing Harper.js WASM module...');
 
   initializationPromise = (async () => {
     try {
+      console.log('[HarperWrapper] Phase 5: Starting dynamic import of harper.js...');
+      
       // Dynamic import to handle WASM loading in Next.js environment
       const { binary, LocalLinter, Dialect } = await import('harper.js');
       
-      console.log('[HarperWrapper] Phase 5: Harper.js module loaded, setting up binary...');
+      console.log('[HarperWrapper] Phase 5: Harper.js module loaded successfully');
+      console.log('[HarperWrapper] Phase 5: Available exports:', { 
+        hasBinary: !!binary, 
+        hasLocalLinter: !!LocalLinter, 
+        hasDialect: !!Dialect 
+      });
+      
+      console.log('[HarperWrapper] Phase 5: Setting up WASM binary...');
       
       // Setup the WASM binary. It will fetch the wasm file from the root,
       // so we have placed harper_wasm_bg.wasm in the /public directory.
       await binary.setup();
       
-      console.log('[HarperWrapper] Phase 5: Harper.js binary ready, creating linter...');
+      console.log('[HarperWrapper] Phase 5: Harper.js binary setup complete');
+      
+      console.log('[HarperWrapper] Phase 5: Creating linter with American dialect...');
       
       // Create a linter instance with American English dialect
       harperLinter = await binary.createLinter(Dialect.American);
       
-      console.log('[HarperWrapper] Phase 5: Harper.js linter created successfully.');
+      console.log('[HarperWrapper] Phase 5: Harper.js linter created successfully');
+      console.log('[HarperWrapper] Phase 5: Linter type:', typeof harperLinter);
       
       // Store the module reference
       harperModule = { binary, LocalLinter, Dialect };
       isInitialized = true;
       
-      console.log('[HarperWrapper] Phase 5: ✅ Harper.js initialization complete.');
+      console.log('[HarperWrapper] Phase 5: ✅ Harper.js initialization complete');
+      console.log('[HarperWrapper] Phase 5: Final state - isInitialized:', isInitialized, 'hasLinter:', !!harperLinter);
+      
     } catch (error) {
       console.error('[HarperWrapper] Phase 5: ❌ Failed to initialize Harper.js:', error);
+      console.error('[HarperWrapper] Phase 5: Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
       // Reset state on error so we can retry
       isInitialized = false;
       initializationPromise = null;
@@ -156,6 +188,7 @@ export async function checkGrammarWithHarper(
   const { language = 'plaintext', minTextLength = 10 } = options;
   
   console.log(`[HarperWrapper] Phase 5: Starting grammar check - Text length: ${text.length}, Language: ${language}`);
+  console.log(`[HarperWrapper] Phase 5: Text content (first 200 chars):`, text.substring(0, 200));
   
   // Skip very short text
   if (text.length < minTextLength) {
@@ -177,23 +210,24 @@ export async function checkGrammarWithHarper(
     
     // Run Harper.js linting
     const lints = await harperLinter.lint(text, { language });
+    console.log(`[HarperWrapper] Phase 5: Harper.js lint returned ${lints.length} lints.`);
     
     const endTime = performance.now();
     const duration = Math.round(endTime - startTime);
     
-    console.log(`[HarperWrapper] Phase 5: ✅ Harper.js lint completed in ${duration}ms - Found ${lints.length} issues.`);
+    console.log(`[HarperWrapper] Phase 5: \u2705 Harper.js lint completed in ${duration}ms - Found ${lints.length} issues.`);
     
     // Convert Harper lints to our GrammarError format
     const grammarErrors = lints.map((lint: any, index: number) => 
       convertHarperLintToGrammarError(lint, index)
     );
     
-    console.log(`[HarperWrapper] Phase 5: ✅ Converted ${grammarErrors.length} Harper lints to grammar errors.`);
+    console.log(`[HarperWrapper] Phase 5: \u2705 Converted ${grammarErrors.length} Harper lints to grammar errors.`);
     
     return grammarErrors;
     
   } catch (error) {
-    console.error('[HarperWrapper] Phase 5: ❌ Error during Harper.js grammar check:', error);
+    console.error('[HarperWrapper] Phase 5: \u274c Error during Harper.js grammar check:', error);
     
     // Return empty array on error to maintain compatibility
     return [];
