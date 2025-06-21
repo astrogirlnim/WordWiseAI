@@ -46,7 +46,6 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_WORDWISE_AI_MVP }}'
           channelId: live
           projectId: wordwise-ai-mvp
-          target: hosting
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
           # Firebase Client Configuration - Required for SSR build
@@ -63,10 +62,3 @@ jobs:
           FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
           # AI Service Configuration
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      - name: Deploy Firestore Rules
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_WORDWISE_AI_MVP }}'
-          projectId: wordwise-ai-mvp
-          target: firestore
