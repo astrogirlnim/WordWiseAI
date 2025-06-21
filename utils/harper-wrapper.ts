@@ -33,20 +33,59 @@ const detectedHarperCategories = new Set<string>();
 
 /**
  * Harper.js error categories mapped to our grammar error types
+ * Expanded mapping to capture all Harper.js lint categories for comprehensive error detection
  */
 const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
+  // Core grammar and spelling
   'Spelling': 'spelling',
   'Grammar': 'grammar',
-  'Style': 'style',
   'Capitalization': 'grammar',
   'Punctuation': 'punctuation',
+  'Tense': 'grammar',
+  'Agreement': 'grammar',
+  'Syntax': 'grammar',
+  
+  // Style and clarity
+  'Style': 'style',
   'Clarity': 'clarity',
+  'Readability': 'clarity',
+  'Conciseness': 'clarity',
+  'Wordiness': 'style',
   'Redundancy': 'style',
   'WordChoice': 'style',
   'Repetition': 'style',
-  'Readability': 'clarity',
   'Formatting': 'style',
+  
+  // Advanced language issues
+  'VoicePassive': 'style',
+  'VoiceActive': 'style',
+  'Tone': 'style',
+  'Formality': 'style',
+  'Consistency': 'style',
+  'Coherence': 'clarity',
+  'Flow': 'clarity',
+  'Transition': 'clarity',
+  
+  // Technical writing
+  'Jargon': 'clarity',
+  'Terminology': 'style',
+  'Abbreviation': 'style',
+  'Acronym': 'style',
+  'Citation': 'style',
+  'Reference': 'style',
+  
+  // Sentence structure
+  'SentenceLength': 'clarity',
+  'SentenceStructure': 'grammar',
+  'Parallelism': 'style',
+  'Modifier': 'grammar',
+  'Dangling': 'grammar',
+  'Misplaced': 'grammar',
+  
+  // Fallback categories
   'Miscellaneous': 'grammar',
+  'Other': 'grammar',
+  'Unknown': 'grammar',
 } as const;
 
 /**
@@ -212,19 +251,29 @@ export async function checkGrammarWithHarper(
     const lints = await harperLinter.lint(text, { language });
     console.log(`[HarperWrapper] Phase 5: Harper.js lint returned ${lints.length} lints.`);
     
+    console.log(`[HarperWrapper] Phase 5: ✅ Harper.js found ${lints.length} errors`);
+    
+    // Convert Harper.js lints to our GrammarError format
+    const errors = lints.map((lint: any, index: number) => convertHarperLintToGrammarError(lint, index));
+    
+    // **ANALYSIS: Log Harper.js category analysis after each check**
+    const categoryAnalysis = getHarperCategoryAnalysis();
+    console.log(`[HarperWrapper] Phase 5: 📊 Harper.js Category Analysis:`, {
+      totalDetected: categoryAnalysis.totalCategoriesDetected,
+      mappingCoverage: `${categoryAnalysis.mappingCoverage}%`,
+      detectedCategories: categoryAnalysis.detectedCategories,
+      unmappedCategories: categoryAnalysis.unmappedCategories
+    });
+    
+    if (categoryAnalysis.unmappedCategories.length > 0) {
+      console.warn(`[HarperWrapper] Phase 5: ⚠️ Found ${categoryAnalysis.unmappedCategories.length} unmapped Harper.js categories:`, categoryAnalysis.unmappedCategories);
+      console.warn(`[HarperWrapper] Phase 5: 💡 Consider adding these to HARPER_ERROR_TYPE_MAP for better error classification.`);
+    }
+    
     const endTime = performance.now();
-    const duration = Math.round(endTime - startTime);
+    console.log(`[HarperWrapper] Phase 5: ✅ Grammar check completed in ${(endTime - startTime).toFixed(2)}ms`);
     
-    console.log(`[HarperWrapper] Phase 5: \u2705 Harper.js lint completed in ${duration}ms - Found ${lints.length} issues.`);
-    
-    // Convert Harper lints to our GrammarError format
-    const grammarErrors = lints.map((lint: any, index: number) => 
-      convertHarperLintToGrammarError(lint, index)
-    );
-    
-    console.log(`[HarperWrapper] Phase 5: \u2705 Converted ${grammarErrors.length} Harper lints to grammar errors.`);
-    
-    return grammarErrors;
+    return errors;
     
   } catch (error) {
     console.error('[HarperWrapper] Phase 5: \u274c Error during Harper.js grammar check:', error);
@@ -248,6 +297,9 @@ export async function applySuggestionWithHarper(
   suggestionIndex: number = 0
 ): Promise<string> {
   console.log(`[HarperWrapper] Phase 5: Applying suggestion for error ID ${error.id} at index ${suggestionIndex}.`);
+  console.log(`[HarperWrapper] Phase 5: Original text length: ${text.length}, Error span: ${error.start}-${error.end}`);
+  console.log(`[HarperWrapper] Phase 5: Error text: "${error.error}", Available suggestions:`, error.suggestions);
+  
   const suggestion = error.suggestions[suggestionIndex];
   
   if (typeof suggestion !== 'string') {
@@ -255,9 +307,29 @@ export async function applySuggestionWithHarper(
     return text;
   }
   
+  if (!suggestion.trim()) {
+    console.warn(`[HarperWrapper] Phase 5: ⚠️ Empty suggestion at index ${suggestionIndex}, returning original text`);
+    return text;
+  }
+  
   const { start, end } = error;
+  
+  // Validate span bounds
+  if (start < 0 || end > text.length || start >= end) {
+    console.error(`[HarperWrapper] Phase 5: ❌ Invalid error span [${start}, ${end}] for text length ${text.length}`);
+    return text;
+  }
+  
+  // Extract the problematic text to verify it matches
+  const problemText = text.substring(start, end);
+  console.log(`[HarperWrapper] Phase 5: Problem text from span: "${problemText}"`);
+  
+  // Apply the suggestion by replacing the error span with the suggestion
   const newText = text.substring(0, start) + suggestion + text.substring(end);
-  console.log(`[HarperWrapper] Phase 5: ✅ Suggestion applied. New text length: ${newText.length}.`);
+  
+  console.log(`[HarperWrapper] Phase 5: ✅ Suggestion "${suggestion}" applied successfully.`);
+  console.log(`[HarperWrapper] Phase 5: New text length: ${newText.length} (change: ${newText.length - text.length})`);
+  
   return newText;
 }
 

@@ -635,47 +635,55 @@ export function DocumentEditor({
     async (error: GrammarError, suggestion: string) => {
       if (!editor || !user) return;
       console.log(`[DocumentEditor] Applying Harper.js suggestion: "${suggestion}" for error: "${error.error}"`);
+      console.log(`[DocumentEditor] Error span: ${error.start}-${error.end}, Suggestion index: ${error.suggestions.indexOf(suggestion)}`);
   
-      const newText = await applySuggestionWithHarper(grammarPlainText, error, error.suggestions.indexOf(suggestion));
-  
-      if (newText !== grammarPlainText) {
-        setFullContentHtml(newText);
-  
-        // Phase 1: Use coordinator for ALL content updates, including React state
-        if (contentCoordinatorRef.current) {
-          const newPageContent = newText.substring(pageOffset, Math.min(pageOffset + PAGE_SIZE_CHARS, newText.length));
-          contentCoordinatorRef.current.updateContent(
-            'grammar',
-            newPageContent,
-            `grammar-suggestion-${error.id}`,
-            {
-              fullContent: newText,
-              onStateUpdate: (content: string) => {
-                setFullContentHtml(content);
-                if (onContentChange) onContentChange(content);
-                if (onSave) onSave(content, title);
-              }
-            }
-          ).then(() => {
-            console.log('[DocumentEditor] Phase 5: Grammar suggestion processed through coordinator');
-          }).catch(err => {
-            console.error('[DocumentEditor] Phase 5: Error processing grammar suggestion:', err);
+      // **GRAMMAR CHECKER FIX: Apply suggestion directly to editor content**
+      // Instead of manipulating the full document HTML, apply the suggestion to the current editor content
+      try {
+        // Calculate the position relative to the current page
+        const relativeStart = error.start - pageOffset;
+        const relativeEnd = error.end - pageOffset;
+        
+        console.log(`[DocumentEditor] Applying suggestion at relative positions: ${relativeStart}-${relativeEnd}`);
+        
+        // Validate that the error is within the current page bounds
+        if (relativeStart >= 0 && relativeEnd <= editor.state.doc.content.size) {
+          // Get the current text at the error position to verify it matches
+          const currentText = editor.state.doc.textBetween(relativeStart, relativeEnd);
+          console.log(`[DocumentEditor] Current text at error position: "${currentText}"`);
+          
+          // Apply the suggestion using editor commands
+          editor
+            .chain()
+            .focus()
+            .setTextSelection({ from: relativeStart, to: relativeEnd })
+            .insertContent(suggestion)
+            .run();
+            
+          console.log(`[DocumentEditor] ✅ Suggestion "${suggestion}" applied successfully to editor`);
+          
+          // Log audit event
+          AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
+            documentId,
+            errorId: error.id,
+            errorText: error.error,
+            suggestion,
+            msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
           });
+          
+          // Remove the error from the list and close context menu
+          removeError(error.id);
+          setContextMenu(null);
+          
+        } else {
+          console.warn(`[DocumentEditor] ⚠️ Error position ${relativeStart}-${relativeEnd} is outside current page bounds (0-${editor.state.doc.content.size})`);
         }
+        
+      } catch (err) {
+        console.error('[DocumentEditor] ❌ Error applying suggestion:', err);
       }
-  
-      AuditService.logEvent(AuditEvent.SUGGESTION_APPLY, user.uid, {
-        documentId,
-        errorId: error.id,
-        errorText: error.error,
-        suggestion,
-        msSinceShown: error.shownAt ? Date.now() - error.shownAt : -1,
-      });
-  
-      removeError(error.id);
-      setContextMenu(null);
     },
-    [editor, user, documentId, removeError, pageOffset, grammarPlainText, onSave, title, onContentChange]
+    [editor, user, documentId, removeError, pageOffset]
   );
 
   const handleIgnoreError = useCallback(
