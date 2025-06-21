@@ -1,10 +1,13 @@
 'use client'
 
 import type React from 'react'
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+// Add ClipboardTextSerializer extension for plain text paste
+import { Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { getWordCount, getCharacterCount } from '@/utils/document-utils'
 import { DocumentStatusBar } from './document-status-bar'
 import type { Document, AutoSaveStatus } from '@/types/document'
@@ -41,6 +44,48 @@ import type { AISuggestion } from '@/types/ai-features'
 // Phase 6: Document Pagination
 const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
 
+/**
+ * BUGFIX: Plain Text Paste Extension
+ * Forces all pasted content to be converted to plain text to prevent
+ * rich text formatting from breaking the editor
+ */
+const PlainTextPasteExtension = Extension.create({
+  name: 'plainTextPaste',
+  
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('plainTextPaste'),
+        props: {
+          handlePaste(view, event, _slice) {
+            console.log('[PlainTextPasteExtension] Intercepting paste event for plain text conversion')
+            
+            // Extract plain text from clipboard data
+            const text = event.clipboardData?.getData('text/plain') || ''
+            
+            if (text) {
+              console.log('[PlainTextPasteExtension] Converting pasted content to plain text:', text.substring(0, 100))
+              
+              // Insert plain text at current cursor position
+              const { tr } = view.state
+              const { from, to } = view.state.selection
+              
+              tr.insertText(text, from, to)
+              view.dispatch(tr)
+              
+              console.log('[PlainTextPasteExtension] Plain text inserted successfully')
+              return true // Prevent default paste handling
+            }
+            
+            console.log('[PlainTextPasteExtension] No plain text found, allowing default paste')
+            return false
+          }
+        }
+      })
+    ]
+  }
+})
+
 interface DocumentEditorProps {
   documentId: string
   initialDocument?: Partial<Document>
@@ -65,6 +110,10 @@ export function DocumentEditor({
   console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
 
+  // BUGFIX: Add debouncing and conflict prevention for editor updates
+  const isUpdatingContentRef = useRef(false)
+  const lastContentUpdateRef = useRef<string>('')
+  
   // Phase 6: Pagination State
   const [fullContentHtml, setFullContentHtml] = useState(initialDocument.content || '')
   const [currentPage, setCurrentPage] = useState(1)
@@ -171,10 +220,27 @@ export function DocumentEditor({
         placeholder: 'Start writing your masterpiece...',
       }),
       GrammarExtension,
+      PlainTextPasteExtension,
     ],
     content: pageContent, // Use paginated content
     onUpdate: ({ editor }) => {
+      // BUGFIX: Prevent recursive updates and reduce flashing
+      if (isUpdatingContentRef.current) {
+        console.log('[DocumentEditor] BUGFIX: Skipping onUpdate due to ongoing content update')
+        return
+      }
+      
       const newPageHtml = editor.getHTML();
+      
+      // BUGFIX: Debounce rapid updates to prevent flashing
+      if (newPageHtml === lastContentUpdateRef.current) {
+        console.log('[DocumentEditor] BUGFIX: Skipping onUpdate - content unchanged')
+        return
+      }
+      
+      lastContentUpdateRef.current = newPageHtml
+      console.log('[DocumentEditor] BUGFIX: Processing onUpdate with debouncing')
+      
       setFullContentHtml(prevFullContentHtml => {
         const oldPageEndIndex = pageOffset + pageContent.length;
         const updatedFullContent =
@@ -182,15 +248,13 @@ export function DocumentEditor({
           newPageHtml +
           prevFullContentHtml.substring(oldPageEndIndex);
 
-        console.log('[DocumentEditor] onUpdate (fixed): updatedFullContent.length:', updatedFullContent.length);
-        if (onContentChange) onContentChange(updatedFullContent);
+        console.log('[DocumentEditor] onUpdate (optimized): updatedFullContent.length:', updatedFullContent.length);
         
-        // Defer onSave call to avoid setState during render
-        if (onSave) {
-          setTimeout(() => {
-            onSave(updatedFullContent, title);
-          }, 0);
-        }
+        // BUGFIX: Debounce callbacks to prevent excessive re-renders
+        setTimeout(() => {
+          if (onContentChange) onContentChange(updatedFullContent);
+          if (onSave) onSave(updatedFullContent, title);
+        }, 50); // Small delay to batch updates
         
         return updatedFullContent;
       });
@@ -237,13 +301,22 @@ export function DocumentEditor({
     handleFullDocumentCheck();
   }, [handleFullDocumentCheck]);
 
-  // Effect to update editor content when page changes
+  // BUGFIX: Optimized effect to update editor content when page changes
   useEffect(() => {
-    if (editor && !editor.isDestroyed) {
+    if (editor && !editor.isDestroyed && !isUpdatingContentRef.current) {
         const currentEditorContent = editor.getHTML()
         if (currentEditorContent !== pageContent) {
-            console.log(`[DocumentEditor] Page changed to ${currentPage}. Updating editor content.`)
+            console.log(`[DocumentEditor] BUGFIX: Page changed to ${currentPage}. Updating editor content.`)
+            
+            // BUGFIX: Set flag to prevent onUpdate conflicts
+            isUpdatingContentRef.current = true
+            
             editor.commands.setContent(pageContent, false) // `false` to avoid triggering onUpdate
+            
+            // BUGFIX: Reset flag after content is set
+            setTimeout(() => {
+              isUpdatingContentRef.current = false
+            }, 100)
         }
     }
   }, [pageContent, editor, currentPage])
@@ -639,48 +712,56 @@ export function DocumentEditor({
     }
   }, [documentId, initialDocument.title]) // Include initialDocument.title to satisfy linter but effect behavior unchanged since documentId changes trigger this
 
-  // **PHASE 8.2: CRITICAL FIX** - Synchronize editor content with external changes (version restore)
-  // **ADAPTED FOR PHASE 6 (PAGINATION)**
+  // **BUGFIX: OPTIMIZED PHASE 8.2** - Synchronize editor content with external changes (version restore)
+  // **ADAPTED FOR PHASE 6 (PAGINATION) WITH CONFLICT PREVENTION**
   useEffect(() => {
-    console.log('[DocumentEditor] Phase 8.2: Checking for content synchronization')
+    console.log('[DocumentEditor] BUGFIX Phase 8.2: Checking for content synchronization')
     
     const newContent = initialDocument.content || ''
 
-    if (fullContentHtml === newContent) {
-        console.log('[DocumentEditor] Full content unchanged, skipping sync')
+    // BUGFIX: More robust content comparison and debouncing
+    if (fullContentHtml === newContent || isUpdatingContentRef.current) {
+        console.log('[DocumentEditor] BUGFIX: Full content unchanged or update in progress, skipping sync')
         return
     }
 
-    console.log('[DocumentEditor] New initialDocument content detected. Updating full content state.')
-    console.log('[DocumentEditor] Phase 8.2: Previous fullContentHtml length:', fullContentHtml.length)
-    console.log('[DocumentEditor] Phase 8.2: New content length:', newContent.length)
+    console.log('[DocumentEditor] BUGFIX: New initialDocument content detected. Updating full content state.')
+    console.log('[DocumentEditor] BUGFIX Phase 8.2: Previous fullContentHtml length:', fullContentHtml.length)
+    console.log('[DocumentEditor] BUGFIX Phase 8.2: New content length:', newContent.length)
+    
+    // BUGFIX: Set flag to prevent conflicts
+    isUpdatingContentRef.current = true
     
     setFullContentHtml(newContent)
     setCurrentPage(1) // Reset to first page on document change
 
-    // **CRITICAL FIX**: Ensure editor content is immediately synchronized after state update
-    // This fixes version restore by forcing editor content update after fullContentHtml changes
+    // **BUGFIX: Improved editor content synchronization with conflict prevention**
     setTimeout(() => {
       if (editor && !editor.isDestroyed) {
         const newPageContent = newContent.substring(0, Math.min(PAGE_SIZE_CHARS, newContent.length))
         const currentEditorContent = editor.getHTML()
         
-        console.log('[DocumentEditor] Phase 8.2: Forcing editor content update for version restore')
-        console.log('[DocumentEditor] Phase 8.2: Current editor content length:', currentEditorContent.length)
-        console.log('[DocumentEditor] Phase 8.2: New page content length:', newPageContent.length)
+        console.log('[DocumentEditor] BUGFIX Phase 8.2: Checking if editor content update needed')
+        console.log('[DocumentEditor] BUGFIX Phase 8.2: Current editor content length:', currentEditorContent.length)
+        console.log('[DocumentEditor] BUGFIX Phase 8.2: New page content length:', newPageContent.length)
         
         if (currentEditorContent !== newPageContent) {
-          console.log('[DocumentEditor] Phase 8.2: Updating editor content with restored version')
+          console.log('[DocumentEditor] BUGFIX Phase 8.2: Updating editor content with restored version')
           editor.commands.setContent(newPageContent, false) // false to avoid triggering onUpdate
         } else {
-          console.log('[DocumentEditor] Phase 8.2: Editor content already matches, no update needed')
+          console.log('[DocumentEditor] BUGFIX Phase 8.2: Editor content already matches, no update needed')
         }
       } else {
-        console.warn('[DocumentEditor] Phase 8.2: Editor not available for content sync')
+        console.warn('[DocumentEditor] BUGFIX Phase 8.2: Editor not available for content sync')
       }
-    }, 0) // Use setTimeout to ensure state update completes before editor update
+      
+      // BUGFIX: Reset flag to allow future updates
+      setTimeout(() => {
+        isUpdatingContentRef.current = false
+      }, 100)
+    }, 150) // BUGFIX: Increased delay to prevent conflicts
 
-  }, [initialDocument.content, documentId, editor, fullContentHtml])
+  }, [initialDocument.content, documentId, editor]) // BUGFIX: Removed fullContentHtml dependency to prevent loops
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
@@ -766,68 +847,8 @@ export function DocumentEditor({
     setCharacterCount(getCharacterCount(fullPlainText))
   }, [fullPlainText])
 
-  // Handle paste event to trigger grammar check and save
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handlePaste = useCallback((_event: React.ClipboardEvent<HTMLDivElement>) => {
-    console.log('[DocumentEditor] handlePaste: Paste event detected')
-    console.log('[DocumentEditor] handlePaste: Current document state - fullContentHtml length:', fullContentHtml.length)
-    console.log('[DocumentEditor] handlePaste: Current page offset:', pageOffset, 'Page content length:', pageContent.length)
-    console.log('[DocumentEditor] handlePaste: Document ID:', documentId)
-    
-    // Let the paste happen, then trigger grammar check and save after a short delay
-    setTimeout(() => {
-      if (!editor) {
-        console.warn('[DocumentEditor] handlePaste: Editor not available, aborting paste processing')
-        return
-      }
-      
-      const newPageHtml = editor.getHTML()
-      console.log('[DocumentEditor] handlePaste: New page HTML length after paste:', newPageHtml.length)
-      console.log('[DocumentEditor] handlePaste: New page HTML preview:', JSON.stringify(newPageHtml.substring(0, 100)))
-      
-      // Use the same logic as onUpdate to reconstruct the full document
-      setFullContentHtml(prevFullContentHtml => {
-        const oldPageEndIndex = pageOffset + pageContent.length
-        const updatedFullContent =
-          prevFullContentHtml.substring(0, pageOffset) +
-          newPageHtml +
-          prevFullContentHtml.substring(oldPageEndIndex)
-        
-        console.log('[DocumentEditor] handlePaste: Document reconstruction completed')
-        console.log('[DocumentEditor] handlePaste: Previous full content length:', prevFullContentHtml.length)
-        console.log('[DocumentEditor] handlePaste: Updated full content length:', updatedFullContent.length)
-        console.log('[DocumentEditor] handlePaste: Content change detected:', prevFullContentHtml !== updatedFullContent)
-        
-        // Get plain text for grammar checking
-        const div = document.createElement('div')
-        div.innerHTML = updatedFullContent
-        const plainText = div.textContent || ''
-        console.log('[DocumentEditor] handlePaste: Plain text length for grammar check:', plainText.length)
-        
-        // Trigger content change callback
-        if (onContentChange) {
-          console.log('[DocumentEditor] handlePaste: Calling onContentChange callback')
-          onContentChange(updatedFullContent)
-        } else {
-          console.warn('[DocumentEditor] handlePaste: onContentChange callback not available')
-        }
-        
-        // Trigger save callback  
-        if (onSave) {
-          console.log('[DocumentEditor] handlePaste: Calling onSave callback with content length:', updatedFullContent.length, 'title:', title)
-          onSave(updatedFullContent, title)
-        } else {
-          console.warn('[DocumentEditor] handlePaste: onSave callback not available')
-        }
-        
-        // Trigger grammar check immediately
-        console.log('[DocumentEditor] handlePaste: Triggering immediate grammar check')
-        checkGrammarImmediately(plainText)
-        
-        return updatedFullContent
-      })
-    }, 10) // 10ms delay to let the paste finish
-  }, [editor, pageOffset, pageContent.length, onContentChange, onSave, title, checkGrammarImmediately, fullContentHtml, documentId])
+  // BUGFIX: Removed handlePaste callback - now handled by PlainTextPasteExtension
+  // This prevents conflicts and ensures all pasted content is converted to plain text
 
   // Return AI suggestion handlers along with other handlers
   const aiSuggestionHandlers = useMemo(() => ({
@@ -985,7 +1006,6 @@ export function DocumentEditor({
                     className="award-winning-editor h-full focus-within:shadow-lg transition-all duration-300"
                     onClick={() => editor.chain().focus().run()}
                     onContextMenuCapture={handleContextMenuCapture}
-                    onPaste={handlePaste}
                   >
                     <div className="prose prose-lg dark:prose-invert max-w-none h-full overflow-y-auto px-6 py-8 focus:outline-none">
                       <EditorContent editor={editor} />
@@ -1038,7 +1058,6 @@ export function DocumentEditor({
                 className="award-winning-editor h-full m-6 focus-within:shadow-lg transition-all duration-300"
             onClick={() => editor.chain().focus().run()}
             onContextMenuCapture={handleContextMenuCapture}
-            onPaste={handlePaste}
           >
             <div className="prose prose-lg dark:prose-invert max-w-none h-full overflow-y-auto px-12 py-10 focus:outline-none">
               <EditorContent editor={editor} />

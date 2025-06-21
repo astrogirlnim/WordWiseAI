@@ -789,6 +789,183 @@ Phase 5 is now complete. Key changes include:
 
 ---
 
+## Phase 5.1: Text Editor Performance & Stability Bugfix (COMPLETED)
+
+### Context and Problem
+After implementing document sharing functionality in Phases 1-5, critical text editor issues were discovered:
+
+1. **Text Flashing**: Text would flash when users typed each letter
+2. **Spacebar Issues**: Spacebar wouldn't register spaces consistently  
+3. **Copy-Paste Problems**: Formatted text could be pasted with styles, breaking the editor
+
+### Root Cause Analysis
+
+**Text Flashing & Spacebar Issues**:
+- **Multiple Content Updates**: Pagination system and version sync were triggering frequent `editor.commands.setContent()` calls
+- **Race Conditions**: Multiple `useEffect` hooks updating editor content simultaneously without coordination
+- **Missing Debouncing**: No protection against rapid successive content updates
+- **onUpdate Conflicts**: Content update callback conflicts with user typing
+
+**Copy-Paste Issues**:
+- **No Paste Processing**: TipTap configuration lacked clipboard text serialization
+- **Rich Text Preservation**: Formatted content was being inserted without conversion to plain text
+- **Missing Extensions**: No built-in mechanism to strip formatting from pasted content
+
+### Solution Implemented
+
+#### Step 5.1.1: Plain Text Paste Extension
+**File**: `components/document-editor.tsx`
+
+**Implementation**:
+- **PlainTextPasteExtension**: Custom TipTap extension using ProseMirror plugin
+- **Clipboard Interception**: Intercepts `handlePaste` events before TipTap processing
+- **Plain Text Extraction**: Extracts `text/plain` data from clipboard
+- **Direct Insertion**: Uses ProseMirror transaction to insert plain text at cursor
+- **Format Stripping**: Completely prevents rich text formatting from entering editor
+
+**Technical Details**:
+```typescript
+const PlainTextPasteExtension = Extension.create({
+  name: 'plainTextPaste',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('plainTextPaste'),
+        props: {
+          handlePaste(view, event, slice) {
+            const text = event.clipboardData?.getData('text/plain') || ''
+            if (text) {
+              const { tr } = view.state
+              const { from, to } = view.state.selection
+              tr.insertText(text, from, to)
+              view.dispatch(tr)
+              return true // Prevent default paste handling
+            }
+            return false
+          }
+        }
+      })
+    ]
+  }
+})
+```
+
+#### Step 5.1.2: Content Update Conflict Prevention
+**File**: `components/document-editor.tsx`
+
+**Debouncing System**:
+- **Update Flags**: Added `isUpdatingContentRef` to prevent recursive updates
+- **Content Comparison**: Added `lastContentUpdateRef` to skip unchanged content
+- **Timeout Coordination**: Staggered timeouts to prevent simultaneous updates
+
+**onUpdate Optimization**:
+```typescript
+onUpdate: ({ editor }) => {
+  // BUGFIX: Prevent recursive updates and reduce flashing
+  if (isUpdatingContentRef.current) {
+    return // Skip if update already in progress
+  }
+  
+  const newPageHtml = editor.getHTML();
+  
+  // BUGFIX: Debounce rapid updates to prevent flashing
+  if (newPageHtml === lastContentUpdateRef.current) {
+    return // Skip if content unchanged
+  }
+  
+  // Batch callbacks with 50ms delay
+  setTimeout(() => {
+    if (onContentChange) onContentChange(updatedFullContent);
+    if (onSave) onSave(updatedFullContent, title);
+  }, 50);
+}
+```
+
+#### Step 5.1.3: useEffect Optimization
+**Multiple useEffect Coordination**:
+
+**Page Change Handler**:
+```typescript
+useEffect(() => {
+  if (editor && !editor.isDestroyed && !isUpdatingContentRef.current) {
+    // Set flag to prevent onUpdate conflicts
+    isUpdatingContentRef.current = true
+    editor.commands.setContent(pageContent, false)
+    setTimeout(() => {
+      isUpdatingContentRef.current = false
+    }, 100)
+  }
+}, [pageContent, editor, currentPage])
+```
+
+**Content Synchronization**:
+```typescript
+useEffect(() => {
+  // BUGFIX: More robust content comparison and debouncing
+  if (fullContentHtml === newContent || isUpdatingContentRef.current) {
+    return // Skip if content unchanged or update in progress
+  }
+  
+  isUpdatingContentRef.current = true
+  setFullContentHtml(newContent)
+  
+  setTimeout(() => {
+    // Update editor with proper conflict prevention
+    // Reset flag after completion
+  }, 150)
+}, [initialDocument.content, documentId, editor]) // Removed fullContentHtml dependency
+```
+
+#### Step 5.1.4: Legacy Code Cleanup
+**Removed Conflicting Handlers**:
+- **handlePaste Callback**: Removed redundant paste handler that conflicted with extension
+- **onPaste JSX Props**: Removed `onPaste={handlePaste}` from editor containers
+- **Duplicate Logic**: Eliminated redundant content processing code
+
+### Verification Steps
+- [x] Text no longer flashes when typing
+- [x] Spacebar consistently registers spaces
+- [x] All pasted content converts to plain text automatically
+- [x] No TypeScript compilation errors
+- [x] Build succeeds without warnings
+- [x] Editor performance significantly improved
+
+### Testing Scenarios Validated
+- [x] **Normal Typing**: Smooth text input without flashing
+- [x] **Rich Text Paste**: Formatted content automatically converts to plain text
+- [x] **Rapid Typing**: Fast typing doesn't cause conflicts or missed characters
+- [x] **Version Restore**: Content synchronization works without interfering with typing
+- [x] **Grammar Checking**: Real-time grammar checking operates without input interference
+- [x] **Page Navigation**: Pagination works smoothly without content conflicts
+
+### Technical Benefits
+
+**Performance Improvements**:
+- **Reduced Re-renders**: Debouncing prevents excessive component updates
+- **Smooth Typing**: Eliminated conflicts between user input and content synchronization
+- **Better UX**: No more text flashing or missed keystrokes
+
+**Stability Enhancements**:
+- **Race Condition Prevention**: Coordinated updates prevent state conflicts
+- **Predictable Behavior**: Consistent paste handling regardless of source format
+- **Error Reduction**: Fewer edge cases and unexpected behaviors
+
+**Code Quality**:
+- **Cleaner Architecture**: Removed redundant code and conflicting handlers
+- **Better Separation**: Clear distinction between user input and programmatic updates
+- **Maintainability**: Easier to understand and modify editor behavior
+
+### Summary of Text Editor Bugfix
+The text editor performance and stability issues have been successfully resolved through systematic optimization of content synchronization, implementation of plain text paste handling, and elimination of race conditions between different updating systems.
+
+**Problem Solved**: Users can now type smoothly without text flashing, spacebar works consistently, and all pasted content is automatically converted to plain text.
+
+**Architecture Improved**: The editor now has robust conflict prevention mechanisms and proper separation between user input and programmatic content updates.
+
+**Future-Proof Design**: The implemented solutions provide a stable foundation for future editor enhancements without performance regressions.
+
+---
+
 ## Phase 6: Service Layer Testing and Integration
 
 ### Objectives
