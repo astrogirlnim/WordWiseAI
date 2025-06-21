@@ -210,12 +210,28 @@ export class DocumentSharingService {
         document,
       }
     } catch (error) {
+      // Enhanced error logging for debugging
       console.error('[DocumentSharingService] Error accepting share invitation:', {
         token,
         userId,
         userEmail,
-        error: error instanceof Error ? error.message : error
+        errorType: error?.constructor?.name,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as any)?.code,
+        errorStack: error instanceof Error ? error.stack : undefined
       })
+      
+      // Handle Firebase errors specifically
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as any
+        if (firebaseError.code === 'permission-denied') {
+          throw new Error('You do not have permission to access this document. Please check that you are signed in with the correct account.')
+        } else if (firebaseError.code === 'not-found') {
+          throw new Error('The document or share link could not be found. It may have been deleted or revoked.')
+        } else {
+          throw new Error(`Access error: ${firebaseError.message || 'Unable to process share invitation'}`)
+        }
+      }
       
       // Re-throw the error with context, but don't modify the message if it's already user-friendly
       if (error instanceof Error) {
