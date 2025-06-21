@@ -10,18 +10,13 @@
     "rules": "storage.rules"
   },
   "hosting": {
-    "public": "out",
+    "source": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
+    "frameworksBackend": {}
   },
   "emulators": {
     "auth": {
@@ -50,4 +45,4 @@
   "database": {
     "rules": "database.rules.json"
   }
-} 
+}
