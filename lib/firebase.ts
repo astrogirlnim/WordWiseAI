@@ -4,16 +4,17 @@ import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
 import { getAuth, connectAuthEmulator } from "firebase/auth"
 import { getStorage, connectStorageEmulator } from "firebase/storage"
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions"
-import { env } from "./env"
+import { clientEnv } from "./env"
 
+// Initialize Firebase
 const firebaseConfig = {
-  apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  databaseURL: env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  apiKey: clientEnv.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: clientEnv.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: clientEnv.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: clientEnv.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: clientEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: clientEnv.NEXT_PUBLIC_FIREBASE_APP_ID,
+  databaseURL: clientEnv.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 }
 
 // Enhanced logging for debugging deployment issues
