@@ -40,6 +40,7 @@ export function DocumentContainer() {
     updateDocument,
     deleteDocument,
     restoreDocumentVersion,
+    reloadDocuments,
     
     // Permission helpers
     canEdit,
@@ -89,17 +90,33 @@ export function DocumentContainer() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const documentIdParam = urlParams.get('documentId')
+    const refreshParam = urlParams.get('refresh')
     
     if (documentIdParam && documents.length > 0) {
       const targetDocument = documents.find(doc => doc.id === documentIdParam)
       if (targetDocument) {
         console.log('[DocumentContainer] Loading document from URL:', documentIdParam)
         setActiveDocumentId(documentIdParam)
-        // Clear the URL parameter
+        // Clear the URL parameters
         window.history.replaceState({}, '', window.location.pathname)
+      } else if (refreshParam) {
+        // If document not found but refresh param present, force reload documents
+        console.log('[DocumentContainer] Document not found, forcing reload for shared document:', documentIdParam)
+        reloadDocuments().then(() => {
+          // After reload, try to find the document again
+          const reloadedDocument = documents.find(doc => doc.id === documentIdParam)
+          if (reloadedDocument) {
+            console.log('[DocumentContainer] Found document after reload:', documentIdParam)
+            setActiveDocumentId(documentIdParam)
+          } else {
+            console.warn('[DocumentContainer] Document still not found after reload:', documentIdParam)
+          }
+          // Clear URL parameters
+          window.history.replaceState({}, '', window.location.pathname)
+        })
       }
     }
-  }, [documents])
+  }, [documents, reloadDocuments])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -184,7 +184,14 @@ export function DocumentEditor({
 
         console.log('[DocumentEditor] onUpdate (fixed): updatedFullContent.length:', updatedFullContent.length);
         if (onContentChange) onContentChange(updatedFullContent);
-        if (onSave) onSave(updatedFullContent, title);
+        
+        // Defer onSave call to avoid setState during render
+        if (onSave) {
+          setTimeout(() => {
+            onSave(updatedFullContent, title);
+          }, 0);
+        }
+        
         return updatedFullContent;
       });
     },

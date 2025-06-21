@@ -94,8 +94,9 @@ export default function SharePage() {
       // Give user a moment to see success message before redirecting
       setTimeout(() => {
         // Correct routing to the main page with document ID
+        // Add a timestamp parameter to force a fresh load of documents
         console.log('[SharePage] Redirecting to document:', result.documentId)
-        router.push(`/?documentId=${result.documentId}`)
+        router.push(`/?documentId=${result.documentId}&refresh=${Date.now()}`)
       }, 1500)
       
     } catch (err) {
