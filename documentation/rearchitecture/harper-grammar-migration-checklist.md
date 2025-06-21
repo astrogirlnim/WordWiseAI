@@ -184,9 +184,36 @@
 ---
 
 ## PHASE 4: Refactor Editor Decorations
-- [ ] Update `components/tiptap-grammar-extension.ts` to use Harper.js error format
-- [ ] Ensure error highlights, tooltips, and suggestions work as before
-- [ ] Remove any chunk/position mapping logic that is no longer needed
+- [x] Update `components/tiptap-grammar-extension.ts` to use Harper.js error format
+- [x] Ensure error highlights, tooltips, and suggestions work as before
+- [x] Remove any chunk/position mapping logic that is no longer needed
+
+### PHASE 4 IMPLEMENTATION SUMMARY (COMPLETED):
+
+**Status**: ✅ **COMPLETED** - The TipTap grammar extension has been refactored to seamlessly integrate with Harper.js, resulting in a simpler, more robust, and more performant decoration system.
+
+### **Changes Made:**
+
+#### **1. TipTap Grammar Extension (`components/tiptap-grammar-extension.ts`):**
+- ✅ **Simplified Validation Logic**: The complex and brittle validation block, a relic of the asynchronous/chunk-based architecture, has been completely removed. This block attempted to perform flexible text matching to reconcile timing differences between the client state and the backend response.
+- ✅ **Robust Filtering**: The old validation was replaced with a simple, robust `.filter()` call. This new approach trusts the client-side accuracy of Harper.js and only filters out errors with positions that are clearly out of bounds of the current document. This prevents rare edge-case errors without slowing down the transaction apply step.
+- ✅ **Cleaned Up Logging**: All console logs have been updated to a consistent `[GrammarExtension] Phase 4:` format, removing outdated `BUGFIX` and `Phase 6.1` messages. The new logs clearly describe the flow of receiving errors and creating decorations.
+- ✅ **Removed Unused Logic**: The extension is now leaner as it no longer contains any logic related to text matching, chunking, or position mapping. It correctly assumes that the `GrammarError` objects it receives from the hook have accurate, document-relative positions.
+
+#### **2. Grammar Types (`types/grammar.ts`):**
+- ✅ **Modernized `GrammarError` Interface**: Obsolete properties related to the old chunking system (`chunkId`, `originalChunkStart`, `originalChunkEnd`) have been removed from the `GrammarError` interface.
+- ✅ **Removed Obsolete Interface**: The `ChunkedGrammarError` interface, which was entirely dedicated to the old system, has been deleted, further cleaning up the codebase.
+
+### **Architecture Impact:**
+- **Performance**: The editor is now more responsive. By removing the expensive validation loop (which iterated over errors and performed text comparisons inside the `apply` function), the process of applying decorations is significantly faster and less likely to cause jank.
+- **Robustness**: The new system is more robust. Since Harper.js runs in the same context as the editor, the `start` and `end` positions of errors are now perfectly synchronized with the editor's document state, eliminating a major source of bugs from the previous architecture.
+- **Maintainability**: The code in `tiptap-grammar-extension.ts` is now much simpler, shorter, and easier to understand, improving long-term maintainability.
+- **UI/UX Consistency**: Error highlighting, tooltips, and context-menu suggestions continue to work exactly as before, as the data structure of the `data-error-json` attribute on the decoration has been preserved.
+
+### **Current State:**
+- ✅ The entire grammar-checking pipeline, from text change to error highlighting, is now powered by the local, client-side Harper.js engine.
+- ✅ The system is architecturally consistent and free of legacy code from the old chunking system.
+- ✅ Ready for Phase 5 (UI/UX & Performance Review).
 
 ---
 
