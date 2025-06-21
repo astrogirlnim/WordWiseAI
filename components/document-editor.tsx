@@ -5,9 +5,6 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-// Add ClipboardTextSerializer extension for plain text paste
-import { Extension } from '@tiptap/core'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { getWordCount, getCharacterCount } from '@/utils/document-utils'
 import { DocumentStatusBar } from './document-status-bar'
 import type { Document, AutoSaveStatus } from '@/types/document'
@@ -41,50 +38,15 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import { useAISuggestions } from '@/hooks/use-ai-suggestions'
 import type { AISuggestion } from '@/types/ai-features'
 
+// Phase 1 Integration: Import Phase 1 solutions
+import { EditorContentCoordinator } from '@/utils/editor-content-coordinator'
+import { createEnhancedPlainTextPasteExtension } from '@/components/enhanced-plain-text-paste-extension'
+
 // Phase 6: Document Pagination
 const PAGE_SIZE_CHARS = 5000 // As per optimization checklist
 
-/**
- * BUGFIX: Plain Text Paste Extension
- * Forces all pasted content to be converted to plain text to prevent
- * rich text formatting from breaking the editor
- */
-const PlainTextPasteExtension = Extension.create({
-  name: 'plainTextPaste',
-  
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey('plainTextPaste'),
-        props: {
-          handlePaste(view, event, _slice) {
-            console.log('[PlainTextPasteExtension] Intercepting paste event for plain text conversion')
-            
-            // Extract plain text from clipboard data
-            const text = event.clipboardData?.getData('text/plain') || ''
-            
-            if (text) {
-              console.log('[PlainTextPasteExtension] Converting pasted content to plain text:', text.substring(0, 100))
-              
-              // Insert plain text at current cursor position
-              const { tr } = view.state
-              const { from, to } = view.state.selection
-              
-              tr.insertText(text, from, to)
-              view.dispatch(tr)
-              
-              console.log('[PlainTextPasteExtension] Plain text inserted successfully')
-              return true // Prevent default paste handling
-            }
-            
-            console.log('[PlainTextPasteExtension] No plain text found, allowing default paste')
-            return false
-          }
-        }
-      })
-    ]
-  }
-})
+// Phase 1 Integration: Enhanced paste extension replaces basic implementation
+// The enhanced extension is imported above and configured in the editor extensions
 
 interface DocumentEditorProps {
   documentId: string
@@ -107,12 +69,27 @@ export function DocumentEditor({
   onAISuggestionsChange,
 
 }: DocumentEditorProps) {
-  console.log(`[DocumentEditor] Rendering. Document ID: ${documentId}`)
+  console.log(`[DocumentEditor] Phase 1 Integration: Rendering with EditorContentCoordinator. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
 
-  // BUGFIX: Add debouncing and conflict prevention for editor updates
-  const isUpdatingContentRef = useRef(false)
-  const lastContentUpdateRef = useRef<string>('')
+  // Phase 1 Integration: Replace basic mutex with EditorContentCoordinator
+  const contentCoordinatorRef = useRef<EditorContentCoordinator | null>(null)
+  
+  // Initialize coordinator
+  useEffect(() => {
+    console.log('[DocumentEditor] Phase 1: Initializing EditorContentCoordinator')
+    contentCoordinatorRef.current = new EditorContentCoordinator({
+      debounceDelay: 300,
+      maxQueueSize: 50,
+      enableLogging: true
+    })
+    
+    return () => {
+      console.log('[DocumentEditor] Phase 1: Cleaning up EditorContentCoordinator')
+      contentCoordinatorRef.current?.unbind()
+      contentCoordinatorRef.current = null
+    }
+  }, [])
   
   // Phase 6: Pagination State
   const [fullContentHtml, setFullContentHtml] = useState(initialDocument.content || '')
@@ -182,10 +159,6 @@ export function DocumentEditor({
     }
   }, [suggestions, onAISuggestionsChange])
 
-
-
-
-
   const [contextMenu, setContextMenu] = useState<{ error: GrammarError } | null>(null);
 
   const handleContextMenuCapture = (event: React.MouseEvent) => {
@@ -220,26 +193,32 @@ export function DocumentEditor({
         placeholder: 'Start writing your masterpiece...',
       }),
       GrammarExtension,
-      PlainTextPasteExtension,
+      // Phase 1 Integration: Use enhanced paste extension
+      createEnhancedPlainTextPasteExtension({
+        enableLogging: true,
+        maxTextLength: 100000,
+        preserveLineBreaks: true,
+        allowBasicFormatting: false
+      }),
     ],
     content: pageContent, // Use paginated content
     onUpdate: ({ editor }) => {
-      // BUGFIX: Prevent recursive updates and reduce flashing
-      if (isUpdatingContentRef.current) {
-        console.log('[DocumentEditor] BUGFIX: Skipping onUpdate due to ongoing content update')
-        return
-      }
+      console.log('[DocumentEditor] Phase 1: onUpdate called - handling with coordinator priority')
       
       const newPageHtml = editor.getHTML();
       
-      // BUGFIX: Debounce rapid updates to prevent flashing
-      if (newPageHtml === lastContentUpdateRef.current) {
-        console.log('[DocumentEditor] BUGFIX: Skipping onUpdate - content unchanged')
-        return
+      // Phase 1 Integration: Handle user input through coordinator
+      if (contentCoordinatorRef.current) {
+        contentCoordinatorRef.current.updateContent(
+          'user',
+          newPageHtml,
+          'onUpdate-handler'
+        ).then(() => {
+          console.log('[DocumentEditor] Phase 1: User input processed through coordinator')
+        }).catch(error => {
+          console.error('[DocumentEditor] Phase 1: Error processing user input:', error)
+        })
       }
-      
-      lastContentUpdateRef.current = newPageHtml
-      console.log('[DocumentEditor] BUGFIX: Processing onUpdate with debouncing')
       
       setFullContentHtml(prevFullContentHtml => {
         const oldPageEndIndex = pageOffset + pageContent.length;
@@ -248,18 +227,25 @@ export function DocumentEditor({
           newPageHtml +
           prevFullContentHtml.substring(oldPageEndIndex);
 
-        console.log('[DocumentEditor] onUpdate (optimized): updatedFullContent.length:', updatedFullContent.length);
+        console.log('[DocumentEditor] onUpdate (Phase 1): updatedFullContent.length:', updatedFullContent.length);
         
-        // BUGFIX: Debounce callbacks to prevent excessive re-renders
+        // Phase 1: Improved callback handling with coordinator awareness
         setTimeout(() => {
           if (onContentChange) onContentChange(updatedFullContent);
           if (onSave) onSave(updatedFullContent, title);
-        }, 50); // Small delay to batch updates
+        }, 50);
         
         return updatedFullContent;
       });
     },
     onCreate: ({ editor }) => {
+      console.log('[DocumentEditor] Phase 1: onCreate - binding editor to coordinator')
+      
+      // Phase 1 Integration: Bind editor to coordinator
+      if (contentCoordinatorRef.current) {
+        contentCoordinatorRef.current.bindToEditor(editor)
+      }
+      
       const text = editor.getText()
       // Initial grammar check for the first page
       if (text) {
@@ -301,22 +287,23 @@ export function DocumentEditor({
     handleFullDocumentCheck();
   }, [handleFullDocumentCheck]);
 
-  // BUGFIX: Optimized effect to update editor content when page changes
+  // Phase 1 Integration: Use coordinator for page changes
   useEffect(() => {
-    if (editor && !editor.isDestroyed && !isUpdatingContentRef.current) {
+    if (editor && !editor.isDestroyed && contentCoordinatorRef.current) {
         const currentEditorContent = editor.getHTML()
         if (currentEditorContent !== pageContent) {
-            console.log(`[DocumentEditor] BUGFIX: Page changed to ${currentPage}. Updating editor content.`)
+            console.log(`[DocumentEditor] Phase 1: Page changed to ${currentPage}. Updating through coordinator.`)
             
-            // BUGFIX: Set flag to prevent onUpdate conflicts
-            isUpdatingContentRef.current = true
-            
-            editor.commands.setContent(pageContent, false) // `false` to avoid triggering onUpdate
-            
-            // BUGFIX: Reset flag after content is set
-            setTimeout(() => {
-              isUpdatingContentRef.current = false
-            }, 100)
+            // Phase 1: Use coordinator for page content updates
+            contentCoordinatorRef.current.updateContent(
+              'page',
+              pageContent,
+              `page-change-${currentPage}`
+            ).then(() => {
+              console.log(`[DocumentEditor] Phase 1: Page ${currentPage} content updated successfully`)
+            }).catch(error => {
+              console.error(`[DocumentEditor] Phase 1: Error updating page ${currentPage}:`, error)
+            })
         }
     }
   }, [pageContent, editor, currentPage])
@@ -488,13 +475,21 @@ export function DocumentEditor({
       
       // Update the document content if changes were made
       if (textReplaced && updatedContent !== fullContentHtml) {
-        console.log('[DocumentEditor] Updating document content');
+        console.log('[DocumentEditor] Phase 1: Updating document content through coordinator');
         setFullContentHtml(updatedContent);
         
-        // Update editor content for current page
+        // Phase 1: Update editor content through coordinator
         const newPageContent = updatedContent.substring(pageOffset, Math.min(pageOffset + PAGE_SIZE_CHARS, updatedContent.length));
-        if (editor && !editor.isDestroyed) {
-          editor.commands.setContent(newPageContent, false);
+        if (contentCoordinatorRef.current) {
+          contentCoordinatorRef.current.updateContent(
+            'ai',
+            newPageContent,
+            `ai-suggestion-${suggestion.id}`
+          ).then(() => {
+            console.log('[DocumentEditor] Phase 1: AI suggestion content update completed')
+          }).catch(error => {
+            console.error('[DocumentEditor] Phase 1: Error updating AI suggestion content:', error)
+          })
         }
         
         // Apply suggestion in Firestore
@@ -712,56 +707,46 @@ export function DocumentEditor({
     }
   }, [documentId, initialDocument.title]) // Include initialDocument.title to satisfy linter but effect behavior unchanged since documentId changes trigger this
 
-  // **BUGFIX: OPTIMIZED PHASE 8.2** - Synchronize editor content with external changes (version restore)
-  // **ADAPTED FOR PHASE 6 (PAGINATION) WITH CONFLICT PREVENTION**
+  // **Phase 1 Integration: Version Restore with Content Coordinator**
+  // Synchronize editor content with external changes (version restore) using coordinator
   useEffect(() => {
-    console.log('[DocumentEditor] BUGFIX Phase 8.2: Checking for content synchronization')
+    console.log('[DocumentEditor] Phase 1: Checking for content synchronization')
     
     const newContent = initialDocument.content || ''
 
-    // BUGFIX: More robust content comparison and debouncing
-    if (fullContentHtml === newContent || isUpdatingContentRef.current) {
-        console.log('[DocumentEditor] BUGFIX: Full content unchanged or update in progress, skipping sync')
+    // Phase 1: Simplified content comparison with coordinator
+    if (fullContentHtml === newContent) {
+        console.log('[DocumentEditor] Phase 1: Full content unchanged, skipping sync')
         return
     }
 
-    console.log('[DocumentEditor] BUGFIX: New initialDocument content detected. Updating full content state.')
-    console.log('[DocumentEditor] BUGFIX Phase 8.2: Previous fullContentHtml length:', fullContentHtml.length)
-    console.log('[DocumentEditor] BUGFIX Phase 8.2: New content length:', newContent.length)
-    
-    // BUGFIX: Set flag to prevent conflicts
-    isUpdatingContentRef.current = true
+    console.log('[DocumentEditor] Phase 1: New initialDocument content detected. Updating through coordinator.')
+    console.log('[DocumentEditor] Phase 1: Previous fullContentHtml length:', fullContentHtml.length)
+    console.log('[DocumentEditor] Phase 1: New content length:', newContent.length)
     
     setFullContentHtml(newContent)
     setCurrentPage(1) // Reset to first page on document change
 
-    // **BUGFIX: Improved editor content synchronization with conflict prevention**
-    setTimeout(() => {
-      if (editor && !editor.isDestroyed) {
-        const newPageContent = newContent.substring(0, Math.min(PAGE_SIZE_CHARS, newContent.length))
-        const currentEditorContent = editor.getHTML()
-        
-        console.log('[DocumentEditor] BUGFIX Phase 8.2: Checking if editor content update needed')
-        console.log('[DocumentEditor] BUGFIX Phase 8.2: Current editor content length:', currentEditorContent.length)
-        console.log('[DocumentEditor] BUGFIX Phase 8.2: New page content length:', newPageContent.length)
-        
-        if (currentEditorContent !== newPageContent) {
-          console.log('[DocumentEditor] BUGFIX Phase 8.2: Updating editor content with restored version')
-          editor.commands.setContent(newPageContent, false) // false to avoid triggering onUpdate
-        } else {
-          console.log('[DocumentEditor] BUGFIX Phase 8.2: Editor content already matches, no update needed')
-        }
-      } else {
-        console.warn('[DocumentEditor] BUGFIX Phase 8.2: Editor not available for content sync')
-      }
+    // **Phase 1: Use coordinator for version restore content updates**
+    if (contentCoordinatorRef.current) {
+      const newPageContent = newContent.substring(0, Math.min(PAGE_SIZE_CHARS, newContent.length))
       
-      // BUGFIX: Reset flag to allow future updates
-      setTimeout(() => {
-        isUpdatingContentRef.current = false
-      }, 100)
-    }, 150) // BUGFIX: Increased delay to prevent conflicts
+      console.log('[DocumentEditor] Phase 1: Processing version restore through coordinator')
+      
+      contentCoordinatorRef.current.updateContent(
+        'version',
+        newPageContent,
+        'version-restore'
+      ).then(() => {
+        console.log('[DocumentEditor] Phase 1: Version restore completed successfully')
+      }).catch(error => {
+        console.error('[DocumentEditor] Phase 1: Error during version restore:', error)
+      })
+    } else {
+      console.warn('[DocumentEditor] Phase 1: Content coordinator not available for version restore')
+    }
 
-  }, [initialDocument.content, documentId, editor]) // BUGFIX: Removed fullContentHtml dependency to prevent loops
+  }, [initialDocument.content, documentId, editor, fullContentHtml]) // Phase 1: Include all dependencies
 
   // **PHASE 6.1 SUBFEATURE 3: Reliable Error-to-Editor Sync**
   // Enhanced error synchronization with comprehensive debug logging
