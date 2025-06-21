@@ -56,39 +56,39 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
 async function initializeHarper(): Promise<void> {
   // Ensure this only runs in the browser
   if (typeof window === 'undefined') {
-    console.warn('[HarperWrapper] Phase 2: Attempted to initialize on the server. Skipping.');
+    console.warn('[HarperWrapper] Phase 5: Attempted to initialize on the server. Skipping.');
     return;
   }
   if (isInitialized) return;
   if (initializationPromise) return initializationPromise;
 
-  console.log('[HarperWrapper] Phase 2: Initializing Harper.js WASM module...');
+  console.log('[HarperWrapper] Phase 5: Initializing Harper.js WASM module...');
 
   initializationPromise = (async () => {
     try {
       // Dynamic import to handle WASM loading in Next.js environment
       const { binary, LocalLinter, Dialect } = await import('harper.js');
       
-      console.log('[HarperWrapper] Phase 2: Harper.js module loaded, setting up binary...');
+      console.log('[HarperWrapper] Phase 5: Harper.js module loaded, setting up binary...');
       
       // Setup the WASM binary. It will fetch the wasm file from the root,
       // so we have placed harper_wasm_bg.wasm in the /public directory.
       await binary.setup();
       
-      console.log('[HarperWrapper] Phase 2: Harper.js binary ready, creating linter...');
+      console.log('[HarperWrapper] Phase 5: Harper.js binary ready, creating linter...');
       
       // Create a linter instance with American English dialect
       harperLinter = await binary.createLinter(Dialect.American);
       
-      console.log('[HarperWrapper] Phase 2: Harper.js linter created successfully');
+      console.log('[HarperWrapper] Phase 5: Harper.js linter created successfully.');
       
       // Store the module reference
       harperModule = { binary, LocalLinter, Dialect };
       isInitialized = true;
       
-      console.log('[HarperWrapper] Phase 2: ✅ Harper.js initialization complete');
+      console.log('[HarperWrapper] Phase 5: ✅ Harper.js initialization complete.');
     } catch (error) {
-      console.error('[HarperWrapper] Phase 2: ❌ Failed to initialize Harper.js:', error);
+      console.error('[HarperWrapper] Phase 5: ❌ Failed to initialize Harper.js:', error);
       // Reset state on error so we can retry
       isInitialized = false;
       initializationPromise = null;
@@ -113,17 +113,19 @@ function convertHarperLintToGrammarError(lint: any, index: number): GrammarError
   detectedHarperCategories.add(lintKind);
   
   // Log the original Harper.js lint_kind for analysis
-  console.log(`[HarperWrapper] Phase 4: Raw Harper lint_kind: "${lintKind}"`);
+  console.log(`[HarperWrapper] Phase 5: Raw Harper lint_kind: "${lintKind}"`);
   
   // Map Harper.js lint kind to our error type
   const errorType = HARPER_ERROR_TYPE_MAP[lintKind] || 'grammar';
   
   // Log any unmapped categories
   if (!HARPER_ERROR_TYPE_MAP[lintKind]) {
-    console.warn(`[HarperWrapper] Phase 4: ⚠️ UNMAPPED Harper lint_kind: "${lintKind}" - defaulting to 'grammar'`);
+    console.warn(`[HarperWrapper] Phase 5: ⚠️ UNMAPPED Harper lint_kind: "${lintKind}" - defaulting to 'grammar'`);
+  } else {
+    console.log(`[HarperWrapper] Phase 5: Mapped "${lintKind}" to "${errorType}".`);
   }
   
-  console.log(`[HarperWrapper] Phase 4: Converting Harper lint - Kind: "${lintKind}" → Type: "${errorType}", Span: ${span.start}-${span.end}`);
+  console.log(`[HarperWrapper] Phase 5: Converting Harper lint - Kind: "${lintKind}" → Type: "${errorType}", Span: ${span.start}-${span.end}`);
   
   return {
     id: `harper-${Date.now()}-${index}`, // Generate unique ID
@@ -153,11 +155,11 @@ export async function checkGrammarWithHarper(
 ): Promise<GrammarError[]> {
   const { language = 'plaintext', minTextLength = 10 } = options;
   
-  console.log(`[HarperWrapper] Phase 2: Starting grammar check - Text length: ${text.length}, Language: ${language}`);
+  console.log(`[HarperWrapper] Phase 5: Starting grammar check - Text length: ${text.length}, Language: ${language}`);
   
   // Skip very short text
   if (text.length < minTextLength) {
-    console.log(`[HarperWrapper] Phase 2: Text too short (${text.length} < ${minTextLength}), skipping check`);
+    console.log(`[HarperWrapper] Phase 5: Text too short (${text.length} < ${minTextLength}), skipping check.`);
     return [];
   }
 
@@ -166,11 +168,11 @@ export async function checkGrammarWithHarper(
     await initializeHarper();
     
     if (!harperLinter) {
-      console.error('[HarperWrapper] Phase 2: Harper linter not available after initialization');
+      console.error('[HarperWrapper] Phase 5: Harper linter not available after initialization attempt.');
       return [];
     }
 
-    console.log('[HarperWrapper] Phase 2: Running Harper.js lint on text...');
+    console.log('[HarperWrapper] Phase 5: Running Harper.js lint on text...');
     const startTime = performance.now();
     
     // Run Harper.js linting
@@ -179,19 +181,19 @@ export async function checkGrammarWithHarper(
     const endTime = performance.now();
     const duration = Math.round(endTime - startTime);
     
-    console.log(`[HarperWrapper] Phase 2: ✅ Harper.js lint completed in ${duration}ms - Found ${lints.length} issues`);
+    console.log(`[HarperWrapper] Phase 5: ✅ Harper.js lint completed in ${duration}ms - Found ${lints.length} issues.`);
     
     // Convert Harper lints to our GrammarError format
     const grammarErrors = lints.map((lint: any, index: number) => 
       convertHarperLintToGrammarError(lint, index)
     );
     
-    console.log(`[HarperWrapper] Phase 2: ✅ Converted ${grammarErrors.length} Harper lints to grammar errors`);
+    console.log(`[HarperWrapper] Phase 5: ✅ Converted ${grammarErrors.length} Harper lints to grammar errors.`);
     
     return grammarErrors;
     
   } catch (error) {
-    console.error('[HarperWrapper] Phase 2: ❌ Error during Harper.js grammar check:', error);
+    console.error('[HarperWrapper] Phase 5: ❌ Error during Harper.js grammar check:', error);
     
     // Return empty array on error to maintain compatibility
     return [];
@@ -211,37 +213,18 @@ export async function applySuggestionWithHarper(
   error: GrammarError, 
   suggestionIndex: number = 0
 ): Promise<string> {
-  console.log(`[HarperWrapper] Phase 2: Applying suggestion ${suggestionIndex} for error ${error.id}`);
+  console.log(`[HarperWrapper] Phase 5: Applying suggestion for error ID ${error.id} at index ${suggestionIndex}.`);
+  const suggestion = error.suggestions[suggestionIndex];
   
-  try {
-    // Ensure Harper.js is initialized
-    await initializeHarper();
-    
-    if (!harperLinter) {
-      console.error('[HarperWrapper] Phase 2: Harper linter not available for suggestion application');
-      return text;
-    }
-
-    // For now, implement simple text replacement
-    // TODO: In Phase 3, we can enhance this with Harper's applySuggestion method
-    const suggestion = error.suggestions[suggestionIndex];
-    if (!suggestion) {
-      console.warn(`[HarperWrapper] Phase 2: No suggestion at index ${suggestionIndex}`);
-      return text;
-    }
-
-    const before = text.substring(0, error.start);
-    const after = text.substring(error.end);
-    const correctedText = before + suggestion + after;
-    
-    console.log(`[HarperWrapper] Phase 2: ✅ Applied suggestion "${suggestion}" for error "${error.error}"`);
-    
-    return correctedText;
-    
-  } catch (error) {
-    console.error('[HarperWrapper] Phase 2: ❌ Error applying Harper.js suggestion:', error);
+  if (typeof suggestion !== 'string') {
+    console.error(`[HarperWrapper] Phase 5: ❌ Invalid suggestion at index ${suggestionIndex} for error:`, error);
     return text;
   }
+  
+  const { start, end } = error;
+  const newText = text.substring(0, start) + suggestion + text.substring(end);
+  console.log(`[HarperWrapper] Phase 5: ✅ Suggestion applied. New text length: ${newText.length}.`);
+  return newText;
 }
 
 /**
@@ -255,9 +238,9 @@ export function getHarperStatus(): {
 } {
   return {
     isInitialized,
-    isInitializing: initializationPromise !== null && !isInitialized,
-    hasModule: harperModule !== null,
-    hasLinter: harperLinter !== null,
+    isInitializing: !!initializationPromise && !isInitialized,
+    hasModule: !!harperModule,
+    hasLinter: !!harperLinter,
   };
 }
 
@@ -265,27 +248,24 @@ export function getHarperStatus(): {
  * Reset Harper.js state (useful for testing or error recovery)
  */
 export function resetHarperState(): void {
-  console.log('[HarperWrapper] Phase 2: Resetting Harper.js state');
-  
-  isInitialized = false;
-  initializationPromise = null;
-  harperLinter = null;
+  console.log('[HarperWrapper] Phase 5: Resetting Harper.js state.');
   harperModule = null;
+  harperLinter = null;
+  initializationPromise = null;
 }
 
 /**
- * Pre-warm Harper.js for faster first-use
- * This can be called during app initialization to reduce latency
+ * Pre-warms the Harper.js module without performing a check
+ * @returns {Promise<boolean>} - True if initialization was successful, false otherwise
  */
 export async function preWarmHarper(): Promise<boolean> {
-  console.log('[HarperWrapper] Phase 2: Pre-warming Harper.js...');
-  
+  console.log('[HarperWrapper] Phase 5: Pre-warming Harper.js module...');
   try {
     await initializeHarper();
-    console.log('[HarperWrapper] Phase 2: ✅ Harper.js pre-warmed successfully');
-    return true;
+    console.log('[HarperWrapper] Phase 5: ✅ Pre-warming successful.');
+    return isInitialized;
   } catch (error) {
-    console.error('[HarperWrapper] Phase 2: ❌ Harper.js pre-warm failed:', error);
+    console.error('[HarperWrapper] Phase 5: ❌ Error during pre-warming:', error);
     return false;
   }
 }
@@ -301,15 +281,19 @@ export function getHarperCategoryAnalysis(): {
   totalCategoriesDetected: number;
   mappingCoverage: number;
 } {
+  const mappedCategories = Object.keys(HARPER_ERROR_TYPE_MAP);
   const detectedArray = Array.from(detectedHarperCategories);
-  const mappedCategories = detectedArray.filter(cat => HARPER_ERROR_TYPE_MAP[cat]);
-  const unmappedCategories = detectedArray.filter(cat => !HARPER_ERROR_TYPE_MAP[cat]);
-  
+  const unmappedCategories = detectedArray.filter(
+    cat => !mappedCategories.includes(cat)
+  );
+
   return {
     detectedCategories: detectedArray,
     mappedCategories,
     unmappedCategories,
     totalCategoriesDetected: detectedArray.length,
-    mappingCoverage: detectedArray.length > 0 ? (mappedCategories.length / detectedArray.length) * 100 : 100,
+    mappingCoverage: detectedArray.length > 0
+      ? (detectedArray.length - unmappedCategories.length) / detectedArray.length
+      : 1,
   };
 } 

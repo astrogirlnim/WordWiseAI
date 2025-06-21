@@ -322,18 +322,24 @@ body {
 }
 
 /* Error types with sophisticated colors */
-.grammar-error.grammar,
-.grammar-error.spelling,
+.grammar-error.grammar {
+  text-decoration-color: hsl(var(--destructive)); /* Red for critical grammar */
+}
+
+.grammar-error.spelling {
+  text-decoration-color: hsl(var(--retro-sunset)); /* Orange for spelling */
+}
+
 .grammar-error.punctuation {
-  text-decoration-color: hsl(var(--destructive));
+  text-decoration-color: hsl(var(--retro-secondary)); /* Purple for punctuation */
 }
 
 .grammar-error.clarity {
-  text-decoration-color: hsl(var(--retro-primary));
+  text-decoration-color: hsl(var(--retro-primary)); /* Hot Pink for clarity */
 }
 
 .grammar-error.style {
-  text-decoration-color: hsl(var(--retro-coral));
+  text-decoration-color: hsl(var(--retro-cyan)); /* Cyan for style suggestions */
 }
 
 /* Sophisticated hover state */
