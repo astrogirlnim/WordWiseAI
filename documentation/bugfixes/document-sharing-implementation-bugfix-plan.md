@@ -1060,6 +1060,48 @@ The text editor performance and stability issues have been successfully resolved
 
 ---
 
+## Phase 8: Production Deployment Bugfix (COMPLETED)
+
+### Context and Problem
+After deploying all previous phases, a critical production-only bug was discovered. When a user clicked the "Share" button, a toast notification appeared with the error `Error Loading Sharing Information`, and the browser console showed a `FirebaseError: Missing or insufficient permissions`. This issue did not occur in the local development environment using Firebase Emulators.
+
+### Root Cause Analysis
+The root cause was a discrepancy between the local development environment and the production environment's configuration:
+1.  **Outdated Security Rules**: The production Firebase project was running with outdated `firestore.rules`. The new rules, which grant permissions for the document sharing feature (e.g., allowing an owner to read sharing information), had not been deployed.
+2.  **CI/CD Pipeline Gap**: The production deployment workflow in `.github/workflows/firebase-hosting-merge.yml` was configured to use `FirebaseExtended/action-hosting-deploy@v0`, which, by default, **only deploys Firebase Hosting**. It was not deploying the Firestore rules, leading to a state where the application code was updated but the necessary backend permissions were not.
+3.  **Emulator vs. Production**: The local development environment worked flawlessly because the Firebase Emulators always use the latest `firestore.rules` file from the local codebase.
+
+### Solution Implemented
+
+#### Step 8.1: Immediate Manual Fix
+- **Action**: Manually deployed the latest security rules to the production environment.
+- **Command**: `firebase deploy --only firestore:rules`
+- **Outcome**: This immediately resolved the permissions error for all users.
+
+#### Step 8.2: CI/CD Pipeline Enhancement
+**File**: `.github/workflows/firebase-hosting-merge.yml`
+
+**Changes Made**:
+- **Added Firestore Deployment Step**: A new step was added to the workflow to explicitly deploy Firestore rules after the hosting deployment is complete.
+- **Targeted Deployments**: The existing hosting deployment step was updated to use `target: hosting` for clarity, and the new step uses `target: firestore`.
+
+**Updated Workflow Logic**:
+1.  Build and test the application.
+2.  Deploy the Next.js application to Firebase Hosting.
+3.  Deploy the `firestore.rules` to the production Firebase project.
+
+### Technical Benefits
+- **Deployment Consistency**: The application code and its required security rules are now always deployed in lockstep, preventing environment drift.
+- **Future-Proofing**: This issue is permanently resolved for future deployments, as the automated pipeline now handles all necessary components.
+- **Improved Reliability**: The production environment's state is now a true reflection of the `main` branch, increasing the reliability of the deployment process.
+
+### Verification Steps
+- [x] Manually verified the fix in the production environment.
+- [x] Updated the `.github/workflows/firebase-hosting-merge.yml` file.
+- [x] Confirmed that no changes were needed for the PR pipeline (`firebase-hosting-pull-request.yml`), as deploying rules from feature branches would be unsafe.
+
+---
+
 ## Implementation Timeline
 
 ### Phase 1-2: Foundation (Day 1)
@@ -1077,6 +1119,10 @@ The text editor performance and stability issues have been successfully resolved
 ### Phase 6-7: Testing (Day 3)
 - Comprehensive testing and validation
 - Ensures production readiness
+
+### Phase 8: Production Deployment Bugfix (Day 3)
+- Fix production-only bug related to outdated Firestore rules
+- Ensure deployment consistency
 
 ## Success Criteria
 

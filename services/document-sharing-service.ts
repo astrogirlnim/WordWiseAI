@@ -171,7 +171,9 @@ export class DocumentSharingService {
       const document = { id: docSnap.id, ...docSnap.data() } as Document
       
       // Check if user already has access
-      const existingAccess = document.sharedWith.find(access => access.userId === userId)
+      const existingAccess = Array.isArray(document.sharedWith)
+        ? document.sharedWith.find(access => access.userId === userId)
+        : undefined
       
       if (existingAccess) {
         console.log('[DocumentSharingService] User already has access, updating role if different')
