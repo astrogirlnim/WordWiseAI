@@ -129,14 +129,15 @@ export function DocumentEditor({
 
   const { user } = useAuth()
   
-  // Phase 6: Pass visibleRange to the grammar checker hook
+  // Phase 2: Pass coordinator reference to grammar checker for typing lock detection
   const { errors, removeError, checkFullDocument } = useGrammarChecker(
     documentId, 
     fullPlainText,
-    visibleRange
+    visibleRange,
+    contentCoordinatorRef // Phase 2: Add coordinator reference
   )
 
-  // AI Suggestions integration
+  // Phase 2: AI Suggestions integration with coordinator reference
   const {
     suggestions,
     loading: suggestionsLoading,
@@ -146,7 +147,8 @@ export function DocumentEditor({
     suggestionCount
   } = useAISuggestions({
     documentId,
-    autoSubscribe: true
+    autoSubscribe: true,
+    contentCoordinatorRef // Phase 2: Add coordinator reference
   })
 
   console.log(`[DocumentEditor] AI Suggestions state:`, {
@@ -189,9 +191,18 @@ export function DocumentEditor({
   const editor = useEditor({
     editable: !readOnly,
     immediatelyRender: false,
+    // PHASE 2.1 CRITICAL FIX: Disable markdown auto-conversion
+    enableInputRules: false, // Prevent # from becoming headers, ** from becoming bold, etc.
+    enablePasteRules: false, // Prevent pasted markdown from auto-converting
     extensions: [
       StarterKit.configure({
         history: false,
+        // PHASE 2.1: Disable extensions that auto-convert markdown syntax
+        heading: false,    // Disable heading extension (prevents # auto-conversion)
+        bold: false,       // Disable bold extension (prevents ** auto-conversion)
+        italic: false,     // Disable italic extension (prevents * auto-conversion)
+        strike: false,     // Disable strike extension (prevents ~~ auto-conversion)
+        code: false,       // Disable code extension (prevents ` auto-conversion)
       }),
       Placeholder.configure({
         placeholder: 'Start writing your masterpiece...',
@@ -881,13 +892,17 @@ export function DocumentEditor({
     }
   }, [editor, fullContentHtml]) // Update when HTML content changes
 
-  console.log('[DocumentEditor] Initializing markdown preview with plain text length:', editorPlainText.length)
+  // Phase 2: Initialize markdown preview with coordinator reference
+  console.log('[DocumentEditor] Phase 2: Initializing markdown preview with plain text length:', editorPlainText.length)
   const {
     isPreviewOpen,
     previewContent,
     isMarkdownDetected,
     togglePreview,
-  } = useMarkdownPreview(editorPlainText) // Use plain text instead of HTML
+  } = useMarkdownPreview(
+    editorPlainText, // Use plain text instead of HTML
+    contentCoordinatorRef // Phase 2: Add coordinator reference
+  )
 
   console.log('[DocumentEditor] Markdown preview state:', {
     isPreviewOpen,
