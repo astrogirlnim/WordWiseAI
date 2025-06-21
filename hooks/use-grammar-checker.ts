@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { AIService } from '@/services/ai-service';
 import type { GrammarError } from '@/types/grammar';
-import { TextChunker, type TextChunk } from '@/utils/text-chunker';
 import { debounce } from 'lodash';
 
 const DEBOUNCE_DELAY = 2000; // ms - Phase 2: 2 seconds debounce
 const MIN_TEXT_LENGTH = 10;
-const THROTTLE_INTERVAL = 2000; // 30 req/min -> 1 req every 2s
-const MAX_CONCURRENT_CHUNKS = 2; // Lowered for backend safety
-const CHUNK_THRESHOLD = 5000; // Increased to match new chunk size
 
 /**
  * Progress state for multi-chunk processing
+ * @deprecated Removed in Phase 1 - Harper.js migration
  */
 interface ChunkProgress {
   totalChunks: number;
@@ -21,8 +17,13 @@ interface ChunkProgress {
 }
 
 /**
- * Enhanced grammar checker hook with pagination-scoped processing
- * Phase 2: Respects EditorContentCoordinator typing lock and implements proper debouncing
+ * Enhanced grammar checker hook - Phase 1: Stub implementation
+ * 
+ * PHASE 1 STATUS: Legacy AI/Cloud Function grammar checking has been removed.
+ * This hook now returns empty grammar errors and provides stub implementations
+ * of all methods to maintain interface compatibility.
+ * 
+ * TODO (Phase 2): Integrate Harper.js for local grammar checking
  */
 export function useGrammarChecker(
   documentId: string, 
@@ -30,6 +31,7 @@ export function useGrammarChecker(
   visibleRange?: { start: number; end: number },
   contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
 ) {
+  // Phase 1: Return empty state - no grammar checking active
   const [errors, setErrors] = useState<GrammarError[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [chunkProgress, setChunkProgress] = useState<ChunkProgress>({
@@ -38,251 +40,33 @@ export function useGrammarChecker(
     processingChunks: 0,
     isProcessing: false
   });
-  const lastRequestTime = useRef<number>(0);
-  const textChunker = useRef(new TextChunker());
-  const abortController = useRef<AbortController | null>(null);
-  const activeProcessingSession = useRef<string | null>(null); // Phase 6.1: Track active session
 
-  console.log(`[useGrammarChecker] Hook initialized for document ${documentId}`);
+  console.log(`[useGrammarChecker] Phase 1: Stub implementation active for document ${documentId} - grammar checking disabled`);
 
+  /**
+   * Phase 1: Stub implementation - removes error from local state only
+   */
   const removeError = useCallback((errorId: string) => {
-    console.log(`[useGrammarChecker] Removing error ${errorId}`);
+    console.log(`[useGrammarChecker] Phase 1: Stub - removing error ${errorId}`);
     setErrors(prevErrors => prevErrors.filter(error => error.id !== errorId));
   }, []);
 
+  /**
+   * Phase 1: Stub implementation - same as removeError
+   */
   const ignoreError = useCallback((errorId: string) => {
-    // For now, ignoring is the same as removing.
-    // This could be extended to add to a persistent ignore list.
-    console.log(`[useGrammarChecker] Ignoring error ${errorId}`);
+    console.log(`[useGrammarChecker] Phase 1: Stub - ignoring error ${errorId}`);
     removeError(errorId);
   }, [removeError]);
 
   /**
-   * Phase 6.1: Extract visible page text only
-   */
-  const getVisiblePageText = useCallback((fullText: string, range?: { start: number; end: number }): string => {
-    if (!range) {
-      console.log(`[useGrammarChecker] No visible range provided, using full text (${fullText.length} chars)`);
-      return fullText;
-    }
-    
-    const visibleText = fullText.substring(range.start, range.end);
-    console.log(`[useGrammarChecker] Extracted visible page text: ${visibleText.length} chars from range ${range.start}-${range.end}`);
-    return visibleText;
-  }, []);
-
-  /**
-   * Processes a single chunk with error handling and position mapping
-   */
-  const processChunk = useCallback(async (chunk: TextChunk, documentId: string, sessionId: string): Promise<GrammarError[]> => {
-    console.log(`[useGrammarChecker] Processing chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} (${chunk.text.length} chars) for session ${sessionId}`);
-    
-    // Phase 6.1: Check if this session is still active
-    if (activeProcessingSession.current !== sessionId) {
-      console.log(`[useGrammarChecker] Session ${sessionId} cancelled, skipping chunk ${chunk.chunkIndex + 1}`);
-      return [];
-    }
-    
-    try {
-      const chunkErrors = await AIService.checkGrammarChunk(documentId, chunk);
-      
-      // Phase 6.1: Check again after async operation
-      if (activeProcessingSession.current !== sessionId) {
-        console.log(`[useGrammarChecker] Session ${sessionId} cancelled after API call, discarding chunk ${chunk.chunkIndex + 1} results`);
-        return [];
-      }
-      
-      // Map chunk errors to original document positions
-      const mappedErrors = chunkErrors.map(error => {
-        const originalPosition = textChunker.current.mapErrorToOriginalPosition(
-          { start: error.start, end: error.end },
-          chunk
-        );
-        
-        console.log(`[useGrammarChecker] Mapped error from chunk position ${error.start}-${error.end} to document position ${originalPosition.start}-${originalPosition.end}`);
-        
-        return {
-          ...error,
-          start: originalPosition.start,
-          end: originalPosition.end,
-          shownAt: Date.now()
-        };
-      });
-
-      console.log(`[useGrammarChecker] Chunk ${chunk.chunkIndex + 1} completed with ${mappedErrors.length} errors for session ${sessionId}`);
-      return mappedErrors;
-    } catch (error) {
-      console.error(`[useGrammarChecker] Error processing chunk ${chunk.chunkIndex + 1} for session ${sessionId}:`, error);
-      return [];
-    }
-  }, []);
-
-  /**
-   * Processes chunks in parallel with concurrency control
-   * Phase 6.1: Added session tracking for cancellation
-   */
-  const processChunksInParallel = useCallback(async (chunks: TextChunk[], documentId: string, sessionId: string): Promise<GrammarError[]> => {
-    console.log(`[useGrammarChecker] Starting parallel processing of ${chunks.length} chunks (max ${MAX_CONCURRENT_CHUNKS} concurrent) for session ${sessionId}`);
-    
-    const allErrors: GrammarError[] = [];
-    const processingQueue = [...chunks];
-    const activePromises: Promise<void>[] = [];
-
-    // Update progress state
-    setChunkProgress({
-      totalChunks: chunks.length,
-      completedChunks: 0,
-      processingChunks: 0,
-      isProcessing: true
-    });
-
-    /**
-     * Processes the next chunk in the queue
-     */
-    const processNext = async (): Promise<void> => {
-      if (processingQueue.length === 0) return;
-      
-      // Phase 6.1: Check if session is still active
-      if (activeProcessingSession.current !== sessionId) {
-        console.log(`[useGrammarChecker] Session ${sessionId} cancelled, stopping processNext`);
-        return;
-      }
-      
-      const chunk = processingQueue.shift()!;
-      
-      // Update processing count
-      setChunkProgress(prev => ({
-        ...prev,
-        processingChunks: prev.processingChunks + 1
-      }));
-
-      try {
-        const chunkErrors = await processChunk(chunk, documentId, sessionId);
-        
-        // Phase 6.1: Only add errors if session is still active
-        if (activeProcessingSession.current === sessionId) {
-          allErrors.push(...chunkErrors);
-
-          // Update streaming errors as chunks complete
-          setErrors(prevErrors => {
-            const combinedErrors = [...prevErrors, ...chunkErrors];
-            const deduplicatedErrors = textChunker.current.deduplicateOverlapErrors(
-              combinedErrors.map(e => ({ start: e.start, end: e.end, error: e.error, id: e.id }))
-            );
-            // Map back to GrammarError objects
-            const finalErrors = deduplicatedErrors.map(dedupError => {
-              const originalError = combinedErrors.find(e => e.id === dedupError.id);
-              return (originalError as GrammarError) || ({ ...dedupError, suggestions: [], explanation: '', type: 'grammar', severity: 'medium' } as GrammarError);
-            });
-            console.log(`[useGrammarChecker] Updated errors after chunk ${chunk.chunkIndex + 1} (session ${sessionId}): ${finalErrors.length} total errors`);
-            return finalErrors;
-          });
-        }
-
-      } catch (error) {
-        console.error(`[useGrammarChecker] Error in processNext for chunk ${chunk.chunkIndex + 1} (session ${sessionId}):`, error);
-      } finally {
-        // Update progress
-        setChunkProgress(prev => ({
-          ...prev,
-          completedChunks: prev.completedChunks + 1,
-          processingChunks: prev.processingChunks - 1
-        }));
-      }
-    };
-
-    // Start initial concurrent requests
-    for (let i = 0; i < Math.min(MAX_CONCURRENT_CHUNKS, chunks.length); i++) {
-        const promise = processNext();
-        if (promise) {
-            activePromises.push(promise);
-        }
-    }
-
-    // Process remaining chunks as others complete
-    while (activePromises.length > 0 && activeProcessingSession.current === sessionId) {
-      await Promise.race(activePromises);
-      
-      // Remove completed promises and start new ones
-      const completedIndex = activePromises.findIndex(p => 
-        p.then !== undefined // Simple check for completed promise
-      );
-      
-      if (completedIndex !== -1) {
-        activePromises.splice(completedIndex, 1);
-      }
-      
-      // Add new chunk if available
-      if (processingQueue.length > 0) {
-        activePromises.push(processNext());
-      }
-    }
-
-    // Wait for all remaining promises if session is still active
-    if (activeProcessingSession.current === sessionId) {
-      await Promise.all(activePromises);
-    }
-
-    console.log(`[useGrammarChecker] Parallel processing completed for session ${sessionId}. Total errors: ${allErrors.length}`);
-    
-    // Final deduplication across all chunks
-    const deduplicatedSimpleErrors = textChunker.current.deduplicateOverlapErrors(
-      allErrors.map(e => ({ start: e.start, end: e.end, error: e.error, id: e.id }))
-    );
-    // Map back to GrammarError objects
-    const finalErrors = deduplicatedSimpleErrors.map(dedupError => {
-      const originalError = allErrors.find(e => e.id === dedupError.id);
-      return (originalError as GrammarError) || ({ ...dedupError, suggestions: [], explanation: '', type: 'grammar', severity: 'medium' } as GrammarError);
-    });
-    console.log(`[useGrammarChecker] Final deduplication resulted in ${finalErrors.length} errors for session ${sessionId}`);
-
-    // Update progress to completed
-    setChunkProgress(prev => ({
-      ...prev,
-      isProcessing: false
-    }));
-
-    return finalErrors;
-  }, [processChunk]);
-
-  /**
-   * Check if user is currently typing using EditorContentCoordinator
-   * Phase 2: Respect typing lock to prevent interference with user input
-   */
-  const isUserTyping = useCallback((): boolean => {
-    if (!contentCoordinatorRef?.current) {
-      console.log('[useGrammarChecker] Phase 2: No coordinator available, assuming not typing');
-      return false;
-    }
-    
-    const state = contentCoordinatorRef.current.getState();
-    const typing = state.isUserTyping || state.isProcessingUpdate;
-    
-    if (typing) {
-      console.log('[useGrammarChecker] Phase 2: User is typing or processing update, skipping grammar check');
-    }
-    
-    return typing;
-  }, [contentCoordinatorRef]);
-
-  /**
-   * Main grammar checking function with pagination-scoped processing
-   * Phase 2: Enhanced with typing lock detection and proper debouncing
+   * Phase 1: Stub implementation - no grammar checking performed
    */
   const checkGrammar = useMemo(() => debounce(async (currentText: string) => {
-    console.log(`[useGrammarChecker] Phase 2: Starting grammar check for text length: ${currentText.length}`);
+    console.log(`[useGrammarChecker] Phase 1: Stub - checkGrammar called with text length: ${currentText.length}`);
     
-    // Phase 2: Check if user is currently typing - if so, skip this check
-    if (isUserTyping()) {
-      console.log('[useGrammarChecker] Phase 2: User is typing, skipping grammar check');
-      return;
-    }
-    
-    // Phase 6.1: Extract only visible page text
-    const visiblePageText = getVisiblePageText(currentText, visibleRange);
-    
-    if (visiblePageText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Visible page text too short, clearing errors');
+    if (currentText.length < MIN_TEXT_LENGTH) {
+      console.log('[useGrammarChecker] Phase 1: Stub - text too short, clearing errors');
       setErrors([]);
       setChunkProgress({
         totalChunks: 0,
@@ -293,114 +77,19 @@ export function useGrammarChecker(
       return;
     }
 
-    const now = Date.now();
-    if (now - lastRequestTime.current < THROTTLE_INTERVAL) {
-      console.log('[useGrammarChecker] Request throttled');
-      return;
-    }
-
-    // Phase 6.1: Cancel any ongoing processing session
-    const sessionId = `${documentId}-${Date.now()}`;
-    console.log(`[useGrammarChecker] Starting new processing session: ${sessionId}`);
-    activeProcessingSession.current = sessionId;
-    
-    // Cancel any ongoing requests
-    if (abortController.current) {
-      console.log('[useGrammarChecker] Cancelling previous request');
-      abortController.current.abort();
-    }
-    abortController.current = new AbortController();
-
-    setIsChecking(true);
-    lastRequestTime.current = now;
-    
-    try {
-      if (visiblePageText.length <= CHUNK_THRESHOLD) {
-        console.log(`[useGrammarChecker] Visible page text length (${visiblePageText.length}) below chunk threshold, using single request`);
-        const grammarErrors = await AIService.checkGrammar(documentId, visiblePageText);
-        
-        // Phase 6.1: Check if session is still active before setting errors
-        if (activeProcessingSession.current === sessionId) {
-          // BUGFIX: Don't adjust error positions here - they should be relative to visible page text
-          // The DocumentEditor will handle converting them to page-relative positions
-          const errorsWithTimestamp = grammarErrors.map(error => {
-            console.log(`[useGrammarChecker] BUGFIX: Error ${error.id} at positions ${error.start}-${error.end} (relative to visible page text)`);
-            return {
-              ...error,
-              // Add visible range offset to convert to full document positions
-              start: error.start + (visibleRange?.start || 0),
-              end: error.end + (visibleRange?.start || 0),
-              shownAt: Date.now()
-            };
-          });
-          
-          setErrors(errorsWithTimestamp);
-          setChunkProgress({
-            totalChunks: 1,
-            completedChunks: 1,
-            processingChunks: 0,
-            isProcessing: false
-          });
-          console.log(`[useGrammarChecker] Single request completed for session ${sessionId} with ${errorsWithTimestamp.length} errors`);
-          console.log('[useGrammarChecker] BUGFIX: Error positions after adjustment:', errorsWithTimestamp.map(e => `${e.id}: ${e.start}-${e.end}`));
-        } else {
-          console.log(`[useGrammarChecker] Single request completed but session ${sessionId} was cancelled, discarding results`);
-        }
-      } else {
-        // Phase 6.1: Chunk only the visible page text
-        console.log(`[useGrammarChecker] Visible page text length (${visiblePageText.length}) above chunk threshold, chunking visible page only`);
-        const visibleChunks = textChunker.current.chunkText(visiblePageText);
-        
-        // BUGFIX: Don't adjust chunk positions here - let the TextChunker handle position mapping correctly
-        console.log(`[useGrammarChecker] Created ${visibleChunks.length} chunks for visible page (session ${sessionId})`);
-        
-        const allErrors = await processChunksInParallel(visibleChunks, documentId, sessionId);
-        
-        // Phase 6.1: Only set errors if session is still active
-        if (activeProcessingSession.current === sessionId) {
-          // BUGFIX: Adjust chunk-based errors to full document positions
-          const adjustedErrors = allErrors.map(error => ({
-            ...error,
-            start: error.start + (visibleRange?.start || 0),
-            end: error.end + (visibleRange?.start || 0),
-          }));
-          
-          setErrors(adjustedErrors);
-          console.log(`[useGrammarChecker] Chunked processing completed for session ${sessionId} with ${adjustedErrors.length} total errors`);
-          console.log('[useGrammarChecker] BUGFIX: Final error positions:', adjustedErrors.map(e => `${e.id}: ${e.start}-${e.end}`));
-        } else {
-          console.log(`[useGrammarChecker] Chunked processing completed but session ${sessionId} was cancelled, discarding results`);
-        }
-      }
-    } catch (error) {
-      console.error(`[useGrammarChecker] Failed to check grammar for session ${sessionId}:`, error);
-      setChunkProgress(prev => ({
-        ...prev,
-        isProcessing: false
-      }));
-    } finally {
-      setIsChecking(false);
-    }
-  }, DEBOUNCE_DELAY), [documentId, visibleRange, processChunksInParallel, getVisiblePageText, isUserTyping]);
+    console.log('[useGrammarChecker] Phase 1: Stub - no grammar checking performed, Harper.js integration coming in Phase 2');
+    setIsChecking(false);
+    setErrors([]); // Phase 1: Always return empty errors
+  }, DEBOUNCE_DELAY), []);
 
   /**
-   * Triggers an immediate grammar check, bypassing the debounce
-   * Phase 2: Enhanced with typing lock detection
+   * Phase 1: Stub implementation - no immediate checking performed
    */
   const checkGrammarImmediately = useCallback((currentText: string) => {
-    console.log(`[useGrammarChecker] Phase 2: Attempting immediate grammar check for text length: ${currentText.length}`);
+    console.log(`[useGrammarChecker] Phase 1: Stub - checkGrammarImmediately called with text length: ${currentText.length}`);
     
-    // Phase 2: Check if user is currently typing - if so, skip immediate check
-    if (isUserTyping()) {
-      console.log('[useGrammarChecker] Phase 2: User is typing, skipping immediate grammar check');
-      return;
-    }
-    
-    const visiblePageText = getVisiblePageText(currentText, visibleRange);
-    console.log(`[useGrammarChecker] Phase 2: Starting immediate grammar check for visible page text length: ${visiblePageText.length}`);
-    
-    if (visiblePageText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Visible page text too short, clearing errors');
+    if (currentText.length < MIN_TEXT_LENGTH) {
+      console.log('[useGrammarChecker] Phase 1: Stub - text too short, clearing errors');
       setErrors([]);
       setChunkProgress({
         totalChunks: 0,
@@ -411,121 +100,66 @@ export function useGrammarChecker(
       return;
     }
 
+    console.log('[useGrammarChecker] Phase 1: Stub - no immediate grammar checking performed');
     checkGrammar.cancel();
     checkGrammar(currentText);
-  }, [checkGrammar, getVisiblePageText, visibleRange, isUserTyping]);
+  }, [checkGrammar]);
 
-  // Phase 6.1: Cancel processing when visible range changes (page change)
-  useEffect(() => {
-    if (activeProcessingSession.current) {
-      console.log(`[useGrammarChecker] Visible range changed, cancelling active session: ${activeProcessingSession.current}`);
-      activeProcessingSession.current = null;
-      setErrors([]); // Clear errors when page changes
+  /**
+   * Phase 1: Stub implementation - no full document checking performed
+   */
+  const checkFullDocument = useCallback(async (fullText: string) => {
+    console.log(`[useGrammarChecker] Phase 1: Stub - checkFullDocument called with ${fullText.length} characters`);
+    
+    if (fullText.length < MIN_TEXT_LENGTH) {
+      console.log('[useGrammarChecker] Phase 1: Stub - full document text too short, clearing errors');
+      setErrors([]);
+      setChunkProgress({
+        totalChunks: 0,
+        completedChunks: 0,
+        processingChunks: 0,
+        isProcessing: false
+      });
+      return;
     }
+
+    console.log('[useGrammarChecker] Phase 1: Stub - no full document checking performed');
+    setIsChecking(false);
+    setErrors([]); // Phase 1: Always return empty errors
+  }, []);
+
+  // Phase 1: Clear errors when visible range changes (page change)
+  useEffect(() => {
+    console.log(`[useGrammarChecker] Phase 1: Stub - visible range changed, clearing errors`);
+    setErrors([]); // Always clear errors in stub mode
   }, [visibleRange]);
 
-  // Effect to automatically check grammar when plainText changes
+  // Phase 1: Stub - no automatic grammar checking on text changes
   useEffect(() => {
-    const visiblePageText = getVisiblePageText(plainText, visibleRange);
-    if (visiblePageText.length >= MIN_TEXT_LENGTH) {
-      checkGrammar(plainText);
+    console.log(`[useGrammarChecker] Phase 1: Stub - text changed, no automatic checking performed`);
+    if (plainText.length >= MIN_TEXT_LENGTH) {
+      // Do nothing in stub mode
     } else {
       setErrors([]);
     }
-  }, [plainText, checkGrammar, getVisiblePageText, visibleRange]);
+  }, [plainText, checkGrammar, visibleRange]);
 
   // Cleanup function to cancel any pending debounced calls
   useEffect(() => {
     return () => {
       checkGrammar.cancel();
-      activeProcessingSession.current = null;
     };
   }, [checkGrammar]);
 
-  /**
-   * Phase 6.1: Full document check that bypasses pagination
-   * Used for power users who want to check the entire document
-   */
-  const checkFullDocument = useCallback(async (fullText: string) => {
-    console.log(`[useGrammarChecker] Phase 6.1: Starting full document check for ${fullText.length} characters`);
-    
-    if (fullText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Phase 6.1: Full document text too short, clearing errors');
-      setErrors([]);
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastRequestTime.current < THROTTLE_INTERVAL) {
-      console.log('[useGrammarChecker] Phase 6.1: Full document check throttled');
-      return;
-    }
-
-    // Phase 6.1: Cancel any ongoing processing session
-    const sessionId = `FULL-DOC-${documentId}-${Date.now()}`;
-    console.log(`[useGrammarChecker] Phase 6.1: Starting full document processing session: ${sessionId}`);
-    activeProcessingSession.current = sessionId;
-    
-    // Cancel any ongoing requests
-    if (abortController.current) {
-      console.log('[useGrammarChecker] Phase 6.1: Cancelling previous request for full document check');
-      abortController.current.abort();
-    }
-    abortController.current = new AbortController();
-
-    setIsChecking(true);
-    lastRequestTime.current = now;
-    
-    try {
-      if (fullText.length <= CHUNK_THRESHOLD) {
-        console.log(`[useGrammarChecker] Phase 6.1: Full document length (${fullText.length}) below chunk threshold, using single request`);
-        const grammarErrors = await AIService.checkGrammar(documentId, fullText);
-        
-        // Phase 6.1: Check if session is still active before setting errors
-        if (activeProcessingSession.current === sessionId) {
-          const errorsWithTimestamp = grammarErrors.map(error => ({
-            ...error,
-            shownAt: Date.now()
-          }));
-          
-          setErrors(errorsWithTimestamp);
-          setChunkProgress({
-            totalChunks: 1,
-            completedChunks: 1,
-            processingChunks: 0,
-            isProcessing: false
-          });
-          console.log(`[useGrammarChecker] Phase 6.1: Full document single request completed for session ${sessionId} with ${errorsWithTimestamp.length} errors`);
-        } else {
-          console.log(`[useGrammarChecker] Phase 6.1: Full document single request completed but session ${sessionId} was cancelled, discarding results`);
-        }
-      } else {
-        // Phase 6.1: Chunk the full document without pagination limits
-        console.log(`[useGrammarChecker] Phase 6.1: Full document length (${fullText.length}) above chunk threshold, chunking entire document`);
-        const allChunks = textChunker.current.chunkText(fullText);
-        
-        console.log(`[useGrammarChecker] Phase 6.1: Created ${allChunks.length} chunks for full document (session ${sessionId})`);
-        
-        const allErrors = await processChunksInParallel(allChunks, documentId, sessionId);
-        
-        // Phase 6.1: Only set errors if session is still active
-        if (activeProcessingSession.current === sessionId) {
-          setErrors(allErrors);
-          console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed for session ${sessionId} with ${allErrors.length} total errors`);
-        } else {
-          console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed but session ${sessionId} was cancelled, discarding results`);
-        }
-      }
-    } catch (error) {
-      console.error(`[useGrammarChecker] Phase 6.1: Failed to check full document for session ${sessionId}:`, error);
-      setChunkProgress(prev => ({
-        ...prev,
-        isProcessing: false
-      }));
-    } finally {
-      setIsChecking(false);
-    }
-  }, [documentId, processChunksInParallel]);
-
-  return { errors, isChecking, chunkProgress, removeError, ignoreError, checkGrammarImmediately, checkFullDocument };
+  console.log(`[useGrammarChecker] Phase 1: Stub - returning empty grammar state for document ${documentId}`);
+  
+  return { 
+    errors, 
+    isChecking, 
+    chunkProgress, 
+    removeError, 
+    ignoreError, 
+    checkGrammarImmediately, 
+    checkFullDocument 
+  };
 } 
