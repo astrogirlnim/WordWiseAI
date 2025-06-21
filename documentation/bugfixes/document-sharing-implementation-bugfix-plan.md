@@ -251,10 +251,10 @@ Phase 2 is now complete. Key changes include:
 - [x] Verify redirect behavior
 
 ### Testing Requirements
-- [ ] Create `tests/auth/auth-integration.test.ts`
-- [ ] Test authenticated sharing scenarios
-- [ ] Test unauthenticated access attempts
-- [ ] Test email validation logic
+- [x] Create `tests/auth/auth-integration.test.ts`
+- [x] Test authenticated sharing scenarios
+- [x] Test unauthenticated access attempts
+- [x] Test email validation logic
 
 ### Summary of Changes (Phase 3)
 Phase 3 is now complete. Key changes include:
@@ -667,3 +667,84 @@ The owner-only sharing implementation successfully addresses the reported edge c
 - [ ] Performance optimization reviews
 - [ ] User feedback collection
 - [ ] Bug report monitoring 
+
+---
+
+## Phase 3.2: Shared Document Loading Issue Fix (COMPLETED)
+
+### Context and Problem
+After implementing the owner-only sharing functionality, a critical issue was identified where users accepting share invitations would be redirected to the main page but see a different document than the one that was actually shared with them. The shared document would appear in the "Shared documents" list, but the active document shown in the editor would be incorrect.
+
+### Root Cause Analysis
+The issue was caused by a race condition in the document loading process:
+
+1. **Share Invitation Acceptance**: User accepts invitation → Document is updated in Firestore with user in `sharedWith` array
+2. **Page Redirect**: User is redirected to `/?documentId=ABC123` 
+3. **Document Loading Race**: DocumentContainer loads, but `useDocuments` hook fetches documents based on cached/stale data
+4. **Missing Document**: The newly shared document isn't in the `documents` array yet
+5. **Fallback Selection**: URL parameter handling can't find the target document, so user sees first available document instead
+
+### Solution Implemented
+
+#### Step 3.2.1: Force Document Refresh on Share Acceptance
+**File**: `app/share/[token]/page.tsx`
+
+**Changes Made**:
+- Modified redirect URL to include a refresh timestamp parameter: `/?documentId=${result.documentId}&refresh=${Date.now()}`
+- This signals to the DocumentContainer that a fresh document load is needed
+- The timestamp ensures the URL is unique and bypasses any caching
+
+#### Step 3.2.2: Enhanced URL Parameter Handling
+**File**: `components/document-container.tsx`
+
+**Changes Made**:
+- Added `reloadDocuments` to the destructured functions from `useDocuments` hook
+- Enhanced URL parameter handling logic to detect the `refresh` parameter
+- When `refresh` parameter is present and target document is not found:
+  1. Forces a reload of all documents using `reloadDocuments()`
+  2. After reload, searches for the target document again
+  3. Sets the correct document as active if found
+  4. Clears URL parameters to clean up the browser history
+
+### Technical Benefits
+
+**Eliminates Race Conditions**:
+- Ensures fresh document data is loaded when accepting share invitations
+- Prevents stale cache issues that caused wrong document selection
+- Guarantees the shared document is available in the documents array
+
+**Improved User Experience**:
+- Users now see the correct shared document immediately after accepting invitations
+- Eliminates confusion about which document was actually shared
+- Provides seamless transition from share acceptance to document editing
+
+**Robust Error Handling**:
+- Gracefully handles cases where document still can't be found after reload
+- Comprehensive logging for debugging document loading issues
+- Clean URL parameter management prevents browser history pollution
+
+### Verification Steps
+- [x] Share invitation acceptance redirects to correct document
+- [x] Shared document appears as active document in editor
+- [x] Document content and title match the originally shared document
+- [x] URL parameters are properly cleaned up after processing
+- [x] No race conditions or timing issues with document loading
+- [x] Comprehensive logging helps with debugging
+
+### Testing Scenarios Validated
+- [x] **Share Acceptance Flow**: User accepts invitation and sees correct shared document
+- [x] **Document Content Verification**: Shared document content matches original
+- [x] **Multiple Document Handling**: Works correctly when user has multiple owned/shared documents
+- [x] **URL Parameter Cleanup**: Browser history remains clean after processing
+- [x] **Error Recovery**: Graceful handling if document still can't be found after reload
+
+### Summary of Shared Document Loading Fix
+The shared document loading issue has been successfully resolved by implementing a forced document refresh mechanism when accepting share invitations. This ensures that users always see the correct shared document immediately after accepting an invitation, eliminating the race condition that previously caused wrong document selection.
+
+**Problem Solved**: Users now see the correct shared document content and title immediately after accepting share invitations, instead of seeing a different document from their list.
+
+**Race Condition Eliminated**: The forced refresh mechanism ensures that shared documents are properly loaded into the documents array before attempting to select them.
+
+**User Experience Enhanced**: Seamless transition from share invitation acceptance to viewing the correct shared document, with proper URL cleanup and error handling.
+
+**Future-Proof Design**: The refresh mechanism can handle various edge cases and provides comprehensive logging for debugging any remaining issues.
