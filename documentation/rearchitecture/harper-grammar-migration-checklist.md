@@ -271,10 +271,11 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
 - [x] Ensure grammar checks are debounced and do not block typing
 - [x] Test error highlighting for accuracy and responsiveness
 - [x] Update styles in `app/globals.css` if needed
+- [x] **CRITICAL BUGFIX**: Fixed grammar checking integration with EditorContentCoordinator
 
 ### PHASE 5 IMPLEMENTATION SUMMARY (COMPLETED):
 
-**Status**: ✅ **COMPLETED** - All UI/UX and performance enhancements for the Harper.js migration are complete.
+**Status**: ✅ **COMPLETED** - All UI/UX and performance enhancements for the Harper.js migration are complete, including a critical grammar checking integration fix.
 
 ### **Changes Made:**
 
@@ -300,8 +301,57 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
 - ✅ **`isComposing` Handling**: The `tiptap-grammar-extension` now explicitly clears decorations when the user begins a composition (e.g., with an IME), providing a smoother typing experience. Decorations are restored on the next grammar check.
 - ✅ **Highlighting Accuracy**: The end-to-end flow from text change to decoration rendering is responsive. The client-side nature of Harper.js ensures that error positions are accurate and highlights appear in the correct locations without flickering or misplacement.
 
+#### **4. CRITICAL BUGFIX: Grammar Checking Integration with EditorContentCoordinator:**
+
+**Problem Identified**: Grammar checking was not working because the `useGrammarChecker` hook was receiving empty plain text. This occurred because:
+- Plain text extraction depended on `fullContentHtml` state
+- `fullContentHtml` was updated asynchronously through the EditorContentCoordinator's `onStateUpdate` callback
+- This created a timing gap where grammar checking ran before the coordinator finished processing content updates
+
+**Root Cause**: The EditorContentCoordinator is designed for version control, real-time collaboration, and preventing race conditions. It processes updates with priority queuing and async callbacks. Grammar checking, however, needs immediate access to typed text for real-time error detection.
+
+**Solution Implemented**: Created a **separate, immediate plain text stream** specifically for grammar checking:
+
+1. **Added `grammarPlainText` state**: Independent of the coordinator system
+2. **Immediate text extraction**: Updated directly in the `onUpdate` callback before coordinator processing
+3. **Preserved coordinator architecture**: No changes to the coordinator system that handles version control and collaboration
+4. **Real-time grammar checking**: Grammar checker now receives text immediately as the user types
+
+**Technical Implementation**:
+```typescript
+// Separate immediate plain text stream for grammar checking
+const [grammarPlainText, setGrammarPlainText] = useState('')
+
+// In onUpdate callback - BEFORE coordinator processing:
+const updatedFullContent = /* reconstruct full content */
+const div = document.createElement('div');
+div.innerHTML = updatedFullContent;
+const updatedPlainText = div.textContent || '';
+setGrammarPlainText(updatedPlainText); // Immediate update
+
+// Grammar checker uses grammarPlainText instead of fullContentHtml-derived text
+const { errors, removeError, checkFullDocument } = useGrammarChecker(
+  documentId, 
+  grammarCheckEnabled ? grammarPlainText : '', // Immediate text
+  visibleRange,
+  contentCoordinatorRef
+)
+```
+
+**Files Modified**:
+- `components/document-editor.tsx`: Added separate grammar plain text stream and immediate updates
+- Updated all grammar-related function calls to use the immediate text stream
+
+**Verification**: With this fix, grammar checking now works in real-time:
+- Harper.js initialization: ✅ Working
+- Plain text extraction: ✅ Immediate, non-empty text
+- Grammar error detection: ✅ Real-time error highlighting
+- Coordinator system: ✅ Preserved for version control and collaboration
+
 ### **Architecture Impact:**
-- **No significant architectural changes in this phase.** The focus was on improving the observability and user experience of the architecture established in Phase 4.
+- **No significant architectural changes in this phase.** The focus was on improving the observability and user experience of the architecture established in Phase 4, plus fixing the critical integration issue.
+- **Coordinator Preservation**: The EditorContentCoordinator continues to handle version control, real-time collaboration, and other system updates without modification.
+- **Grammar Isolation**: Grammar checking now operates independently with its own immediate text stream, preventing interference with other features.
 
 ### **Firebase Configuration Considerations:**
 - **No Firebase changes.** This phase was entirely focused on the client-side application.
@@ -310,6 +360,7 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
 - ✅ The system is more debuggable and transparent due to enhanced logging.
 - ✅ The user interface provides richer feedback through color-coded error types.
 - ✅ The editor feels responsive, with performance safeguards in place.
+- ✅ **CRITICAL**: Grammar checking now works in real-time with proper text extraction.
 - ✅ Phase 5 is complete and the project is ready for Phase 6.
 
 ---
