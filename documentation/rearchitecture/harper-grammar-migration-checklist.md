@@ -146,21 +146,40 @@
 ---
 
 ## PHASE 2: Research & Install Harper.js
-- [ ] Research Harper.js usage for browser/React/TypeScript:
-  - [ ] Confirm Harper.js WASM/browser support ([Harper GitHub](https://github.com/automattic/harper))
-  - [ ] Review Harper.js API for grammar error output format
-- [ ] Install Harper.js:
-  - [ ] Add Harper.js/WASM as a dependency (npm or direct import)
-  - [ ] Example: `npm install @harperdb/harperdb` (or per official docs)
-  - [ ] If WASM, ensure correct loader/config for Next.js/React
-- [ ] Create a wrapper utility for Harper.js grammar check (e.g., `utils/harper-wrapper.ts`)
+- [x] Research Harper.js usage for browser/React/TypeScript:
+  - [x] Confirmed Harper.js WASM/browser support and its reliance on fetching a `.wasm` file.
+  - [x] Reviewed API and confirmed its output can be mapped to our `GrammarError` type.
+- [x] Install Harper.js:
+  - [x] Added `harper.js` as a dependency: `npm install harper.js`.
+  - [x] Configured Next.js to correctly serve the required `harper_wasm_bg.wasm` file.
+- [x] Create a wrapper utility for Harper.js grammar check (`utils/harper-wrapper.ts`).
+
+### PHASE 2 IMPLEMENTATION SUMMARY (COMPLETED):
+
+**Status**: ✅ **COMPLETED** - Harper.js has been installed and a wrapper utility has been created.
+
+**Key Findings & Implementation Details:**
+- **WASM Loading Challenge**: Initial tests showed that `harper.js` could not locate its `.wasm` file within the Next.js development server environment. This is a common issue with libraries that use WebAssembly, as Next.js's bundler can obscure the path to assets.
+- **Solution**: To provide a stable and predictable path, the `harper_wasm_bg.wasm` file was copied from `node_modules/harper.js/dist/` into the project's `/public` directory.
+- **Production Compatibility**: This solution is compatible with the production Firebase Hosting deployment. The `.github/workflows` files confirm that `next build` is run, which copies the `public` directory's contents to the output. The `.gitignore` file has been modified with `public/*` and `!public/harper_wasm_bg.wasm` to ensure the WASM file is included in the deployment while other public assets are not.
+- **Wrapper Utility**: A wrapper was created at `utils/harper-wrapper.ts`. It handles the initialization of Harper.js, maps its output to our internal `GrammarError` type, and includes a `'use client'` directive to ensure it only runs in the browser.
 
 ---
 
 ## PHASE 3: Integrate Harper.js in Grammar Flow
-- [ ] Update `hooks/use-grammar-checker.ts` to use Harper.js for grammar checking
-- [ ] Refactor error state to match Harper.js output (positions, types, suggestions)
-- [ ] Remove all chunking, mapping, and deduplication logic
+- [x] Update `hooks/use-grammar-checker.ts` to use Harper.js for grammar checking.
+- [x] Refactored error state to match Harper.js output (positions, types, suggestions).
+- [x] Remove all chunking, mapping, and deduplication logic.
+
+### PHASE 3 IMPLEMENTATION SUMMARY (COMPLETED):
+
+**Status**: ✅ **COMPLETED** - Harper.js is fully integrated into the application's grammar checking hook.
+
+**Changes Made:**
+- **Hook Integration**: The `hooks/use-grammar-checker.ts` file was completely refactored. The previous stub implementation was replaced with calls to our new `harper-wrapper`.
+- **Client-Side Logic**: The hook now manages the client-side state of the grammar checker, including `isChecking`, `isHarperReady`, and the array of `errors`. It uses the `preWarmHarper` function to begin initialization as soon as the component mounts.
+- **Real-Time Checking**: Debounced, real-time grammar checking is fully functional. The hook listens to text changes and calls the checker, updating the UI with any detected errors.
+- **Verification**: The integration was successfully verified using a temporary test page (`app/test-harper/page.tsx`), which confirmed that the WASM module initializes correctly and finds errors in real-time. The test page has since been removed.
 
 ---
 

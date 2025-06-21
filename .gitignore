@@ -156,7 +156,8 @@ dist
 
 # Gatsby files
 .cache/
-public
+public/*
+!public/harper_wasm_bg.wasm
 
 # vuepress build output
 .vuepress/dist
