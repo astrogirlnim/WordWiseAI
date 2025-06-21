@@ -198,9 +198,37 @@ export default function SharePage() {
                 What you can do:
               </p>
               <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-                                 <li>• Make sure you&apos;re signed in with the correct email address</li>
-                 <li>• Check that the share link hasn&apos;t expired</li>
-                <li>• Contact the document owner if you continue having issues</li>
+                {error.includes('revoked') || error.includes('no longer valid') ? (
+                  <>
+                    <li>• The document owner may have revoked this share link</li>
+                    <li>• Ask the document owner to send you a new share link</li>
+                    <li>• Make sure you&apos;re using the most recent link they sent</li>
+                  </>
+                ) : error.includes('email') ? (
+                  <>
+                    <li>• Sign in with the email address the link was sent to</li>
+                    <li>• Check if you have multiple accounts and use the correct one</li>
+                    <li>• Contact the document owner if you need the link resent</li>
+                  </>
+                ) : error.includes('expired') ? (
+                  <>
+                    <li>• This link has passed its expiration date</li>
+                    <li>• Ask the document owner for a new share link</li>
+                    <li>• Share links may have time limits for security</li>
+                  </>
+                ) : error.includes('already been used') ? (
+                  <>
+                    <li>• This link can only be used once for security</li>
+                    <li>• If you need access again, ask for a new link</li>
+                    <li>• Check if you already have access to the document</li>
+                  </>
+                ) : (
+                  <>
+                    <li>• Make sure you&apos;re signed in with the correct email address</li>
+                    <li>• Check that the share link hasn&apos;t expired or been revoked</li>
+                    <li>• Contact the document owner if you continue having issues</li>
+                  </>
+                )}
               </ul>
             </div>
             

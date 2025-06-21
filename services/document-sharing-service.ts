@@ -119,17 +119,29 @@ export class DocumentSharingService {
       const tokenSnap = await getDoc(tokenRef)
       
       if (!tokenSnap.exists()) {
-        throw new Error('Invalid or expired share link')
+        console.log('[DocumentSharingService] Share token not found - likely revoked or invalid:', token)
+        throw new Error('This share link is no longer valid. It may have been revoked by the document owner or never existed.')
       }
       
       const tokenData = tokenSnap.data() as ShareToken
+      console.log('[DocumentSharingService] Found share token:', { 
+        documentId: tokenData.documentId, 
+        email: tokenData.email, 
+        isUsed: tokenData.isUsed,
+        hasExpiry: !!tokenData.expiresAt
+      })
       
       if (tokenData.isUsed) {
-        throw new Error('This share link has already been used')
+        console.log('[DocumentSharingService] Share token already used')
+        throw new Error('This share link has already been used and cannot be used again.')
       }
       
       if (tokenData.email !== userEmail) {
-        throw new Error('This share link was not created for your email address')
+        console.log('[DocumentSharingService] Email mismatch:', { 
+          tokenEmail: tokenData.email, 
+          userEmail 
+        })
+        throw new Error(`This share link was created for ${tokenData.email}, but you're signed in as ${userEmail}. Please sign in with the correct email address.`)
       }
       
       // Check if token has expired (if expiry was set)
@@ -138,7 +150,11 @@ export class DocumentSharingService {
         const expiresAt = toJSDate(tokenData.expiresAt)
         
         if (expiresAt && now > expiresAt.getTime()) {
-          throw new Error('This share link has expired')
+          console.log('[DocumentSharingService] Share token expired:', { 
+            expiresAt: expiresAt.toISOString(), 
+            now: new Date(now).toISOString() 
+          })
+          throw new Error(`This share link expired on ${expiresAt.toLocaleDateString()}. Please ask the document owner for a new link.`)
         }
       }
       
@@ -147,7 +163,8 @@ export class DocumentSharingService {
       const docSnap = await getDoc(docRef)
       
       if (!docSnap.exists()) {
-        throw new Error('Document not found')
+        console.log('[DocumentSharingService] Document not found for valid token:', tokenData.documentId)
+        throw new Error('The document associated with this share link has been deleted or is no longer available.')
       }
       
       const document = { id: docSnap.id, ...docSnap.data() } as Document
@@ -193,8 +210,19 @@ export class DocumentSharingService {
         document,
       }
     } catch (error) {
-      console.error('[DocumentSharingService] Error accepting share invitation:', error)
-      throw error
+      console.error('[DocumentSharingService] Error accepting share invitation:', {
+        token,
+        userId,
+        userEmail,
+        error: error instanceof Error ? error.message : error
+      })
+      
+      // Re-throw the error with context, but don't modify the message if it's already user-friendly
+      if (error instanceof Error) {
+        throw error
+      } else {
+        throw new Error('An unexpected error occurred while processing the share invitation. Please try again or contact support.')
+      }
     }
   }
   

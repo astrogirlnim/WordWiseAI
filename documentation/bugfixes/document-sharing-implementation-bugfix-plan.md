@@ -301,6 +301,112 @@ Phase 3 is now complete. Key changes include:
 
 ---
 
+## Phase 3.1: Owner-Only Sharing Implementation (COMPLETED)
+
+### Context and Problem
+After Phase 3 completion, an edge case was identified where signing in as a viewer and clicking a shared document's share button caused an error related to `sharedWithUids` being undefined. The user requested simplifying the implementation to only allow document owners to share documents.
+
+### Objectives
+- Restrict document sharing functionality to document owners only
+- Eliminate edge cases with undefined `sharedWithUids` fields  
+- Simplify permission logic and reduce complexity
+- Provide clearer security model and user experience
+
+### Files Modified
+- `components/document-sharing-button.tsx`
+- `components/document-sharing-dialog.tsx`
+- `lib/utils.ts` (already completed in Phase 3)
+- `app/share/[token]/page.tsx` (already completed in Phase 3)
+
+### Implementation Details
+
+#### Step 3.1.1: Document Sharing Button Restrictions
+**File**: `components/document-sharing-button.tsx`
+
+**Changes Made**:
+- Added `useAuth` hook to check user authentication status
+- Added ownership validation (`document.ownerId === user.uid`)  
+- For non-owners: Shows disabled button with lock icon and "Shared" text for shared documents, or nothing for non-shared documents
+- Only document owners can click the share button to open the sharing dialog
+- Added comprehensive logging for debugging ownership checks
+- Enhanced visual feedback with different states for owners vs non-owners
+
+**Key Features**:
+- **Owner Access**: Owners see full sharing functionality with "Share" button
+- **Shared Document Indicator**: Non-owners see disabled "Shared" button with lock icon for documents shared with them
+- **Private Document Hiding**: Non-owners see nothing for documents not shared with them (though they shouldn't have access anyway)
+- **Authentication Integration**: Proper loading states and authentication checks
+
+#### Step 3.1.2: Document Sharing Dialog Authorization  
+**File**: `components/document-sharing-dialog.tsx`
+
+**Changes Made**:
+- Replaced `isUserAuthenticated` with `isUserAuthorized` that checks both authentication AND ownership
+- Added `isOwner()` callback function to verify document ownership
+- Enhanced error states to show "Access Denied" message for non-owners
+- Removed unused functions `handleUpdatePermissions` and `handleRemoveAccess` to simplify codebase
+- Added security messaging about owner-only restrictions
+- All sharing operations now require ownership verification
+
+**Authorization Flow**:
+1. **Initial Check**: Verify user is authenticated
+2. **Ownership Check**: Verify user owns the document (`document.ownerId === user.uid`)
+3. **Combined Authorization**: Both conditions must be true to access sharing features
+4. **Error Handling**: Clear messages for unauthorized access attempts
+5. **Security Messaging**: Users understand that only owners can share documents
+
+#### Step 3.1.3: Technical Benefits
+
+**Security Improvements**:
+- **Clear Permission Model**: Only document owners can share documents
+- **Eliminated Edge Cases**: No more undefined `sharedWithUids` errors
+- **Reduced Attack Surface**: Fewer permission combinations to secure
+- **Explicit Authorization**: Clear ownership checks throughout the flow
+
+**User Experience Benefits**:
+- **Clearer Interface**: Users understand their permissions immediately  
+- **Consistent Behavior**: Sharing functionality always behaves predictably
+- **Better Error Messages**: Clear explanations when access is denied
+- **Visual Indicators**: Lock icons and disabled states provide immediate feedback
+
+**Code Quality Benefits**:
+- **Simplified Logic**: Removed complex permission checking code
+- **Fewer Code Paths**: Reduced branching and conditional logic
+- **Better Maintainability**: Easier to understand and modify
+- **Comprehensive Logging**: Detailed debugging information
+
+### Verification Steps
+- [x] Build succeeds without TypeScript errors
+- [x] Only document owners can access sharing functionality
+- [x] Non-owners see appropriate visual feedback (lock icon for shared docs)
+- [x] Sharing dialog shows authorization errors for non-owners
+- [x] Edge case with undefined `sharedWithUids` is eliminated
+- [x] All sharing operations require ownership verification
+- [x] Comprehensive logging helps with debugging
+
+### Testing Scenarios Validated
+- [x] **Owner Access**: Document owners can open sharing dialog and manage sharing
+- [x] **Shared Document Viewing**: Users with shared access see disabled "Shared" button with lock icon
+- [x] **Unauthorized Access Prevention**: Non-owners cannot access sharing dialog
+- [x] **Authentication Integration**: Proper loading and error states
+- [x] **Edge Case Resolution**: No more `sharedWithUids` undefined errors
+- [x] **Visual Feedback**: Clear indication of user permissions
+
+### Summary of Owner-Only Implementation
+The owner-only sharing implementation successfully addresses the reported edge case while providing a cleaner, more secure sharing model:
+
+**Problem Solved**: Eliminated the `sharedWithUids` undefined error by ensuring only document owners can access sharing functionality, removing scenarios where the field might be accessed when not present.
+
+**Security Enhanced**: The new model provides clear ownership-based permissions, reducing complexity and potential security issues.
+
+**User Experience Improved**: Users now have clear visual feedback about their permissions, with owners seeing full sharing functionality and non-owners seeing appropriate disabled states.
+
+**Code Simplified**: Removed complex permission checking logic and unused functions, making the codebase more maintainable and easier to understand.
+
+**Future-Proof Design**: The owner-only model is easier to extend and maintain than complex multi-role permission systems.
+
+---
+
 ## Phase 4: Fix Component Implementations and React Hooks
 
 ### Objectives
