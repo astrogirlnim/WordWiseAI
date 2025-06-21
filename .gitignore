@@ -7,6 +7,9 @@ node_modules/
 #AI Write Help Tools
 CLAUDE.md
 
+# Repomix
+repomix/
+
 # Testing
 /coverage
 .nyc_output
