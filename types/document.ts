@@ -103,3 +103,18 @@ export interface VoiceReport {
   }[]
   createdAt: FirestoreTimestamp
 }
+
+// Document Export Types
+export type ExportFormat = 'pdf' | 'markdown'
+
+export interface ExportOptions {
+  format: ExportFormat
+  includeMetadata?: boolean
+  filename?: string
+}
+
+export interface ExportResult {
+  success: boolean
+  filename: string
+  error?: string
+}

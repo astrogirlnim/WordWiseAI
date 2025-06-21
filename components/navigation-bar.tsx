@@ -4,6 +4,7 @@ import { UserMenu } from './user-menu'
 import { AISidebarToggle } from './ai-sidebar-toggle'
 import { WritingGoalsButton } from './writing-goals-button'
 import { DocumentSharingButton } from './document-sharing-button'
+import { DocumentDownloadButton } from './document-download-button'
 import { VersionHistoryButton } from './version-history-button'
 
 import type { User } from '@/types/navigation'
@@ -138,6 +139,14 @@ export function NavigationBar({
         {/* Center Actions - Document specific actions */}
         {displayMode === 'editor' && activeDocument && (
           <div className="hidden md:flex items-center gap-3">
+            {/* Document Download */}
+            <DocumentDownloadButton 
+              document={activeDocument}
+              variant="outline"
+              size="sm"
+              showLabel={true}
+            />
+            
             {/* Document Sharing */}
             <DocumentSharingButton 
               document={activeDocument}
@@ -213,12 +222,20 @@ export function NavigationBar({
             {/* Mobile Actions */}
             <div className="flex items-center gap-2">
               {activeDocument && (
-                <DocumentSharingButton 
-                  document={activeDocument}
-                  variant="ghost"
-                  size="sm"
-                  showCollaboratorCount={false}
-                />
+                <>
+                  <DocumentDownloadButton 
+                    document={activeDocument}
+                    variant="ghost"
+                    size="sm"
+                    showLabel={false}
+                  />
+                  <DocumentSharingButton 
+                    document={activeDocument}
+                    variant="ghost"
+                    size="sm"
+                    showCollaboratorCount={false}
+                  />
+                </>
               )}
               
               <AISidebarToggle
