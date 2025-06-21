@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { SuggestionService } from '@/services/suggestion-service'
 import { AIService } from '@/services/ai-service'
 import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
 import type { WritingGoals } from '@/types/writing-goals'
 import { useToast } from './use-toast'
+import { debounce } from 'lodash'
+
+// Phase 2: Add debounce delay for AI suggestions
+const AI_SUGGESTIONS_DEBOUNCE = 1000; // ms - Phase 2: 1 second debounce
 
 interface UseAISuggestionsOptions {
   documentId: string | null
   autoSubscribe?: boolean
+  contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
 }
 
 interface UseAISuggestionsReturn {
@@ -37,7 +42,8 @@ interface UseAISuggestionsReturn {
  */
 export function useAISuggestions({ 
   documentId, 
-  autoSubscribe = true 
+  autoSubscribe = true,
+  contentCoordinatorRef
 }: UseAISuggestionsOptions): UseAISuggestionsReturn {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -47,7 +53,27 @@ export function useAISuggestions({
   const [generatingFunnelSuggestions, setGeneratingFunnelSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  console.log('[useAISuggestions] Hook initialized with documentId:', documentId, 'user:', user?.uid)
+  console.log('[useAISuggestions] Phase 2: Hook initialized with documentId:', documentId, 'user:', user?.uid)
+
+  /**
+   * Check if user is currently typing using EditorContentCoordinator
+   * Phase 2: Respect typing lock to prevent interference with user input
+   */
+  const isUserTyping = useCallback((): boolean => {
+    if (!contentCoordinatorRef?.current) {
+      console.log('[useAISuggestions] Phase 2: No coordinator available, assuming not typing');
+      return false;
+    }
+    
+    const state = contentCoordinatorRef.current.getState();
+    const typing = state.isUserTyping || state.isProcessingUpdate;
+    
+    if (typing) {
+      console.log('[useAISuggestions] Phase 2: User is typing or processing update, skipping AI suggestions');
+    }
+    
+    return typing;
+  }, [contentCoordinatorRef]);
 
   // Real-time subscription to suggestions
   useEffect(() => {
@@ -267,9 +293,10 @@ export function useAISuggestions({
   }, [documentId, user?.uid])
 
   /**
-   * Generate funnel suggestions based on writing goals
+   * Internal function to generate funnel suggestions (non-debounced)
+   * Phase 2: Separated internal logic from debounced wrapper
    */
-  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string) => {
+  const generateFunnelSuggestionsInternal = useCallback(async (goals: WritingGoals, content: string) => {
     if (!documentId || !user?.uid) {
       console.error('[useAISuggestions] Cannot generate funnel suggestions - missing documentId or userId')
       toast({
@@ -279,20 +306,27 @@ export function useAISuggestions({
       })
       return
     }
-    console.log('[useAISuggestions] Generating funnel suggestions with goals:', goals, 'content length:', content.length)
+
+    // Phase 2: Check if user is currently typing - if so, skip generation
+    if (isUserTyping()) {
+      console.log('[useAISuggestions] Phase 2: User is typing, skipping funnel suggestions generation');
+      return;
+    }
+
+    console.log('[useAISuggestions] Phase 2: Generating funnel suggestions with goals:', goals, 'content length:', content.length)
     setGeneratingFunnelSuggestions(true)
     setError(null)
 
     try {
       const result = await AIService.generateFunnelSuggestions(documentId, goals, content)
-      console.log('[useAISuggestions] Funnel suggestions generated:', result)
+      console.log('[useAISuggestions] Phase 2: Funnel suggestions generated:', result)
       toast({
         title: 'Funnel Suggestions Generated',
         description: `Added ${result?.suggestions?.length || 0} funnel suggestions.`,
       })
       // Real-time subscription will update suggestions automatically
     } catch (error) {
-      console.error('[useAISuggestions] Error generating funnel suggestions:', error)
+      console.error('[useAISuggestions] Phase 2: Error generating funnel suggestions:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setError(`Failed to generate funnel suggestions: ${errorMessage}`)
       toast({
@@ -303,7 +337,28 @@ export function useAISuggestions({
     } finally {
       setGeneratingFunnelSuggestions(false)
     }
-  }, [documentId, user?.uid, toast])
+  }, [documentId, user?.uid, toast, isUserTyping])
+
+  /**
+   * Debounced funnel suggestions generation with typing lock check
+   * Phase 2: Implement 1 second debounce and respect typing lock
+   */
+  const debouncedGenerateFunnelSuggestions = useMemo(() => 
+    debounce((goals: WritingGoals, content: string) => {
+      console.log('[useAISuggestions] Phase 2: Starting debounced funnel suggestions generation');
+      generateFunnelSuggestionsInternal(goals, content);
+    }, AI_SUGGESTIONS_DEBOUNCE),
+    [generateFunnelSuggestionsInternal]
+  );
+
+  /**
+   * Public function to generate funnel suggestions based on writing goals
+   * Phase 2: Now uses debounced version
+   */
+  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string) => {
+    console.log('[useAISuggestions] Phase 2: Request to generate funnel suggestions (debounced)');
+    debouncedGenerateFunnelSuggestions(goals, content);
+  }, [debouncedGenerateFunnelSuggestions])
 
   // Separate suggestions by type
   const styleSuggestions = suggestions.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')

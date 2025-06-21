@@ -1,13 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { debounce } from 'lodash'
+
+// Phase 2.2: Reduced debounce for real-time markdown preview
+const MARKDOWN_PREVIEW_DEBOUNCE = 100; // ms - Phase 2.2: 100ms for real-time responsiveness
 
 /**
  * Hook for managing markdown preview functionality
- * Detects markdown syntax and provides preview state management
+ * Phase 2: Enhanced with debouncing and typing lock detection
  */
-export function useMarkdownPreview(plainTextContent: string) {
-  console.log('[useMarkdownPreview] Hook initialized with plain text length:', plainTextContent.length)
+export function useMarkdownPreview(
+  plainTextContent: string, 
+  contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
+) {
+  console.log('[useMarkdownPreview] Phase 2: Hook initialized with plain text length:', plainTextContent.length)
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isMarkdownDetected, setIsMarkdownDetected] = useState(false)
@@ -31,9 +38,12 @@ export function useMarkdownPreview(plainTextContent: string) {
     /\[.+\]:\s*.+$/m,                    // Reference links: [ref]: url
   ], [])
 
+  // Phase 2.2: Removed typing lock check for markdown preview
+  // Preview should update in real-time regardless of typing status
+
   // Detect markdown syntax in content
   const detectMarkdown = useCallback((text: string): boolean => {
-    console.log('[useMarkdownPreview] Detecting markdown in text length:', text.length)
+    console.log('[useMarkdownPreview] Phase 2: Detecting markdown in text length:', text.length)
     
     if (!text.trim()) {
       console.log('[useMarkdownPreview] Empty text, no markdown detected')
@@ -66,21 +76,53 @@ export function useMarkdownPreview(plainTextContent: string) {
     }
 
     const hasMarkdown = markdownScore >= 2
-    console.log('[useMarkdownPreview] Markdown score:', markdownScore, 'Has markdown:', hasMarkdown)
+    console.log('[useMarkdownPreview] Phase 2: Markdown score:', markdownScore, 'Has markdown:', hasMarkdown)
     return hasMarkdown
   }, [markdownPatterns])
+  
+  /**
+   * Debounced markdown detection - REDUCED debounce for real-time preview
+   * Phase 2.2: Preview should update in real-time, only lightly debounced
+   */
+  const debouncedDetectMarkdown = useMemo(() => debounce((text: string) => {
+    console.log('[useMarkdownPreview] Phase 2.2: Starting markdown detection for real-time preview');
+    
+    // Phase 2.2: REMOVED typing lock check - preview should update in real-time
+    // Markdown detection is lightweight and should not be blocked by typing
+    
+    const detected = detectMarkdown(text);
+    setIsMarkdownDetected(detected);
+    console.log('[useMarkdownPreview] Phase 2.2: Markdown detection completed, detected:', detected);
+  }, 100), [detectMarkdown]) // Phase 2.2: Reduced to 100ms for responsiveness
 
-  // Update markdown detection when content changes
+  // Update markdown detection when content changes (debounced)
   useEffect(() => {
-    console.log('[useMarkdownPreview] Content changed, updating markdown detection')
-    setIsMarkdownDetected(detectMarkdown(plainTextContent))
-  }, [plainTextContent, detectMarkdown])
+    console.log('[useMarkdownPreview] Phase 2: Content changed, triggering debounced markdown detection')
+    debouncedDetectMarkdown(plainTextContent)
+    
+    // Cleanup on unmount
+    return () => {
+      debouncedDetectMarkdown.cancel();
+    }
+  }, [plainTextContent, debouncedDetectMarkdown])
 
   // Toggle preview visibility
   const togglePreview = useCallback(() => {
     console.log('[useMarkdownPreview] Toggling preview from', isPreviewOpen, 'to', !isPreviewOpen)
     setIsPreviewOpen((prev: boolean) => !prev)
   }, [isPreviewOpen])
+
+  // Phase 2.3: CRITICAL FIX - Initialize markdown detection when preview is first opened
+  useEffect(() => {
+    if (isPreviewOpen && plainTextContent.trim()) {
+      console.log('[useMarkdownPreview] Phase 2.3: Preview opened with existing content, running immediate detection')
+      // Cancel any pending debounced detection and run immediately
+      debouncedDetectMarkdown.cancel();
+      const detected = detectMarkdown(plainTextContent);
+      setIsMarkdownDetected(detected);
+      console.log('[useMarkdownPreview] Phase 2.3: Immediate detection completed, detected:', detected);
+    }
+  }, [isPreviewOpen, plainTextContent, detectMarkdown, debouncedDetectMarkdown])
 
   // Auto-open preview when markdown is detected
   useEffect(() => {
@@ -94,7 +136,8 @@ export function useMarkdownPreview(plainTextContent: string) {
   console.log('[useMarkdownPreview] Hook state:', {
     isPreviewOpen,
     isMarkdownDetected,
-    previewContentLength: plainTextContent.length
+    previewContentLength: plainTextContent.length,
+    hasContent: plainTextContent.trim().length > 0
   })
 
   return {

@@ -4,7 +4,7 @@ import type { GrammarError } from '@/types/grammar';
 import { TextChunker, type TextChunk } from '@/utils/text-chunker';
 import { debounce } from 'lodash';
 
-const DEBOUNCE_DELAY = 500; // ms
+const DEBOUNCE_DELAY = 2000; // ms - Phase 2: 2 seconds debounce
 const MIN_TEXT_LENGTH = 10;
 const THROTTLE_INTERVAL = 2000; // 30 req/min -> 1 req every 2s
 const MAX_CONCURRENT_CHUNKS = 2; // Lowered for backend safety
@@ -22,12 +22,13 @@ interface ChunkProgress {
 
 /**
  * Enhanced grammar checker hook with pagination-scoped processing
- * Phase 6.1: Only processes visible page text to avoid rate limiting and improve performance
+ * Phase 2: Respects EditorContentCoordinator typing lock and implements proper debouncing
  */
 export function useGrammarChecker(
   documentId: string, 
   plainText: string,
-  visibleRange?: { start: number; end: number }
+  visibleRange?: { start: number; end: number },
+  contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
 ) {
   const [errors, setErrors] = useState<GrammarError[]>([]);
   const [isChecking, setIsChecking] = useState(false);
@@ -245,11 +246,37 @@ export function useGrammarChecker(
   }, [processChunk]);
 
   /**
+   * Check if user is currently typing using EditorContentCoordinator
+   * Phase 2: Respect typing lock to prevent interference with user input
+   */
+  const isUserTyping = useCallback((): boolean => {
+    if (!contentCoordinatorRef?.current) {
+      console.log('[useGrammarChecker] Phase 2: No coordinator available, assuming not typing');
+      return false;
+    }
+    
+    const state = contentCoordinatorRef.current.getState();
+    const typing = state.isUserTyping || state.isProcessingUpdate;
+    
+    if (typing) {
+      console.log('[useGrammarChecker] Phase 2: User is typing or processing update, skipping grammar check');
+    }
+    
+    return typing;
+  }, [contentCoordinatorRef]);
+
+  /**
    * Main grammar checking function with pagination-scoped processing
-   * Phase 6.1: Only processes visible page text, no background processing
+   * Phase 2: Enhanced with typing lock detection and proper debouncing
    */
   const checkGrammar = useMemo(() => debounce(async (currentText: string) => {
-    console.log(`[useGrammarChecker] Starting grammar check for text length: ${currentText.length}`);
+    console.log(`[useGrammarChecker] Phase 2: Starting grammar check for text length: ${currentText.length}`);
+    
+    // Phase 2: Check if user is currently typing - if so, skip this check
+    if (isUserTyping()) {
+      console.log('[useGrammarChecker] Phase 2: User is typing, skipping grammar check');
+      return;
+    }
     
     // Phase 6.1: Extract only visible page text
     const visiblePageText = getVisiblePageText(currentText, visibleRange);
@@ -354,15 +381,23 @@ export function useGrammarChecker(
     } finally {
       setIsChecking(false);
     }
-  }, DEBOUNCE_DELAY), [documentId, visibleRange, processChunksInParallel, getVisiblePageText]);
+  }, DEBOUNCE_DELAY), [documentId, visibleRange, processChunksInParallel, getVisiblePageText, isUserTyping]);
 
   /**
    * Triggers an immediate grammar check, bypassing the debounce
-   * Phase 6.1: Only processes visible page text
+   * Phase 2: Enhanced with typing lock detection
    */
   const checkGrammarImmediately = useCallback((currentText: string) => {
+    console.log(`[useGrammarChecker] Phase 2: Attempting immediate grammar check for text length: ${currentText.length}`);
+    
+    // Phase 2: Check if user is currently typing - if so, skip immediate check
+    if (isUserTyping()) {
+      console.log('[useGrammarChecker] Phase 2: User is typing, skipping immediate grammar check');
+      return;
+    }
+    
     const visiblePageText = getVisiblePageText(currentText, visibleRange);
-    console.log(`[useGrammarChecker] Starting immediate grammar check for visible page text length: ${visiblePageText.length}`);
+    console.log(`[useGrammarChecker] Phase 2: Starting immediate grammar check for visible page text length: ${visiblePageText.length}`);
     
     if (visiblePageText.length < MIN_TEXT_LENGTH) {
       console.log('[useGrammarChecker] Visible page text too short, clearing errors');
@@ -378,7 +413,7 @@ export function useGrammarChecker(
 
     checkGrammar.cancel();
     checkGrammar(currentText);
-  }, [checkGrammar, getVisiblePageText, visibleRange]);
+  }, [checkGrammar, getVisiblePageText, visibleRange, isUserTyping]);
 
   // Phase 6.1: Cancel processing when visible range changes (page change)
   useEffect(() => {
