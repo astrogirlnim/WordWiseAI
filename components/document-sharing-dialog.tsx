@@ -39,11 +39,9 @@ import {
   Eye,
   MessageSquare,
   Edit,
-  Crown,
   Link as LinkIcon,
   Trash2,
   Users,
-  User,
   MoreVertical,
   Loader2,
 } from 'lucide-react'
