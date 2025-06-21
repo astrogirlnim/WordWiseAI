@@ -215,9 +215,19 @@ export function useGrammarChecker(
 
   // --- FIX: Effect only depends on plainText and isHarperReady ---
   useEffect(() => {
+    console.log('[useGrammarChecker] Phase 5: Text change effect triggered');
+    console.log('[useGrammarChecker] Phase 5: plainText length:', plainText.length);
+    console.log('[useGrammarChecker] Phase 5: plainText content (first 100 chars):', plainText.substring(0, 100));
+    console.log('[useGrammarChecker] Phase 5: isHarperReady:', isHarperReady);
+    console.log('[useGrammarChecker] Phase 5: MIN_TEXT_LENGTH:', MIN_TEXT_LENGTH);
+    console.log('[useGrammarChecker] Phase 5: checkGrammarRef.current available:', !!checkGrammarRef.current);
+    
     if (plainText.length >= MIN_TEXT_LENGTH && isHarperReady) {
+      console.log('[useGrammarChecker] Phase 5: ✅ Conditions met, calling debounced grammar check');
       checkGrammarRef.current && checkGrammarRef.current(plainText);
     } else {
+      console.log('[useGrammarChecker] Phase 5: ❌ Conditions not met, clearing errors');
+      console.log('[useGrammarChecker] Phase 5: Reason - Text too short:', plainText.length < MIN_TEXT_LENGTH, 'Harper not ready:', !isHarperReady);
       setErrors([]);
     }
   }, [plainText, isHarperReady]);

@@ -130,6 +130,26 @@ export function DocumentEditor({
   console.log(`[DocumentEditor] Phase 5: grammarCheckEnabled:`, grammarCheckEnabled)
   console.log(`[DocumentEditor] Phase 5: Passing plainText to useGrammarChecker (first 200 chars):`, grammarCheckEnabled ? fullPlainText.substring(0, 200) : '[DISABLED]')
 
+  // **GRAMMAR CHECKER: Separate immediate plain text stream**
+  // This bypasses the coordinator system to provide immediate text updates for grammar checking
+  // The coordinator handles version control, real-time collaboration, and other features
+  // Grammar checking needs immediate access to typed text for real-time error detection
+  const [grammarPlainText, setGrammarPlainText] = useState('')
+  
+  // Initialize grammar text from existing content
+  useEffect(() => {
+    if (fullContentHtml && !grammarPlainText) {
+      const div = document.createElement('div')
+      div.innerHTML = fullContentHtml
+      const plainText = div.textContent || ''
+      console.log(`[DocumentEditor] Phase 5: Initializing grammar plain text (${plainText.length} chars):`, plainText.substring(0, 100))
+      setGrammarPlainText(plainText)
+    }
+  }, [fullContentHtml, grammarPlainText])
+
+  console.log(`[DocumentEditor] Phase 5: grammarCheckEnabled:`, grammarCheckEnabled)
+  console.log(`[DocumentEditor] Phase 5: Passing grammarPlainText to useGrammarChecker (${grammarPlainText.length} chars):`, grammarCheckEnabled ? grammarPlainText.substring(0, 200) : '[DISABLED]')
+
   const visibleRange = useMemo(() => ({
     start: pageOffset,
     end: pageOffset + pageContent.length,
@@ -140,7 +160,7 @@ export function DocumentEditor({
   // Phase 2: Pass coordinator reference to grammar checker for typing lock detection
   const { errors, removeError, checkFullDocument } = useGrammarChecker(
     documentId, 
-    grammarCheckEnabled ? fullPlainText : '',
+    grammarCheckEnabled ? grammarPlainText : '',
     visibleRange,
     contentCoordinatorRef // Phase 2: Add coordinator reference
   )
@@ -233,14 +253,23 @@ export function DocumentEditor({
       const currentPlainText = editor.getText();
       setEditorPlainText(currentPlainText);
       
+      // **GRAMMAR CHECKER: Immediate plain text update for real-time grammar checking**
+      // Update grammar plain text immediately, independent of coordinator system
+      const oldPageEndIndex = pageOffset + pageContent.length;
+      const updatedFullContent =
+        fullContentHtml.substring(0, pageOffset) +
+        newPageHtml +
+        fullContentHtml.substring(oldPageEndIndex);
+      
+      // Extract plain text immediately for grammar checking
+      const div = document.createElement('div');
+      div.innerHTML = updatedFullContent;
+      const updatedPlainText = div.textContent || '';
+      console.log(`[DocumentEditor] Phase 5: Immediate grammar text update (${updatedPlainText.length} chars):`, updatedPlainText.substring(0, 100));
+      setGrammarPlainText(updatedPlainText);
+      
       // Phase 1: All content updates through coordinator only
       if (contentCoordinatorRef.current) {
-        const oldPageEndIndex = pageOffset + pageContent.length;
-        const updatedFullContent =
-          fullContentHtml.substring(0, pageOffset) +
-          newPageHtml +
-          fullContentHtml.substring(oldPageEndIndex);
-        
         // Phase 1: Use coordinator for ALL content updates, including React state
         contentCoordinatorRef.current.updateContent(
           'user',
@@ -290,7 +319,7 @@ export function DocumentEditor({
     
     try {
       // Use the specialized full document check function
-      await checkFullDocument(fullPlainText);
+      await checkFullDocument(grammarPlainText);
       console.log('[DocumentEditor] Phase 6.1: Full document check completed');
     } catch (error) {
       console.error('[DocumentEditor] Phase 6.1: Full document check failed:', error);
@@ -299,7 +328,7 @@ export function DocumentEditor({
       // CRITICAL FIX: Let debounced grammar checking handle the return to page-scoped checking
       // Don't call checkGrammarImmediately as it bypasses debouncing
     }
-  }, [fullPlainText, checkFullDocument]);
+  }, [grammarPlainText, checkFullDocument]);
 
   const handleFullDocumentCheckConfirm = useCallback(() => {
     handleFullDocumentCheck();
@@ -607,9 +636,9 @@ export function DocumentEditor({
       if (!editor || !user) return;
       console.log(`[DocumentEditor] Applying Harper.js suggestion: "${suggestion}" for error: "${error.error}"`);
   
-      const newText = await applySuggestionWithHarper(fullPlainText, error, error.suggestions.indexOf(suggestion));
+      const newText = await applySuggestionWithHarper(grammarPlainText, error, error.suggestions.indexOf(suggestion));
   
-      if (newText !== fullPlainText) {
+      if (newText !== grammarPlainText) {
         setFullContentHtml(newText);
   
         // Phase 1: Use coordinator for ALL content updates, including React state
@@ -646,7 +675,7 @@ export function DocumentEditor({
       removeError(error.id);
       setContextMenu(null);
     },
-    [editor, user, documentId, removeError, pageOffset, fullPlainText, onSave, title, onContentChange]
+    [editor, user, documentId, removeError, pageOffset, grammarPlainText, onSave, title, onContentChange]
   );
 
   const handleIgnoreError = useCallback(
@@ -818,9 +847,9 @@ export function DocumentEditor({
   const [characterCount, setCharacterCount] = useState(0)
 
   useEffect(() => {
-    setWordCount(getWordCount(fullPlainText))
-    setCharacterCount(getCharacterCount(fullPlainText))
-  }, [fullPlainText])
+    setWordCount(getWordCount(grammarPlainText))
+    setCharacterCount(getCharacterCount(grammarPlainText))
+  }, [grammarPlainText])
 
   // BUGFIX: Removed handlePaste callback - now handled by PlainTextPasteExtension
   // This prevents conflicts and ensures all pasted content is converted to plain text
@@ -942,7 +971,7 @@ export function DocumentEditor({
                   <DialogDescription asChild>
                     <div className="space-y-3">
                       <p>
-                        You&apos;re about to perform a grammar check on the entire document ({Math.ceil(fullPlainText.length / 1000)}k characters).
+                        You&apos;re about to perform a grammar check on the entire document ({Math.ceil(grammarPlainText.length / 1000)}k characters).
                       </p>
                       <div className="awwwards-card bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 p-4">
                         <div className="flex items-start gap-3">
