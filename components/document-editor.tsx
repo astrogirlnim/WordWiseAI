@@ -221,6 +221,10 @@ export function DocumentEditor({
       // CRITICAL FIX: Only log errors during typing, remove excessive logging
       const newPageHtml = editor.getHTML();
       
+      // Phase 2.2: Update plain text IMMEDIATELY for real-time markdown preview
+      const currentPlainText = editor.getText();
+      setEditorPlainText(currentPlainText);
+      
       // Phase 1: All content updates through coordinator only
       if (contentCoordinatorRef.current) {
         const oldPageEndIndex = pageOffset + pageContent.length;
@@ -883,14 +887,8 @@ export function DocumentEditor({
   // Get plain text content from editor for markdown preview
   const [editorPlainText, setEditorPlainText] = useState('')
   
-  // Update plain text when editor content changes
-  useEffect(() => {
-    if (editor && !editor.isDestroyed) {
-      const plainText = editor.getText()
-      console.log('[DocumentEditor] Updating editor plain text, length:', plainText.length)
-      setEditorPlainText(plainText)
-    }
-  }, [editor, fullContentHtml]) // Update when HTML content changes
+  // Phase 2.2: Plain text is now updated immediately in onUpdate callback for real-time preview
+  // No useEffect needed as setEditorPlainText(editor.getText()) is called in onUpdate
 
   // Phase 2: Initialize markdown preview with coordinator reference
   console.log('[DocumentEditor] Phase 2: Initializing markdown preview with plain text length:', editorPlainText.length)

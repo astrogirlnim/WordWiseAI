@@ -412,6 +412,12 @@ const PlainTextPasteExtension = Extension.create({
    - ✅ **Extensions Disabled**: heading, bold, italic, strike, code extensions removed
    - ✅ **Result**: Editor now preserves all text as plain text, markdown only renders in preview
 
+6. **CRITICAL BUGFIX: Real-Time Markdown Preview** ✅
+   - ✅ **Root Cause Identified**: Typing lock was blocking preview updates + delayed plain text updates
+   - ✅ **Solution Implemented**: Immediate plain text updates in onUpdate callback
+   - ✅ **Optimizations Applied**: Removed typing lock blocking, reduced debounce to 100ms
+   - ✅ **Result**: Preview now updates in real-time as user types (100ms responsiveness)
+
 ### Phase 3: Grammar Service Optimization & Harper.js Integration (Week 5-6)
 
 1. **Harper.js Parallel Implementation**

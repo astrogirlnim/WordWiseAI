@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { debounce } from 'lodash'
 
-// Phase 2: Add debounce delay for markdown preview
-const MARKDOWN_PREVIEW_DEBOUNCE = 500; // ms - Phase 2: 500ms debounce
+// Phase 2.2: Reduced debounce for real-time markdown preview
+const MARKDOWN_PREVIEW_DEBOUNCE = 100; // ms - Phase 2.2: 100ms for real-time responsiveness
 
 /**
  * Hook for managing markdown preview functionality
@@ -38,21 +38,8 @@ export function useMarkdownPreview(
     /\[.+\]:\s*.+$/m,                    // Reference links: [ref]: url
   ], [])
 
-  /**
-   * Check if user is currently typing using EditorContentCoordinator
-   * Phase 2: Respect typing lock to prevent interference with user input
-   */
-  const isUserTyping = useCallback((): boolean => {
-    if (!contentCoordinatorRef?.current) {
-      console.log('[useMarkdownPreview] Phase 2: No coordinator available, assuming not typing');
-      return false;
-    }
-    
-    const state = contentCoordinatorRef.current.getState();
-    const typing = state.isUserTyping || state.isProcessingUpdate;
-    
-    return typing;
-  }, [contentCoordinatorRef]);
+  // Phase 2.2: Removed typing lock check for markdown preview
+  // Preview should update in real-time regardless of typing status
 
   // Detect markdown syntax in content
   const detectMarkdown = useCallback((text: string): boolean => {
@@ -94,21 +81,19 @@ export function useMarkdownPreview(
   }, [markdownPatterns])
   
   /**
-   * Debounced markdown detection with typing lock check
-   * Phase 2: Implement 500ms debounce and respect typing lock
+   * Debounced markdown detection - REDUCED debounce for real-time preview
+   * Phase 2.2: Preview should update in real-time, only lightly debounced
    */
   const debouncedDetectMarkdown = useMemo(() => debounce((text: string) => {
-    console.log('[useMarkdownPreview] Phase 2: Starting debounced markdown detection');
+    console.log('[useMarkdownPreview] Phase 2.2: Starting markdown detection for real-time preview');
     
-    // Phase 2: Check if user is currently typing - if so, skip detection
-    if (isUserTyping()) {
-      console.log('[useMarkdownPreview] Phase 2: User is typing, skipping markdown detection');
-      return;
-    }
+    // Phase 2.2: REMOVED typing lock check - preview should update in real-time
+    // Markdown detection is lightweight and should not be blocked by typing
     
     const detected = detectMarkdown(text);
     setIsMarkdownDetected(detected);
-  }, MARKDOWN_PREVIEW_DEBOUNCE), [detectMarkdown, isUserTyping])
+    console.log('[useMarkdownPreview] Phase 2.2: Markdown detection completed, detected:', detected);
+  }, 100), [detectMarkdown]) // Phase 2.2: Reduced to 100ms for responsiveness
 
   // Update markdown detection when content changes (debounced)
   useEffect(() => {
