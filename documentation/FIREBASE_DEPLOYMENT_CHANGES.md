@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes the changes made to deploy the WordWise AI application using Firebase, focusing on the MVP version with core functionality.
+This document summarizes the changes made to deploy the FunnelFluent AI application using Firebase, focusing on the MVP version with core functionality.
 
 ## Key Changes
 

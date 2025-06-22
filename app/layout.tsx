@@ -7,10 +7,10 @@ import { Toaster } from '@/components/ui/toaster'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'WordWise AI - Professional AI Writing Assistant',
+  title: 'FunnelFluent AI - Professional AI Writing Assistant',
   description:
     'Professional AI-powered writing assistant with retro tech aesthetics - Perfect for marketing professionals and content creators',
-  generator: 'WordWise AI',
+  generator: 'FunnelFluent AI',
   keywords: ['AI writing', 'professional writing', 'content creation', 'writing assistant', 'retro tech'],
 }
 

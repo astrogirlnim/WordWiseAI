@@ -1,4 +1,4 @@
-# WordWise AI - Deployment Documentation
+# FunnelFluent AI - Deployment Documentation
 
 ## Project Overview
 

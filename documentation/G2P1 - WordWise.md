@@ -1,6 +1,6 @@
 ![][image1]
 
-# **WordWise AI**
+# **FunnelFluent AI**
 
 _Write with confidence. Edit with intelligence._
 

@@ -45,7 +45,7 @@ import { cn } from '@/lib/utils'
 /**
  * Demo Modal Component
  * 
- * Provides a comprehensive 8-step guided tour through WordWise AI features:
+ * Provides a comprehensive 8-step guided tour through FunnelFluent AI features:
  * 1. Document Creation & Goal Setting
  * 2. Writing/Copy-Paste Markdown (Sales Funnel)  
  * 3. Grammar Suggestions & Markdown Preview
@@ -61,7 +61,7 @@ import { cn } from '@/lib/utils'
  * - Progress tracking with visual indicators
  * - Extensive logging for analytics
  * - Skip/complete functionality
- * - Professional WordWise AI branding
+ * - Professional FunnelFluent AI branding
  */
 
 interface DemoStepConfig {
@@ -103,7 +103,7 @@ const userType = 'demo_mode';
             <Target className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
             <div>
               <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">
-                Welcome to WordWise AI!
+                                    Welcome to FunnelFluent AI!
               </h4>
               <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-200">
                 This tour will guide you through creating a document and setting writing goals.
@@ -633,7 +633,7 @@ const userType = 'demo_mode';
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
         <p className="text-xs text-emerald-700 dark:text-emerald-200">
           <Check className="mr-1 inline h-3 w-3" />
-          Congratulations! You&apos;ve completed the WordWise AI tour
+                          Congratulations! You&apos;ve completed the FunnelFluent AI tour
         </p>
       </div>
     </div>

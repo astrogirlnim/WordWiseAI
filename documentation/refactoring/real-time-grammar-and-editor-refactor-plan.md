@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The WordWise AI text editor and real-time grammar checking system has evolved into a complex, intertwined architecture that suffers from multiple performance and reliability issues. This document analyzes the current state and provides a comprehensive refactoring plan to address core problems.
+The FunnelFluent AI text editor and real-time grammar checking system has evolved into a complex, intertwined architecture that suffers from multiple performance and reliability issues. This document analyzes the current state and provides a comprehensive refactoring plan to address core problems.
 
 ## Current State Analysis
 

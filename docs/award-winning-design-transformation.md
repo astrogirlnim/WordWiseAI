@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully transformed WordWise AI from a good retrowave application to a sophisticated, award-winning website design inspired by the top-tier websites featured on [Awwwards](https://www.awwwards.com/). The new design emphasizes clean aesthetics, professional polish, and sophisticated visual hierarchy while maintaining the modern retrowave personality.
+Successfully transformed FunnelFluent AI from a good retrowave application to a sophisticated, award-winning website design inspired by the top-tier websites featured on [Awwwards](https://www.awwwards.com/). The new design emphasizes clean aesthetics, professional polish, and sophisticated visual hierarchy while maintaining the modern retrowave personality.
 
 ## 🏆 Design Philosophy
 
@@ -272,7 +272,7 @@ text-rendering: optimizeLegibility;
 
 ## 🎖️ Result: Award-Winning Design
 
-The transformed WordWise AI now features:
+The transformed FunnelFluent AI now features:
 - **Sophisticated Visual Design** worthy of Awwwards recognition
 - **Professional Polish** that elevates the user experience
 - **Clean, Uncluttered Interface** that focuses on content

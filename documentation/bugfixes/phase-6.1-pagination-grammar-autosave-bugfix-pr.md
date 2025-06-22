@@ -1,7 +1,7 @@
 # PR: Phase 6.1 Pagination Grammar, Autosave, and Versioning Bugfixes
 
 ## Overview
-This PR implements and fixes all outstanding issues from Phase 6.1 of the real-time grammar performance optimization checklist. It addresses critical bugs in grammar checking, autosave/versioning, and user experience for paginated documents in the WordWise AI editor.
+This PR implements and fixes all outstanding issues from Phase 6.1 of the real-time grammar performance optimization checklist. It addresses critical bugs in grammar checking, autosave/versioning, and user experience for paginated documents in the FunnelFluent AI editor.
 
 ---
 

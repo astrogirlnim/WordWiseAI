@@ -24,7 +24,7 @@ interface DemoTriggerButtonProps {
  * 
  * Features:
  * - Resets demo progress to start from step 1
- * - Professional styling with WordWise AI branding
+ * - Professional styling with FunnelFluent AI branding
  * - Optional tooltip explaining the functionality
  * - Responsive design with multiple size variants
  */
@@ -47,7 +47,7 @@ export function DemoTriggerButton({
       size={size}
       onClick={handleStartDemo}
       className={`flex items-center gap-2 ${className}`}
-      aria-label="Start WordWise AI Demo Tour"
+              aria-label="Start FunnelFluent AI Demo Tour"
     >
       <Play className="h-4 w-4" />
       <span>Try Demo</span>
@@ -67,7 +67,7 @@ export function DemoTriggerButton({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs">
           <p className="text-sm">
-            Take a guided tour of WordWise AI features including document creation, 
+            Take a guided tour of FunnelFluent AI features including document creation, 
             AI suggestions, version control, and collaboration tools.
           </p>
         </TooltipContent>

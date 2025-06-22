@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully transformed WordWise AI from a sharp, terminal-inspired retro tech aesthetic to an organic, flowing retrowave/synthwave design featuring muted earth pink tones, hot pink accents, and gradient-based styling.
+Successfully transformed FunnelFluent AI from a sharp, terminal-inspired retro tech aesthetic to an organic, flowing retrowave/synthwave design featuring muted earth pink tones, hot pink accents, and gradient-based styling.
 
 ## 🎨 Design Philosophy Shift
 
@@ -172,7 +172,7 @@ Successfully transformed WordWise AI from a sharp, terminal-inspired retro tech 
 
 ## 🎯 Summary
 
-The organic retrowave transformation successfully creates a more inviting, modern aesthetic while maintaining the professional functionality of WordWise AI. The new design embraces:
+The organic retrowave transformation successfully creates a more inviting, modern aesthetic while maintaining the professional functionality of FunnelFluent AI. The new design embraces:
 
 - **Warmth**: Earth pink tones create approachable interfaces
 - **Energy**: Hot pink and sunset gradients add vibrancy
