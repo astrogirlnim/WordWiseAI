@@ -9,6 +9,7 @@ import { NavigationBar } from './navigation-bar'
 import { WritingGoalsModal } from './writing-goals-modal'
 import { useDocuments } from '@/hooks/use-documents'
 import { useToast } from '@/hooks/use-toast'
+import { useDemoTour } from '@/hooks/use-demo-tour'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
 import { VersionHistorySidebar } from './version-history-sidebar'
@@ -27,6 +28,7 @@ const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod
 
 export function DocumentContainer() {
   const { user } = useAuth()
+  const { state: demoState } = useDemoTour()
   const {
     // Document lists
     documents,
@@ -76,7 +78,9 @@ export function DocumentContainer() {
     ownedDocs: ownedDocuments.length,
     sharedDocs: sharedDocuments.length,
     activeDocumentId,
-    user: user?.uid
+    user: user?.uid,
+    demoOpen: demoState.isOpen,
+    demoStep: demoState.currentStep
   })
 
   // Set active document when documents load

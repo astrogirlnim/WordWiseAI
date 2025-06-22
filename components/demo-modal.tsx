@@ -537,6 +537,24 @@ export function DemoModal() {
     completedSteps: state.completedSteps
   })
 
+  // Additional debugging for modal visibility
+  useEffect(() => {
+    console.log('🎯 [DemoModal] State changed - isOpen:', state.isOpen, 'currentStep:', state.currentStep)
+  }, [state.isOpen, state.currentStep])
+
+  // Handle demo trigger from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const demoParam = urlParams.get('demo')
+    
+    if (demoParam === 'true' && !state.isOpen) {
+      console.log('🎯 [DemoModal] URL demo parameter detected - opening demo')
+      setTimeout(() => {
+        actions.openDemo()
+      }, 500)
+    }
+  }, [state.isOpen, actions])
+
   // Current step data
   const currentStepData = DEMO_STEPS.find(step => step.id === state.currentStep) || DEMO_STEPS[0]
   const progressPercentage = ((state.currentStep - 1) / (state.totalSteps - 1)) * 100
