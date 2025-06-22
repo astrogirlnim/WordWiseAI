@@ -257,6 +257,7 @@ export function useDemoTour() {
 
   /**
    * Check if user should see demo (first-time user detection)
+   * ONLY auto-shows for truly new users who have never seen the demo
    */
   const shouldShowDemo = useCallback(async (): Promise<boolean> => {
     if (!user?.uid) return false
@@ -265,18 +266,16 @@ export function useDemoTour() {
       const userProfile = await userService.getUserProfile(user.uid)
       const demoProgress = userProfile?.demoProgress
       
-      // Show demo if:
-      // 1. User has never seen demo AND never completed it, OR
-      // 2. User started but never completed demo AND hasn't skipped too many times
-      // Note: Once demo is completed OR skipped, it should not auto-show again
-      const shouldShow = (!demoProgress?.hasSeenDemo && !demoProgress?.isCompleted) || 
-                        (!demoProgress?.isCompleted && demoProgress?.hasSeenDemo && (demoProgress?.skipCount || 0) < 3)
+      // Only show demo for truly new users who have NEVER seen the demo
+      // Once a user has seen the demo (completed OR skipped), they must manually trigger it
+      const shouldShow = !demoProgress?.hasSeenDemo && !demoProgress?.isCompleted
       
       logDemoAction('SHOULD_SHOW_DEMO_CHECK', { 
         shouldShow, 
         hasSeenDemo: demoProgress?.hasSeenDemo,
         isCompleted: demoProgress?.isCompleted,
-        skipCount: demoProgress?.skipCount 
+        skipCount: demoProgress?.skipCount,
+        reasoning: shouldShow ? 'New user - never seen demo' : 'Existing user - manual trigger required'
       })
       
       return shouldShow
@@ -314,17 +313,21 @@ export function useDemoTour() {
         ...prev, 
         isOpen: true, 
         currentStep: 1,
+        isCompleted: false, // Reset completion status for manual restart
         stepStartTime: Date.now(),
         canGoBack: false,
         canGoForward: true,
         completedSteps: [],
-        skippedSteps: []
+        skippedSteps: [],
+        totalTimeSpent: 0 // Reset timer for fresh start
       }))
       saveDemoProgress({ 
         hasSeenDemo: true, 
         isCompleted: false, // Reset completion status for manual restart
         firstStartedAt: Date.now(),
-        lastStepReached: 1
+        lastStepReached: 1,
+        completedSteps: [],
+        skipCount: 0 // Reset skip count for manual start
       })
     }, [logDemoAction, saveDemoProgress]),
 

@@ -664,8 +664,12 @@ export function DemoModal() {
       // Priority 2: Auto-trigger for new users (only if authenticated)
       if (user && !state.isOpen && !state.isCompleted) {
         try {
-          console.log('🔍 [DemoModal] Checking if new user should see demo...')
-                     const shouldShow = await shouldShowDemo()
+          console.log('🔍 [DemoModal] Checking if new user should see demo...', {
+            userId: user.uid,
+            isOpen: state.isOpen,
+            isCompleted: state.isCompleted
+          })
+          const shouldShow = await shouldShowDemo()
           
           if (shouldShow) {
             console.log('🎯 [DemoModal] New user detected - auto-triggering demo')
