@@ -112,14 +112,25 @@ Our multi-stage approach addresses the modern buyer's journey, incorporating dig
 - Retargeting campaigns for engaged visitors
 - Interactive assessments and quizzes`,
 
-  /** Sample writing goals for demo */
+  /** Sample writing goals for demo - compatible with WritingGoals interface */
   sampleGoals: {
+    audience: 'stakeholders' as const,
+    formality: 'professional' as const,
+    domain: 'marketing-copy' as const,
+    intent: 'convert' as const
+  },
+
+  /** Sample writing goals data for display purposes */
+  sampleGoalsDisplay: {
     targetAudience: "B2B decision-makers aged 35-55",
     primaryObjective: "Generate qualified leads and drive conversions",
     toneGuidelines: "Professional yet approachable",
     keyMessages: ["ROI-focused solutions", "Proven results", "Expert guidance"],
     callToAction: "Schedule a consultation"
   },
+
+  /** Sample document title for demo */
+  sampleDocumentTitle: "Sales Funnel Strategy - Demo Document",
 
   /** Sample email for sharing demo */
   sampleShareEmail: "colleague@company.com"

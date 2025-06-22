@@ -79,48 +79,198 @@ interface DemoStepConfig {
  * Each component provides rich educational content with visuals
  */
 const StepContent = {
-  Step1: () => (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
-        <div className="flex items-start gap-3">
-          <Target className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <div>
-            <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">
-              Welcome to WordWise AI!
-            </h4>
-            <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-200">
-              Let&apos;s start by creating your first document and setting writing goals. This helps our AI understand your target audience and objectives.
-            </p>
+  Step1: () => {
+    const { user } = useAuth()
+    const { state: demoState, actions: demoActions } = useDemoTourContext()
+    const [isHighlighting, setIsHighlighting] = useState(false)
+    const [hasTriggeredAction, setHasTriggeredAction] = useState(false)
+
+    console.log('🎯 [Demo Step 1] Rendering with user type:', {
+      userId: user?.uid,
+      userType: user ? 'authenticated' : 'anonymous',
+      isDemo: !user && window.location.search.includes('demo=true'),
+      currentStep: demoState.currentStep,
+      hasTriggeredAction
+    })
+
+    /**
+     * Detect user type for branching demo logic
+     * Anonymous/demo mode: Allow prepopulated sample document and goals
+     * New/existing users: Only highlight/guide, never prepopulate or modify real data
+     */
+    const getUserType = () => {
+      if (!user && window.location.search.includes('demo=true')) {
+        return 'demo_mode'
+      } else if (user) {
+        return 'authenticated_user'
+      } else {
+        return 'anonymous'
+      }
+    }
+
+    const userType = getUserType()
+
+    /**
+     * Handle the "Set Writing Goals" action button
+     * Different behavior based on user type
+     */
+    const handleSetWritingGoals = useCallback(() => {
+      console.log('🎯 [Demo Step 1] Set Writing Goals action triggered for user type:', userType)
+      
+      setHasTriggeredAction(true)
+      setIsHighlighting(true)
+
+      // Log demo action for analytics
+      console.log('🎯 Demo Tour Action:', {
+        action: 'STEP_1_SET_WRITING_GOALS',
+        userType,
+        timestamp: new Date().toISOString(),
+        userId: user?.uid || 'anonymous'
+      })
+
+      if (userType === 'demo_mode') {
+        // For demo mode: Simulate document creation with sample data
+        console.log('🎯 [Demo Step 1] Demo mode - simulating document creation with sample data')
+        
+        // Simulate opening writing goals modal with sample data
+        setTimeout(() => {
+          console.log('🎯 [Demo Step 1] Demo simulation: Writing goals modal opened with sample data')
+          setIsHighlighting(false)
+          
+          // Mark step as completed and auto-advance
+          setTimeout(() => {
+            demoActions.completeStep()
+            demoActions.nextStep()
+            console.log('🎯 [Demo Step 1] Demo mode - step completed and advanced')
+          }, 2000)
+        }, 1500)
+        
+      } else {
+        // For authenticated users: Only highlight UI elements, no actual actions
+        console.log('🎯 [Demo Step 1] Authenticated user - highlighting UI only')
+        
+        setTimeout(() => {
+          setIsHighlighting(false)
+          console.log('🎯 [Demo Step 1] UI highlighting completed for authenticated user')
+        }, 3000)
+      }
+    }, [userType, user?.uid, demoActions])
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+          <div className="flex items-start gap-3">
+            <Target className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div>
+              <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">
+                Welcome to WordWise AI!
+              </h4>
+              <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-200">
+                Let&apos;s start by creating your first document and setting writing goals. This helps our AI understand your target audience and objectives.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <div className="space-y-3">
-        <h5 className="font-medium">What you&apos;ll learn:</h5>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            How to create documents with targeted writing goals
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Setting audience demographics and tone preferences
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Configuring AI assistance for your specific use case
-          </li>
-        </ul>
-      </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/20">
-        <p className="text-xs text-blue-700 dark:text-blue-200">
-          <Sparkles className="mr-1 inline h-3 w-3" />
-          Pro tip: Clear writing goals result in 40% more targeted AI suggestions
-        </p>
+        {/* User Type Specific Instructions */}
+        {userType === 'demo_mode' ? (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+            <div className="flex items-start gap-3">
+              <Play className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Demo Mode Active
+                </p>
+                <p className="mt-1 text-xs text-blue-700 dark:text-blue-200">
+                  We&apos;ll create a sample document with pre-filled content to demonstrate WordWise AI features.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+            <div className="flex items-start gap-3">
+              <Eye className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  Guided Tour
+                </p>
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
+                  This demo will highlight UI elements and explain features without modifying your actual documents.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="space-y-3">
+          <h5 className="font-medium">What you&apos;ll learn:</h5>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              How to create documents with targeted writing goals
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Setting audience demographics and tone preferences
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Configuring AI assistance for your specific use case
+            </li>
+          </ul>
+        </div>
+
+        {/* Action Button */}
+        <div className="space-y-3">
+          <Button
+            onClick={handleSetWritingGoals}
+            disabled={isHighlighting}
+            className="w-full"
+            size="lg"
+          >
+            {isHighlighting ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
+                {userType === 'demo_mode' ? 'Creating Sample Document...' : 'Highlighting UI...'}
+              </>
+            ) : hasTriggeredAction ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                {userType === 'demo_mode' ? 'Sample Created!' : 'UI Highlighted!'}
+              </>
+            ) : (
+              <>
+                <Target className="mr-2 h-4 w-4" />
+                Set Writing Goals
+              </>
+            )}
+          </Button>
+
+          {hasTriggeredAction && (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950/20">
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <p className="text-sm text-green-700 dark:text-green-200">
+                  {userType === 'demo_mode' 
+                    ? 'Sample document created with writing goals! Moving to next step...'
+                    : 'Look for the highlighted "Writing Goals" button in the navigation bar!'
+                  }
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-950/20">
+          <p className="text-xs text-purple-700 dark:text-purple-200">
+            <Sparkles className="mr-1 inline h-3 w-3" />
+            Pro tip: Clear writing goals result in 40% more targeted AI suggestions
+          </p>
+        </div>
       </div>
-    </div>
-  ),
+    )
+  },
 
   Step2: () => (
     <div className="space-y-4">

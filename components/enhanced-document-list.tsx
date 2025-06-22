@@ -316,7 +316,13 @@ export function EnhancedDocumentList({
       <DropdownMenuContent align="start" className="w-96">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Documents</span>
-          <Button size="sm" variant="ghost" className="h-6 px-2" onClick={onNewDocument}>
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="h-6 px-2" 
+            onClick={onNewDocument}
+            data-new-document-button
+          >
             <Plus className="h-3 w-3" />
             New
           </Button>
