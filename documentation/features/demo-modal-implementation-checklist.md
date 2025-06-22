@@ -111,9 +111,45 @@
 
 ## Phase 4: Demo Step Content & Feature Simulation ⏳ READY TO BEGIN
 - [ ] Step 1: Document Creation & Goal Setting
-    - [ ] Highlight/create document button (tooltip/spotlight).
-    - [ ] Guide/set writing goals (modal/overlay).
-    - [ ] Provide sample text/goals for quick demo.
+    - [ ] **User Flow Distinction Logic**
+        - [ ] Detect user type (anonymous/demo, new user, existing user) using `useAuth` and `useDemoTourContext`.
+        - [ ] Branch demo logic/UI based on user type:
+            - **Anonymous/demo mode**: Allow prepopulated sample document and goals.
+            - **New/existing users**: Only highlight/guide, never prepopulate or modify real data.
+    - [ ] **UI Highlighting and Guidance**
+        - [ ] Implement a spotlight/tooltip on the "Create Document" button in the main UI (shadcn Tooltip or custom overlay).
+        - [ ] Ensure accessibility (ARIA, keyboard navigation) and responsive design.
+        - [ ] Add a "Next" action in the demo modal to advance after highlighting.
+    - [ ] **Document Creation Simulation**
+        - [ ] For **anonymous/demo mode**:
+            - [ ] On "Set Writing Goals" action, simulate document creation:
+                - [ ] Create a temporary in-memory document (not persisted to Firestore).
+                - [ ] Prepopulate with sample title and content (from `DEMO_SAMPLE_DATA` in `use-demo-tour.ts`).
+                - [ ] Prepopulate writing goals (from `types/writing-goals.ts` or demo sample).
+                - [ ] Log all actions for analytics/debugging.
+            - [ ] Show a success message or badge ("Demo document created!").
+        - [ ] For **new/existing users**:
+            - [ ] Only show guidance overlay/modal for document creation and goal setting.
+            - [ ] Do **not** create or modify any real documents or goals.
+            - [ ] Optionally, provide a "Learn More" link to documentation.
+    - [ ] **Writing Goals UI**
+        - [ ] For all user types:
+            - [ ] Guide user to the writing goals UI (modal, sidebar, or overlay).
+            - [ ] For **anonymous/demo mode**: Prepopulate with sample goals.
+            - [ ] For **new/existing users**: Only highlight/guide, do not prepopulate.
+    - [ ] **Sample Data Management**
+        - [ ] Store all sample document and goal data in a single source (`DEMO_SAMPLE_DATA` in `use-demo-tour.ts`).
+        - [ ] Ensure no hardcoded strings; all sample data should be referenced from this source.
+    - [ ] **Logging and Analytics**
+        - [ ] Add extensive `console.log` statements for every action, user type branch, and UI transition.
+        - [ ] Track demo step completion, skipped steps, and time spent.
+    - [ ] **Accessibility and Responsiveness**
+        - [ ] Ensure all overlays, tooltips, and modals are keyboard accessible.
+        - [ ] Test on mobile and desktop layouts.
+    - [ ] **Firebase/Backend Considerations**
+        - [ ] For demo mode, ensure no writes to Firestore or user profile.
+        - [ ] For new/existing users, ensure demo actions are read-only and do not affect real data.
+        - [ ] All demo progress is tracked in `demoProgress` (user profile or localStorage).
 - [ ] Step 2: Writing/Copy-Paste Markdown
     - [ ] Highlight editor area.
     - [ ] Add "Paste Sample Sales Funnel" button (auto-fill editor).
