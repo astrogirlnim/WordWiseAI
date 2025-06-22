@@ -49,6 +49,15 @@ export interface UserFeedback {
   createdAt: number
 }
 
+// Positioning strategy for intelligent funnel suggestion placement
+export interface SuggestionPositioning {
+  strategy: 'insert' | 'replace' | 'append'
+  location: 'document-start' | 'after-existing-headline' | 'before-main-content' | 'after-headline' | 'after-headlines' | 'document-end'
+  targetText: string
+  insertionPoint: string
+  preserveExisting: boolean
+}
+
 // New funnel-specific suggestion types
 export interface FunnelSuggestion {
   id: string
@@ -59,10 +68,13 @@ export interface FunnelSuggestion {
   description: string
   suggestedText: string
   originalText: string
+  // Legacy position field for backward compatibility
   position: {
     start: number
     end: number
   }
+  // New intelligent positioning structure
+  positioning?: SuggestionPositioning
   confidence: number
   status: 'pending' | 'applied' | 'dismissed'
   createdAt: number

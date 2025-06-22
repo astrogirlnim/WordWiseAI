@@ -440,54 +440,123 @@ export function DocumentEditor({
       const isFunnelSuggestion = funnelTypes.includes(suggestionType);
       
       if (!originalText || originalText.trim() === '' || isFunnelSuggestion) {
-        // Funnel suggestion: insert at strategic positions with deduplication
-        console.log('[DocumentEditor] Processing funnel suggestion');
+        // Funnel suggestion: use intelligent positioning
+        console.log('[DocumentEditor] Processing funnel suggestion with intelligent positioning');
         
-        // Check if this type of suggestion already exists in the document to prevent duplicates
-        // Only check for funnel types that have specific markers
-        type FunnelSuggestionType = 'headline' | 'subheadline' | 'cta' | 'outline';
-        
-        const existingMarkers: Record<FunnelSuggestionType, RegExp> = {
-          headline: /^#\s+.+$/m,
-          subheadline: /^##\s+.+$/m,
-          cta: /\*\*[^*]+\*\*\s*$/m,
-          outline: /^\d+\.\s+.+:/m
-        };
-        
-        // Only check for existing markers if this is a funnel suggestion type
-        const isFunnelType = (type: string): type is FunnelSuggestionType => {
-          return ['headline', 'subheadline', 'cta', 'outline'].includes(type);
-        };
-        
-        if (isFunnelType(suggestionType)) {
-          const existingMarker = existingMarkers[suggestionType];
-          if (existingMarker && existingMarker.test(fullContentHtml)) {
-            console.log(`[DocumentEditor] ${suggestionType} already exists, replacing instead of adding`);
-            
-            // Replace existing content of same type
-            if (suggestionType === 'headline') {
-              updatedContent = fullContentHtml.replace(/^#\s+.+$/m, `# ${suggestedText}`);
-            } else if (suggestionType === 'subheadline') {
-              updatedContent = fullContentHtml.replace(/^##\s+.+$/m, `## ${suggestedText}`);
-            } else if (suggestionType === 'cta') {
-              updatedContent = fullContentHtml.replace(/\*\*[^*]+\*\*\s*$/m, `**${suggestedText}**`);
-            } else if (suggestionType === 'outline') {
-              // Replace existing outline
-              const outlineRegex = /^\d+\.\s+.+$/gm;
-              updatedContent = fullContentHtml.replace(outlineRegex, '').trim() + '\n\n' + suggestedText;
-            }
-            textReplaced = true;
-          } else {
-            // Insert new content at appropriate position
-            textReplaced = insertFunnelSuggestionContent(suggestionType, suggestedText, fullContentHtml);
+        // Check if suggestion has new positioning data
+        const positioning = (suggestion as any).positioning;
+        if (positioning && isFunnelSuggestion) {
+          console.log('[DocumentEditor] Using intelligent positioning:', positioning);
+          
+          const { strategy, location, targetText, insertionPoint, preserveExisting } = positioning;
+          
+          switch (strategy) {
+            case 'replace':
+              if (targetText && fullContentHtml.includes(targetText)) {
+                console.log('[DocumentEditor] Replacing target text:', targetText.substring(0, 100));
+                updatedContent = fullContentHtml.replace(targetText, suggestedText);
+                textReplaced = true;
+              } else {
+                console.log('[DocumentEditor] Target text not found, falling back to insert strategy');
+                updatedContent = applyInsertStrategy(location, suggestedText, fullContentHtml, suggestionType);
+                textReplaced = true;
+              }
+              break;
+              
+            case 'append':
+              console.log('[DocumentEditor] Appending content at:', location);
+              if (location === 'document-end') {
+                updatedContent = fullContentHtml + `\n\n${formatSuggestionText(suggestionType, suggestedText)}`;
+              } else {
+                updatedContent = applyInsertStrategy(location, suggestedText, fullContentHtml, suggestionType);
+              }
+              textReplaced = true;
+              break;
+              
+            case 'insert':
+            default:
+              console.log('[DocumentEditor] Inserting content at:', location);
+              updatedContent = applyInsertStrategy(location, suggestedText, fullContentHtml, suggestionType);
+              textReplaced = true;
+              break;
           }
         } else {
-          // For non-funnel suggestions, just insert the content
-          textReplaced = insertFunnelSuggestionContent(suggestionType as FunnelSuggestionType, suggestedText, fullContentHtml);
+          // Fallback to legacy positioning logic for backward compatibility
+          console.log('[DocumentEditor] Using legacy funnel suggestion positioning');
+          textReplaced = insertFunnelSuggestionContentLegacy(suggestionType, suggestedText, fullContentHtml);
         }
         
-        // Helper function to insert funnel suggestion content
-        function insertFunnelSuggestionContent(type: string, text: string, content: string): boolean {
+        // Helper function to apply insert strategy based on location
+        function applyInsertStrategy(location: string, text: string, content: string, type: string): string {
+          const formattedText = formatSuggestionText(type, text);
+          
+          switch (location) {
+            case 'document-start':
+              return formattedText + '\n\n' + content;
+              
+            case 'after-existing-headline':
+            case 'after-headline':
+              const headlineMatch = content.match(/^#{1,6}\s+.+?\n+/m);
+              if (headlineMatch) {
+                const insertPos = headlineMatch.index! + headlineMatch[0].length;
+                return content.slice(0, insertPos) + formattedText + '\n\n' + content.slice(insertPos);
+              }
+              // Fallback to document start if no headline found
+              return formattedText + '\n\n' + content;
+              
+            case 'after-headlines':
+              const allHeadlines = content.match(/^#{1,6}\s+.+?\n+/gm);
+              if (allHeadlines && allHeadlines.length > 0) {
+                const lastHeadline = allHeadlines[allHeadlines.length - 1];
+                const lastHeadlineIndex = content.lastIndexOf(lastHeadline);
+                const insertPos = lastHeadlineIndex + lastHeadline.length;
+                return content.slice(0, insertPos) + formattedText + '\n\n' + content.slice(insertPos);
+              }
+              // Fallback to after first paragraph if no headlines
+              const firstParagraphEnd = content.indexOf('\n\n');
+              if (firstParagraphEnd > 0) {
+                return content.slice(0, firstParagraphEnd) + '\n\n' + formattedText + content.slice(firstParagraphEnd);
+              }
+              return formattedText + '\n\n' + content;
+              
+            case 'before-main-content':
+              // Insert after any headlines but before the main content
+              const headerEndMatch = content.match(/^#{1,6}\s+.+?\n+/gm);
+              if (headerEndMatch && headerEndMatch.length > 0) {
+                const lastHeader = headerEndMatch[headerEndMatch.length - 1];
+                const lastHeaderIndex = content.lastIndexOf(lastHeader);
+                const insertPos = lastHeaderIndex + lastHeader.length;
+                return content.slice(0, insertPos) + formattedText + '\n\n' + content.slice(insertPos);
+              }
+              return formattedText + '\n\n' + content;
+              
+            case 'document-end':
+              return content + '\n\n' + formattedText;
+              
+            default:
+              console.warn('[DocumentEditor] Unknown location:', location, 'falling back to document-end');
+              return content + '\n\n' + formattedText;
+          }
+        }
+        
+        // Helper function to format suggestion text based on type
+        function formatSuggestionText(type: string, text: string): string {
+          switch (type) {
+            case 'headline':
+              return `# ${text}`;
+            case 'subheadline':
+              return `## ${text}`;
+            case 'cta':
+              return `**${text}**`;
+            case 'outline':
+              return text; // Outlines are already formatted
+            default:
+              return text;
+          }
+        }
+        
+        // Legacy function for backward compatibility
+        function insertFunnelSuggestionContentLegacy(type: string, text: string, content: string): boolean {
           let insertPosition = 0;
           let insertText = text;
           

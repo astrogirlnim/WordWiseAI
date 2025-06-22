@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { SuggestionService } from '@/services/suggestion-service'
 import { AIService } from '@/services/ai-service'
-import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
+import type { AISuggestion, FunnelSuggestion, SuggestionPositioning } from '@/types/ai-features'
 import type { WritingGoals } from '@/types/writing-goals'
 import { useToast } from './use-toast'
 import { debounce } from 'lodash'
@@ -133,8 +133,9 @@ export function useAISuggestions({
 
   /**
    * Apply a suggestion to the document
+   * Updated to handle both AISuggestion and FunnelSuggestion types
    */
-  const applySuggestion = useCallback(async (suggestion: AISuggestion) => {
+  const applySuggestion = useCallback(async (suggestion: any) => {
     console.log('[useAISuggestions] applySuggestion called', suggestion);
     
     // Prevent duplicate applications
@@ -507,11 +508,48 @@ export function useAISuggestions({
 
   // Wrapper functions to match expected signatures
   const applySuggestionWrapper = useCallback(async (suggestionId: string) => {
-    const suggestion = suggestions.find(s => s.id === suggestionId)
+    console.log('[useAISuggestions] applySuggestionWrapper called with ID:', suggestionId);
+    
+    // First check regular suggestions (style, grammar, etc.)
+    const suggestion = suggestions.find(s => s.id === suggestionId);
     if (suggestion) {
-      await applySuggestion(suggestion)
+      console.log('[useAISuggestions] Found suggestion in regular suggestions array:', suggestion.type);
+      await applySuggestion(suggestion);
+      return;
     }
-  }, [suggestions, applySuggestion])
+    
+    // Then check funnel suggestions (which have positioning data)
+    const funnelSuggestion = funnelSuggestions.find(s => s.id === suggestionId);
+    if (funnelSuggestion) {
+      console.log('[useAISuggestions] Found suggestion in funnel suggestions array:', funnelSuggestion.type);
+      console.log('[useAISuggestions] Funnel suggestion has positioning:', !!funnelSuggestion.positioning);
+      
+      // Convert FunnelSuggestion to compatible format with positioning data
+      const suggestionWithPositioning = {
+        id: funnelSuggestion.id,
+        documentId: funnelSuggestion.documentId,
+        userId: funnelSuggestion.userId,
+        type: funnelSuggestion.type,
+        title: funnelSuggestion.title,
+        description: funnelSuggestion.description,
+        originalText: funnelSuggestion.originalText,
+        suggestedText: funnelSuggestion.suggestedText,
+        position: funnelSuggestion.position,
+        confidence: funnelSuggestion.confidence,
+        status: funnelSuggestion.status,
+        createdAt: funnelSuggestion.createdAt,
+        appliedAt: funnelSuggestion.appliedAt,
+        // CRITICAL: Preserve positioning data
+        positioning: funnelSuggestion.positioning
+      } as any; // Use any to bypass TypeScript for now
+      
+      console.log('[useAISuggestions] Applying funnel suggestion with positioning data:', suggestionWithPositioning.positioning);
+      await applySuggestion(suggestionWithPositioning);
+      return;
+    }
+    
+    console.warn('[useAISuggestions] Suggestion not found in either array:', suggestionId);
+  }, [suggestions, funnelSuggestions, applySuggestion]);
 
   const dismissSuggestionWrapper = useCallback(async (suggestionId: string) => {
     const suggestion = suggestions.find(s => s.id === suggestionId)

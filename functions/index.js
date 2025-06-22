@@ -432,10 +432,10 @@ exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async 
     userId
   });
 
-  // Build comprehensive prompt for funnel copy suggestions with standardized output
-  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your audience is marketing professionals creating sales funnels. Your task is to analyze the user's writing goals, document title, and current draft, then provide EXACTLY 4 specific types of funnel copy suggestions in a standardized format.
+  // Build comprehensive prompt for funnel copy suggestions with intelligent positioning
+  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your task is to analyze the existing document content and provide EXACTLY 4 strategic funnel copy suggestions with INTELLIGENT POSITIONING based on the actual content.
 
-CRITICAL: You MUST return a valid JSON object with exactly this structure. Never deviate from this format:
+CRITICAL: You MUST return a valid JSON object with exactly this structure:
 
 {
   "suggestions": [
@@ -445,7 +445,13 @@ CRITICAL: You MUST return a valid JSON object with exactly this structure. Never
       "description": "A compelling headline that captures attention and communicates core value",
       "suggestedText": "Your primary headline text here (keep under 10 words)",
       "confidence": 85,
-      "position": "document-start"
+      "positioning": {
+        "strategy": "insert|replace|append",
+        "location": "document-start|after-existing-headline|before-main-content|document-end",
+        "targetText": "specific text to replace (if strategy is 'replace')",
+        "insertionPoint": "detailed description of where to insert",
+        "preserveExisting": true|false
+      }
     },
     {
       "type": "subheadline", 
@@ -453,7 +459,13 @@ CRITICAL: You MUST return a valid JSON object with exactly this structure. Never
       "description": "A subheadline that elaborates on the main value proposition",
       "suggestedText": "Your supporting subheadline text here (1-2 sentences)",
       "confidence": 80,
-      "position": "after-headline"
+      "positioning": {
+        "strategy": "insert",
+        "location": "after-headline",
+        "targetText": "",
+        "insertionPoint": "Insert after any existing headline or at document start if no headline exists",
+        "preserveExisting": true
+      }
     },
     {
       "type": "cta",
@@ -461,20 +473,58 @@ CRITICAL: You MUST return a valid JSON object with exactly this structure. Never
       "description": "A clear, action-oriented CTA that drives the desired behavior",
       "suggestedText": "Your CTA button text here (2-4 words)",
       "confidence": 90,
-      "position": "document-end"
+      "positioning": {
+        "strategy": "append",
+        "location": "document-end",
+        "targetText": "",
+        "insertionPoint": "Add at the very end of the document as a final call to action",
+        "preserveExisting": true
+      }
     },
     {
       "type": "outline",
       "title": "Content Structure",
       "description": "A strategic content outline optimized for conversions",
-      "suggestedText": "1. Hook: Opening statement\n2. Problem: Pain point identification\n3. Solution: Your offering\n4. Benefits: Key advantages\n5. Social Proof: Testimonials/stats\n6. Call to Action: Final push",
+      "suggestedText": "1. Hook: Opening statement\\n2. Problem: Pain point identification\\n3. Solution: Your offering\\n4. Benefits: Key advantages\\n5. Social Proof: Testimonials/stats\\n6. Call to Action: Final push",
       "confidence": 75,
-      "position": "content-structure"
+      "positioning": {
+        "strategy": "insert",
+        "location": "after-headlines",
+        "targetText": "",
+        "insertionPoint": "Insert after any existing headlines but before the main body content",
+        "preserveExisting": true
+      }
     }
   ],
   "generatedAt": ${Date.now()},
-  "basedOnGoals": true
+  "basedOnGoals": true,
+  "documentAnalysis": {
+    "hasExistingHeadline": false,
+    "hasExistingCTA": false,
+    "contentLength": 0,
+    "mainContentStart": 0
+  }
 }
+
+POSITIONING STRATEGIES:
+- "insert": Add new content without removing existing content
+- "replace": Replace specific existing text with the suggestion
+- "append": Add content at the end of the document
+
+LOCATION OPTIONS:
+- "document-start": Very beginning of the document
+- "after-existing-headline": After any existing headline/title
+- "before-main-content": Before the main body content starts
+- "after-headlines": After all headline-level content
+- "document-end": At the very end of the document
+
+INTELLIGENT POSITIONING RULES:
+1. If document has existing headlines, place new headlines strategically around them
+2. If document is very long (>1000 chars), prefer insertion over replacement
+3. If document is short (<500 chars), consider strategic replacement
+4. Always preserve existing valuable content unless explicitly replacing
+5. For CTAs, check if document already has call-to-action language
+6. For outlines, place them where they provide maximum structural benefit
 
 STRICT REQUIREMENTS:
 - Always generate EXACTLY 4 suggestions with types: headline, subheadline, cta, outline
@@ -482,7 +532,8 @@ STRICT REQUIREMENTS:
 - Keep headlines under 10 words
 - Keep CTAs under 4 words
 - Make outlines specific and actionable
-- Tailor ALL content to the specific goals provided
+- Analyze the existing content to determine the best positioning strategy
+- Preserve existing content unless replacement is clearly beneficial
 
 Document Context:
 - Title: ${documentTitle || 'Untitled'}
@@ -490,6 +541,7 @@ Document Context:
 - Formality Level: ${goals.formality || 'professional'}
 - Marketing Domain: ${goals.domain || 'general business'}
 - Primary Intent: ${goals.intent || 'inform'}
+- Document Length: ${currentDraft ? currentDraft.length : 0} characters
 
 Focus Areas Based on Goals:
 1. Headlines: Match the ${goals.formality || 'professional'} tone while appealing to ${goals.audience || 'general audience'}
@@ -497,7 +549,19 @@ Focus Areas Based on Goals:
 3. CTAs: Drive ${goals.intent || 'engagement'} behavior with appropriate urgency
 4. Outlines: Structure content to achieve ${goals.intent || 'informational'} goals
 
-${currentDraft && currentDraft.trim() ? `\nDocument Body (use this to inform suggestions):\n${currentDraft.substring(0, 1000)}${currentDraft.length > 1000 ? '...' : ''}` : '\nNo document body provided - create suggestions from title and goals alone.'}`;
+DOCUMENT CONTENT ANALYSIS:
+${currentDraft && currentDraft.trim() ? 
+  `Current Document Content (${currentDraft.length} chars):
+${currentDraft.substring(0, 2000)}${currentDraft.length > 2000 ? '...[content truncated]' : ''}
+
+ANALYZE THIS CONTENT TO DETERMINE:
+1. Does it have existing headlines? Where?
+2. Does it have existing CTAs? Where?
+3. What is the main content structure?
+4. Where would funnel suggestions add the most value?
+5. What content should be preserved vs. enhanced?` 
+  : 
+  'No document body provided - create suggestions optimized for a new document with strategic positioning.'}`;
 
   try {
     logger.log("Calling OpenAI API for standardized funnel suggestions", {
@@ -545,34 +609,59 @@ ${currentDraft && currentDraft.trim() ? `\nDocument Body (use this to inform sug
             title: "Attention-Grabbing Headline",
             description: "A compelling headline that captures attention",
             suggestedText: `Transform Your ${goals.domain || 'Business'} Today`,
-            confidence: 70
+            confidence: 70,
+            positioning: {
+              strategy: 'insert',
+              location: 'document-start',
+              targetText: '',
+              insertionPoint: 'Insert at the very beginning of the document',
+              preserveExisting: true
+            }
           },
           subheadline: {
             title: "Supporting Subheadline", 
             description: "Supporting information about your value proposition",
             suggestedText: `Discover how ${goals.audience || 'professionals'} can achieve better results with our proven approach.`,
-            confidence: 65
+            confidence: 65,
+            positioning: {
+              strategy: 'insert',
+              location: 'after-headline',
+              targetText: '',
+              insertionPoint: 'Insert after any existing headline or at document start if no headline exists',
+              preserveExisting: true
+            }
           },
           cta: {
             title: "Call to Action",
             description: "Action-oriented button text",
             suggestedText: "Get Started",
-            confidence: 80
+            confidence: 80,
+            positioning: {
+              strategy: 'append',
+              location: 'document-end',
+              targetText: '',
+              insertionPoint: 'Add at the very end of the document as a final call to action',
+              preserveExisting: true
+            }
           },
           outline: {
             title: "Content Structure",
             description: "Strategic content outline for maximum impact",
             suggestedText: "1. Hook: Opening that grabs attention\n2. Problem: Identify key challenges\n3. Solution: Present your offering\n4. Benefits: Show clear advantages\n5. Proof: Add credibility\n6. Action: Clear next steps",
-            confidence: 60
+            confidence: 60,
+            positioning: {
+              strategy: 'insert',
+              location: 'after-headlines',
+              targetText: '',
+              insertionPoint: 'Insert after any existing headlines but before the main body content',
+              preserveExisting: true
+            }
           }
         };
         
         return {
           type,
-          ...defaults[type],
-          position: type === 'headline' ? 'document-start' : 
-                   type === 'subheadline' ? 'after-headline' :
-                   type === 'cta' ? 'document-end' : 'content-structure'
+          ...defaults[type]
         };
       });
       
@@ -591,8 +680,22 @@ ${currentDraft && currentDraft.trim() ? `\nDocument Body (use this to inform sug
       targetAudience: goals.audience || 'general',
       intent: goals.intent || 'inform',
       domain: goals.domain || 'business',
-      originalText: '', // Funnel suggestions don't replace text
-      position: suggestion.position || {
+      originalText: '', // Funnel suggestions don't replace text initially
+      // Ensure positioning structure exists, with fallback for backward compatibility
+      positioning: suggestion.positioning || {
+        strategy: 'insert',
+        location: {
+          headline: 'document-start',
+          subheadline: 'after-headline', 
+          cta: 'document-end',
+          outline: 'after-headlines'
+        }[suggestion.type] || 'document-end',
+        targetText: '',
+        insertionPoint: `Insert ${suggestion.type} at appropriate location`,
+        preserveExisting: true
+      },
+      // Keep legacy position field for backward compatibility
+      position: suggestion.position || suggestion.positioning?.location || {
         headline: 'document-start',
         subheadline: 'after-headline', 
         cta: 'document-end',
