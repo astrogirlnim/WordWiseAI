@@ -195,7 +195,7 @@ export function useDemoTour() {
           isCompleted: demoProgress.isCompleted,
           completedSteps: demoProgress.completedSteps,
           totalTimeSpent: demoProgress.totalTimeSpent,
-          currentStep: Math.min(demoProgress.lastStepReached + 1, 8) as DemoStep,
+          currentStep: Math.max(demoProgress.lastStepReached, 1) as DemoStep,
           canGoBack: demoProgress.lastStepReached > 1,
           canGoForward: !demoProgress.isCompleted
         }))
