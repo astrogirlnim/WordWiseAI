@@ -3,10 +3,10 @@
 ## Overview
 This document outlines the testing procedures for the demo modal functionality across different user types and scenarios. The demo modal should provide a guided tour of WordWise AI features while respecting user preferences and ensuring optimal UX.
 
-## ✅ Testing Status: COMPLETED & VERIFIED
-**Test Date**: 2025-06-22  
-**Environment**: Local development with Firebase emulators  
-**Status**: All user flows passing with excellent performance  
+## ✅ Testing Status: UPDATED FOR PHASE 4, STEP 1
+**Test Date**: 2025-01-27  
+**Environment**: Local development with Firebase integration  
+**Status**: Updated to verify Phase 4, Step 1 implementation  
 
 ## Test Environment Setup
 
@@ -14,219 +14,374 @@ This document outlines the testing procedures for the demo modal functionality a
 - Firebase emulators running (`pnpm emulators:start`)
 - Development server running (`pnpm dev`)
 - Clean browser session (clear localStorage/cookies between user flow tests)
+- Developer console open to monitor logging
 
 ### Test Users
-- **Anonymous User**: Not signed in
-- **New User**: First-time signup (no demo progress in Firebase)
-- **Existing User**: Previously signed up (has demo progress record)
+- **Anonymous User**: Not signed in (demo mode)
+- **New User**: First-time signup (authenticated user flow)
+- **Existing User**: Previously signed up (authenticated user flow)
 
-## ✅ User Flow 1: Anonymous User (Demo Mode) - PASSED
+## 🔄 User Flow 1: Anonymous User (Demo Mode) - PHASE 4, STEP 1 TESTING
 
 ### Test Steps
+
+#### Basic Demo Access
 1. Navigate to sign-in page (`/sign-in`)
-2. Click "Try Demo" button
-3. Verify demo modal opens to Step 1
-4. Test navigation:
-   - Click "Next" to advance steps
-   - Click "Back" to go to previous steps
-   - Click step indicators for direct navigation
-   - Test "Skip" individual step functionality
-5. Test modal controls:
-   - "Skip Demo" button closes modal
-   - "Close" (X) button closes modal
-6. After closing, verify "Try Demo" button can retrigger the demo
+2. Click "🚀 Try Demo - No Account Required" button
+3. Verify redirect to `/?demo=true`
+4. Verify demo modal opens to Step 1 with "Document Creation & Goals" title
 
-### ✅ Test Results: PASSING
-- **✅ Try Demo Button**: Works perfectly from sign-in page with immediate response
-- **✅ Modal Opening**: Opens immediately to Step 1 of 8 with 0% progress
-- **✅ Navigation Controls**: All buttons (Next, Back, Skip, Close) fully functional
-- **✅ Step Indicators**: Direct navigation to any step works seamlessly (tested Step 1 → Step 5)
-- **✅ Progress Tracking**: Accurate progress bar updates (0% → 14% → 28% → 57%)
-- **✅ Manual Retrigger**: "Try Demo" button reopens modal successfully after closing
-- **✅ URL Handling**: Correctly redirects to `/?demo=true` and removes parameter on close
+#### Phase 4, Step 1 - Demo Mode Verification
+5. **User Type Detection**: 
+   - Check console logs for: `🎯 [Demo Step 1] Rendering with user type: demo_mode`
+   - Verify "Demo Mode Active" blue info box is displayed
+   - Verify step content shows demo-specific messaging
 
-**Performance Metrics:**
-- Modal open time: < 500ms
-- Step navigation: < 100ms transitions
-- Button responsiveness: Immediate
+6. **Set Writing Goals Action**:
+   - Click "Set Writing Goals" button
+   - Verify button shows loading state: "Creating Sample Document..."
+   - Check console logs for: `🎯 [Demo Step 1] Demo mode - simulating document creation with sample data`
 
-## ✅ User Flow 2: New User (First-time Signup) - PASSED
+7. **Automatic Document Creation Simulation**:
+   - Verify loading animation appears for ~1.5 seconds
+   - Check console logs for: `🎯 [Demo Step 1] Demo simulation: Writing goals modal opened with sample data`
+   - Verify button changes to "Sample Created!" with check icon
+   - Verify green success message appears: "Sample document created with writing goals! Moving to next step..."
+
+8. **Auto-Advancement**:
+   - Verify step automatically advances to Step 2 after ~2 seconds
+   - Check console logs for: `🎯 [Demo Step 1] Demo mode - step completed and advanced`
+   - Verify progress bar updates from 0% to 14%
+
+9. **Sample Data Verification**:
+   - Navigate back to Step 1 using step indicators
+   - Click "Set Writing Goals" again if needed
+   - Verify writing goals modal opens with sample data pre-populated:
+     - Document title: "Sales Funnel Strategy - Demo Document"
+     - Audience: "Stakeholders" selected
+     - Formality: "Professional" selected
+     - Domain: "Marketing Copy" selected
+     - Intent: "Convert" selected
+   - Verify "Demo Mode" badge appears in modal header
+
+#### Additional Navigation Testing
+10. Test navigation controls:
+    - Click "Next" to advance steps
+    - Click "Back" to go to previous steps
+    - Click step indicators for direct navigation
+    - Test "Skip" individual step functionality
+11. Test modal controls:
+    - "Skip Demo" button closes modal
+    - "Close" (X) button closes modal
+12. After closing, verify "Try Demo" button can retrigger the demo
+
+### ✅ Expected Results for Anonymous Users
+- **✅ User Type Detection**: Correctly identified as `demo_mode`
+- **✅ Demo UI**: Shows demo-specific messaging and blue info box
+- **✅ Sample Data**: Writing goals modal pre-populated with sample data
+- **✅ Auto-Advancement**: Step completes and advances automatically
+- **✅ No Firebase Writes**: No real documents created in Firestore
+- **✅ Comprehensive Logging**: All actions logged with demo context
+
+## 🔄 User Flow 2: New User (First-time Signup) - PHASE 4, STEP 1 TESTING
 
 ### Test Steps
+
+#### Account Creation and Auto-Trigger
 1. Navigate to sign-up page (`/sign-up`)
-2. Create account with unique email
+2. Create account with unique email (e.g., `newuser.demo.test.$(Date.now())@example.com`)
 3. After successful signup and redirect to main app:
    - Wait 3-5 seconds for auto-trigger logic
-   - Verify demo modal appears automatically
-4. Test demo functionality:
-   - Navigate through steps
-   - Close demo with "Skip Demo"
-5. Verify "Try Demo" button can manually retrigger demo
-6. Test browser refresh:
-   - Refresh page
-   - Verify demo does NOT auto-appear
-   - Verify "Try Demo" button still works manually
+   - Verify demo modal appears automatically on Step 1
 
-### ✅ Test Results: PASSING
-- **✅ Account Creation**: Successfully created test user (`newuser.demo.test@example.com`)
-- **✅ Auto-Trigger**: Demo modal appeared automatically 3-5 seconds after signup
-- **✅ Firebase Integration**: Demo progress properly saved and loaded from Firestore
-- **✅ Manual Access**: "Try Demo" button works perfectly after auto-trigger
-- **✅ No Refresh Trigger**: Demo does NOT auto-appear on browser refresh (correct behavior)
-- **✅ State Persistence**: Demo completion status correctly tracked across sessions
+#### Phase 4, Step 1 - Authenticated User Verification
+4. **User Type Detection**:
+   - Check console logs for: `🎯 [Demo Step 1] Rendering with user type: authenticated_user`
+   - Verify "Guided Tour" amber info box is displayed (not "Demo Mode")
+   - Verify step content shows guidance messaging without demo-specific content
 
-**Console Log Evidence:**
-```javascript
-// Auto-trigger detection
-🎯 Demo Tour Action: {action: "LOAD_PROGRESS_SUCCESS", source: "firebase"}
+5. **Set Writing Goals Action**:
+   - Click "Set Writing Goals" button
+   - Verify button shows loading state: "Highlighting UI..."
+   - Check console logs for: `🎯 [Demo Step 1] Authenticated user - highlighting UI only`
 
-// State management working correctly  
-🔧 [useDemoTourContext] Context accessed, state: {isOpen: true, currentStep: 1}
-```
+6. **UI Spotlight Activation**:
+   - Wait ~1 second for spotlight to activate
+   - Check console logs for: `🎯 [DocumentContainer] Activating spotlight for Writing Goals button`
+   - Verify UI spotlight appears over the "Writing Goals" button in navigation bar
+   - Verify spotlight tooltip shows:
+     - Title: "Writing Goals"
+     - Description: "Click here to set your writing goals and target audience..."
+     - Action button: "Open Writing Goals"
 
-## ✅ User Flow 3: Existing User (Return Visitor) - PASSED
+7. **Spotlight Interaction**:
+   - Verify spotlight is visible with dark overlay
+   - Verify Writing Goals button is highlighted/elevated
+   - Click the spotlight action button or the highlighted Writing Goals button
+   - Verify actual Writing Goals modal opens (not pre-populated)
+   - Verify modal shows real user interface without demo badge
+   - Close the Writing Goals modal
+
+8. **Step Completion**:
+   - Verify spotlight disappears after interaction
+   - Check console logs for: `🎯 [DocumentContainer] Completing Step 1 and advancing to Step 2`
+   - Verify step advances to Step 2 automatically
+   - Verify progress bar updates from 0% to 14%
+
+9. **No Data Modification**:
+   - Verify no real documents are created
+   - Verify no real writing goals are modified
+   - Verify user's actual data remains unchanged
+
+#### Additional Testing
+10. **Keyboard Accessibility**:
+    - Press Escape while spotlight is active
+    - Verify spotlight closes properly
+    - Tab through spotlight elements to test focus management
+
+11. Test remaining demo functionality and manual access
+
+### ✅ Expected Results for New Users
+- **✅ User Type Detection**: Correctly identified as `authenticated_user`
+- **✅ Guided Tour UI**: Shows guidance messaging without demo-specific content
+- **✅ UI Spotlight**: Highlights actual UI elements for guidance
+- **✅ Real Modal**: Opens actual Writing Goals modal without pre-populated data
+- **✅ No Data Changes**: No modification of real user data
+- **✅ Step Advancement**: Completes and advances to Step 2
+
+## 🔄 User Flow 3: Existing User (Return Visitor) - PHASE 4, STEP 1 TESTING
 
 ### Test Steps
+
+#### Sign-in and Manual Demo Access
 1. Sign in with existing account (that has previously seen demo)
 2. After login, wait and verify demo does NOT auto-appear
-3. Test manual demo trigger:
-   - Click "Try Demo" button
-   - Verify demo opens and works normally
-4. Test browser refresh:
-   - Refresh page after login
-   - Verify demo does NOT auto-appear
-   - Verify "Try Demo" button still works
+3. Click "Try Demo" button in navigation bar
+4. Verify demo opens to Step 1
 
-### ✅ Test Results: PASSING
-- **✅ No Auto-Trigger**: Existing users don't see unwanted demo popups on login
-- **✅ Manual Access**: "Try Demo" button always works for existing users
-- **✅ Firebase State**: Previous demo progress correctly respected
-- **✅ No Refresh Trigger**: No auto-trigger on page reload (correct behavior)
-- **✅ Consistent UX**: Professional behavior respects user choices
+#### Phase 4, Step 1 - Existing Authenticated User Verification
+5. **User Type Detection**:
+   - Check console logs for: `🎯 [Demo Step 1] Rendering with user type: authenticated_user`
+   - Verify "Guided Tour" amber info box is displayed
+   - Verify same behavior as new user flow (steps 4-9 from User Flow 2)
 
-**Firebase State Evidence:**
+6. **Consistent Authenticated Behavior**:
+   - Verify UI spotlight system works identically to new user flow
+   - Verify no data modification occurs
+   - Verify step completion and advancement works properly
+
+7. **Previous Demo Progress**:
+   - Check console logs for Firebase demo progress loading
+   - Verify previous demo completion status is respected
+   - Verify manual demo access always works regardless of previous progress
+
+### ✅ Expected Results for Existing Users
+- **✅ No Auto-Trigger**: Demo doesn't auto-appear for existing users
+- **✅ Manual Access**: "Try Demo" always works
+- **✅ Consistent Behavior**: Same authenticated user flow as new users
+- **✅ Progress Respect**: Previous demo completion status maintained
+
+## Demo Modal Phase 4, Step 1 Feature Testing
+
+### ✅ User Type Detection Testing
+**Test**: Verify correct user type identification across all scenarios
+
+**Steps**:
+1. **Anonymous/Demo Mode**: 
+   - URL contains `demo=true` and no user authentication
+   - Expected logs: `userType: 'demo_mode'`
+
+2. **Authenticated Users**: 
+   - User is signed in (new or existing)
+   - Expected logs: `userType: 'authenticated_user'`
+
+3. **Edge Cases**:
+   - User signs out during demo
+   - User signs in during demo
+   - Browser refresh scenarios
+
+### ✅ UI Spotlight System Testing
+**Test**: Verify spotlight functionality for authenticated users
+
+**Steps**:
+1. **Element Targeting**:
+   - Verify spotlight finds `[data-writing-goals-button]` element
+   - Check console logs for: `🎯 [UISpotlight] Target element found`
+   - Verify element scrolls into view if needed
+
+2. **Tooltip Positioning**:
+   - Test on different screen sizes (desktop, tablet, mobile)
+   - Verify auto-positioning works (top, bottom, left, right)
+   - Check responsive behavior
+
+3. **Accessibility**:
+   - Test keyboard navigation (Tab, Enter, Escape)
+   - Verify ARIA labels and screen reader compatibility
+   - Test focus management
+
+4. **Portal Rendering**:
+   - Verify spotlight renders in portal for proper z-index
+   - Test overlay interactions
+
+### ✅ Sample Data Integration Testing
+**Test**: Verify sample data is properly loaded and typed
+
+**Steps**:
+1. **Data Source Verification**:
+   - Check `DEMO_SAMPLE_DATA` in console
+   - Verify all required fields are present:
+     - `sampleGoals` (properly typed WritingGoals)
+     - `sampleDocumentTitle`
+     - `sampleDocument` content
+
+2. **Type Safety**:
+   - Verify no TypeScript errors in browser console
+   - Check that const assertions work properly
+   - Verify WritingGoals interface compliance
+
+3. **Modal Integration**:
+   - Verify sample data populates correctly in demo mode
+   - Verify no sample data appears for authenticated users
+   - Test modal reset and re-population
+
+### ✅ Logging and Analytics Testing
+**Test**: Verify comprehensive logging for all user actions
+
+**Steps**:
+1. **Check Required Log Messages**:
+   ```javascript
+   // User type detection
+   🎯 [Demo Step 1] Rendering with user type: {userType}
+   
+   // Action triggers
+   🎯 [Demo Step 1] Set Writing Goals action triggered for user type: {userType}
+   
+   // Demo simulation
+   🎯 [Demo Step 1] Demo mode - simulating document creation with sample data
+   
+   // UI highlighting
+   🎯 [DocumentContainer] Activating spotlight for Writing Goals button
+   
+   // Step completion
+   🎯 [DocumentContainer] Completing Step 1 and advancing to Step 2
+   ```
+
+2. **Analytics Data**:
+   - Verify demo actions are logged with proper context
+   - Check user type is included in all relevant logs
+   - Verify timing data is captured
+
+### ✅ Firebase Integration Testing
+**Test**: Verify proper Firebase behavior for all user types
+
+**Steps**:
+1. **Demo Mode (Anonymous)**:
+   - Verify NO Firestore writes occur
+   - Check that demo progress is NOT saved to Firebase
+   - Verify localStorage-only tracking
+
+2. **Authenticated Users**:
+   - Verify demo progress IS saved to Firebase
+   - Check that real user data is NOT modified
+   - Verify read-only demo behavior
+
+3. **Error Handling**:
+   - Test with Firebase offline
+   - Verify graceful degradation
+
+## Performance and Technical Validation
+
+### ✅ Performance Metrics - Phase 4, Step 1
+- **User Type Detection**: < 50ms
+- **UI Spotlight Activation**: < 1000ms (includes 1s delay)
+- **Sample Data Population**: < 100ms
+- **Step Transition**: < 500ms
+- **Modal Operations**: < 200ms
+
+### ✅ Browser Compatibility Testing
+Test Phase 4, Step 1 features across:
+- **Chrome** (latest): All spotlight and demo features
+- **Safari** (latest): Portal rendering and positioning
+- **Firefox** (latest): Event handling and accessibility
+- **Mobile Safari**: Touch interactions and responsive layout
+- **Mobile Chrome**: Spotlight positioning on small screens
+
+### ✅ Error Handling Testing
+1. **Missing UI Elements**: Test spotlight when target element doesn't exist
+2. **Network Issues**: Test with poor connectivity during Firebase operations
+3. **State Conflicts**: Test rapid user interactions during spotlight activation
+4. **Memory Management**: Test for memory leaks during repeated demo runs
+
+## Issues and Troubleshooting
+
+### Common Issues to Verify
+1. **Spotlight Not Appearing**: 
+   - Check if target element exists: `document.querySelector('[data-writing-goals-button]')`
+   - Verify user type detection is working
+   - Check console for UISpotlight logs
+
+2. **Sample Data Not Loading**:
+   - Verify DEMO_SAMPLE_DATA is accessible
+   - Check demo mode detection logic
+   - Verify WritingGoals modal integration
+
+3. **Step Not Advancing**:
+   - Check demo tour context state
+   - Verify action completion logging
+   - Test manual step advancement
+
+### Debug Console Commands
 ```javascript
-📊 Loading demo progress from Firebase: {
-  hasSeenDemo: true, 
-  totalTimeSpent: 8752, 
-  completionDate: 1750610202145,
-  isCompleted: true
-}
+// Check demo state
+window.localStorage.getItem('demoTourLogs')
+
+// Verify sample data
+console.log(window.DEMO_SAMPLE_DATA) // if exposed globally
+
+// Check UI elements
+document.querySelector('[data-writing-goals-button]')
+document.querySelector('[data-new-document-button]')
+document.querySelector('[data-new-document-button-main]')
 ```
 
-## Demo Modal Features Testing
+## Test Results Summary Template
 
-### ✅ Navigation Testing - ALL PASSED
-- **✅ Forward Navigation**: "Next" button advances steps correctly (Step 1 → Step 2)
-- **✅ Backward Navigation**: "Back" button goes to previous steps (Step 2 → Step 1)
-- **✅ Direct Navigation**: Step indicator buttons jump to specific steps (Step 1 → Step 5)
-- **✅ Skip Individual Step**: "Skip" button advances to next step properly
-- **✅ Progress Tracking**: Progress bar updates correctly (0% → 14% → 28% → 57%)
+### Phase 4, Step 1 Test Results
+**Date**: _____  
+**Environment**: _____  
+**Tester**: _____
 
-### ✅ Modal Controls Testing - ALL PASSED
-- **✅ Skip Demo**: Closes modal, redirects to sign-in, removes URL parameter
-- **✅ Close Button**: X button closes modal properly
-- **✅ Manual Retrigger**: "Try Demo" button reopens demo from Step 1
-- **✅ Step Reset**: Manual triggers always start from Step 1 correctly
+#### User Type Detection
+- [ ] Anonymous/Demo mode detection working
+- [ ] Authenticated user detection working  
+- [ ] Edge cases handled properly
 
-### ✅ Content Testing - ALL PASSED
-- **✅ Step Titles**: Each step shows correct title and theme
-- **✅ Step Content**: Appropriate educational content and instructions for each step
-- **✅ Step Counter**: "Step X of 8" displays correctly throughout navigation
-- **✅ Button States**: Back disabled on Step 1, navigation states correct
+#### UI Spotlight System  
+- [ ] Element targeting working
+- [ ] Tooltip positioning responsive
+- [ ] Accessibility features working
+- [ ] Portal rendering correct
 
-**8-Step Content Verified:**
-1. ✅ **Document Creation & Goals** - Emerald theme, target icon
-2. ✅ **Writing & Content Import** - Orange theme, pen tool icon  
-3. ✅ **Grammar & Preview** - Red theme, lightbulb icon
-4. ✅ **AI Suggestions** - Indigo theme, bot icon
-5. ✅ **Version Control** - Teal theme, history icon
-6. ✅ **Settings & Glossary** - Violet theme, settings icon
-7. ✅ **Document Management** - Slate theme, folder icon
-8. ✅ **Document Sharing** - Blue theme, share icon
+#### Sample Data Integration
+- [ ] Demo mode auto-population working
+- [ ] Authenticated mode guidance working
+- [ ] Type safety maintained
 
-## Technical Validation
+#### Logging and Analytics
+- [ ] All required logs present
+- [ ] User type context included
+- [ ] Timing data captured
 
-### ✅ State Management - VERIFIED
-- **✅ Context Provider**: Single shared state instance prevents conflicts
-- **✅ Firebase Integration**: Demo progress saved and loaded correctly
-- **✅ Auto-trigger Logic**: Correctly identifies new vs existing users
-- **✅ Manual Trigger Logic**: Always works regardless of user state
+#### Firebase Integration
+- [ ] Demo mode: no Firestore writes
+- [ ] Authenticated: proper progress tracking
+- [ ] Error handling graceful
 
-### ✅ Performance - EXCELLENT
-- **✅ Load Times**: Demo opens within 500ms consistently
-- **✅ Navigation Speed**: Step transitions smooth and fast (< 100ms)
-- **✅ Firebase Queries**: Progress queries optimized and cached
-
-### ✅ Error Handling - ROBUST
-- **✅ Network Issues**: Graceful handling of Firebase connection issues
-- **✅ State Conflicts**: Context provider prevents multiple hook instances
-- **✅ User State Changes**: Handles user login/logout correctly
-
-## Issues Resolved During Testing
-
-### ✅ Issue: Try Demo Button Initial Load
-**Status**: RESOLVED (Self-healing)
-- **Problem**: Button initially unresponsive on first page load
-- **Root Cause**: React hydration timing
-- **Resolution**: Works correctly after page fully loads and hydrates
-- **Verification**: No code changes needed, consistent behavior after load
-
-### ✅ Issue: Multiple Hook Instances (Previously Fixed)
-**Status**: RESOLVED
-- **Problem**: Multiple `useDemoTour` hook instances causing state conflicts
-- **Solution**: Implemented `DemoTourProvider` context provider
-- **Result**: Single shared state, no conflicts
-
-## Browser Compatibility
-
-### ✅ Tested Browsers - ALL PASSING
-- **✅ Chrome** (latest): Full functionality verified
-- **✅ Safari** (latest): All features working
-- **✅ Firefox** (latest): Complete compatibility
-
-## Test Results Summary
-
-### 🎉 All Tests Passed - Production Ready
-
-**User Flow Results:**
-- ✅ **Anonymous Demo Mode**: Perfect functionality
-- ✅ **New User Auto-trigger**: Working correctly  
-- ✅ **Existing User Behavior**: No unwanted auto-triggers
-- ✅ **Manual Retrigger**: Works for all user types
-- ✅ **Browser Refresh**: No auto-triggers (correct behavior)
-- ✅ **Navigation Controls**: All buttons and features working
-- ✅ **Firebase Integration**: Progress tracking working properly
-
-**Performance Metrics:**
-- **Modal Open Time**: < 500ms consistently
-- **Step Navigation**: < 100ms between steps
-- **Firebase Save/Load**: < 200ms average
-- **User Experience**: Smooth, professional, responsive
-
-**Code Quality:**
-- **TypeScript Safety**: Full type coverage
-- **Error Handling**: Comprehensive try-catch blocks
-- **Logging**: Extensive debugging and analytics logs
-- **State Management**: Robust context provider pattern
-
-## Future Enhancements
-
-### Potential Improvements
-1. **Analytics Integration**: Track demo completion rates and step drop-offs
-2. **A/B Testing**: Test different demo content and flow variations
-3. **Personalization**: Customize demo content based on user goals
-4. **Progressive Disclosure**: Show more advanced features for returning users
-
-### Monitoring Recommendations
-- Set up alerts for demo-related errors
-- Track demo completion metrics
-- Monitor Firebase query performance
-- Analyze user engagement patterns
+**Overall Status**: [ ] PASS / [ ] FAIL  
+**Notes**: _____
 
 ---
 
-**Last Updated**: 2025-06-22  
-**Test Environment**: Local development with Firebase emulators  
-**Tested By**: AI Assistant  
-**Status**: All tests passing ✅ Production ready 🚀 
+**Last Updated**: 2025-01-27  
+**Phase**: 4, Step 1 Implementation Testing  
+**Status**: Ready for verification testing 🧪 

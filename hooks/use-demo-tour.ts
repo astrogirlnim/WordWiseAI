@@ -25,12 +25,19 @@ import type { DemoProgress } from '@/types/user'
 /** Current step in the demo tour (1-7) */
 export type DemoStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
+/** The sub-step for interactive UI guidance */
+export type DemoInteractionStep = 'idle' | 'highlightNewDocument' | 'showCreatedDocument' | 'highlightWritingGoals' | 'openWritingGoalsModal';
+
 /**
  * Demo tour state interface for complete state management
  */
 export interface DemoTourState {
   /** Whether the demo modal is currently open */
   isOpen: boolean
+  /** Whether the demo modal is VISIBLE (can be open but not visible during UI interaction) */
+  isDemoModalVisible: boolean;
+  /** Current step in an interactive UI sequence */
+  interactionStep: DemoInteractionStep;
   /** Current step in the demo (1-8) */
   currentStep: DemoStep
   /** Total number of steps in the demo */
@@ -61,6 +68,12 @@ export interface DemoTourActions {
   startDemo: () => void
   /** Close the demo modal */
   closeDemo: () => void
+  /** Hide the demo modal for UI interaction */
+  hideDemoModal: () => void;
+  /** Show the demo modal after UI interaction */
+  showDemoModal: () => void;
+  /** Set the current step for UI interaction */
+  setInteractionStep: (step: DemoInteractionStep) => void;
   /** Navigate to next step */
   nextStep: () => void
   /** Navigate to previous step */
@@ -150,6 +163,8 @@ export function useDemoTour() {
   // Core demo state
   const [state, setState] = useState<DemoTourState>({
     isOpen: false,
+    isDemoModalVisible: false,
+    interactionStep: 'idle',
     currentStep: 1,
     totalSteps: 8,
     isCompleted: false,
@@ -187,6 +202,334 @@ export function useDemoTour() {
     }
     localStorage.setItem('demoTourLogs', JSON.stringify(existingLogs))
   }, [user?.uid])
+
+  /**
+   * Save demo progress to Firebase and localStorage
+   */
+  const saveDemoProgress = useCallback((progressData: Partial<DemoProgress>) => {
+    if (!user?.uid) return
+
+    const currentProgressState: DemoProgress = {
+      hasSeenDemo: true,
+      completedSteps: state.completedSteps,
+      lastStepReached: state.currentStep,
+      skipCount: state.skippedSteps.length,
+      isCompleted: state.isCompleted,
+      totalTimeSpent: state.totalTimeSpent,
+      firstStartedAt: startTimeRef.current,
+    };
+
+    const finalProgress = { ...currentProgressState, ...progressData };
+
+    logDemoAction('SAVE_PROGRESS_START', finalProgress)
+
+    // Save to localStorage immediately for offline support
+    const localData = { ...state, ...finalProgress }
+    localStorage.setItem(`demoProgress_${user.uid}`, JSON.stringify(localData))
+
+    // Save to Firebase (don't await, let it run in background)
+    userService.updateUserProfile(user.uid, { demoProgress: finalProgress })
+      .then(() => logDemoAction('SAVE_PROGRESS_SUCCESS', { dest: 'firebase', progress: finalProgress }))
+      .catch(err => {
+        logDemoAction('SAVE_PROGRESS_ERROR', { dest: 'firebase', error: err instanceof Error ? err.message : 'Unknown error' })
+      })
+  }, [user?.uid, state, logDemoAction])
+
+  /**
+   * Actions to control the demo tour
+   */
+
+  const openDemo = useCallback(() => {
+    setState(prev => {
+      if (prev.isOpen) return prev // Already open
+      
+      const timeNow = Date.now()
+      const newTotalTime = prev.isCompleted ? 0 : prev.totalTimeSpent
+      
+      const newState = {
+        ...prev,
+        isOpen: true,
+        isDemoModalVisible: true,
+        interactionStep: 'idle' as DemoInteractionStep,
+        currentStep: prev.isCompleted ? 1 : prev.currentStep,
+        isCompleted: false,
+        completedSteps: prev.isCompleted ? [] : prev.completedSteps,
+        skippedSteps: prev.isCompleted ? [] : prev.skippedSteps,
+        totalTimeSpent: newTotalTime,
+        stepStartTime: timeNow
+      }
+      
+      logDemoAction('OPEN_DEMO', { fromStep: prev.currentStep, totalTime: newTotalTime }, newState)
+      
+      return newState
+    })
+  }, [logDemoAction])
+
+  const startDemo = useCallback(() => {
+    logDemoAction('START_DEMO_MANUAL')
+    openDemo()
+  }, [openDemo, logDemoAction])
+
+  const closeDemo = useCallback(() => {
+    setState(prev => {
+      if (!prev.isOpen) return prev; // Already closed
+      
+      const timeNow = Date.now()
+      const stepDuration = (timeNow - prev.stepStartTime) / 1000
+      const newTotalTimeSpent = prev.totalTimeSpent + stepDuration
+
+      const newState = { 
+        ...prev, 
+        isOpen: false, 
+        isDemoModalVisible: false,
+        interactionStep: 'idle' as DemoInteractionStep,
+        totalTimeSpent: newTotalTimeSpent 
+      }
+      
+      logDemoAction('CLOSE_DEMO', { atStep: prev.currentStep, totalTime: newTotalTimeSpent }, newState)
+      
+      // Persist final time on close
+      saveDemoProgress({ 
+        lastStepReached: prev.currentStep,
+        totalTimeSpent: newTotalTimeSpent
+      })
+      
+      return newState
+    })
+  }, [saveDemoProgress, logDemoAction])
+
+  const hideDemoModal = useCallback(() => {
+    setState(prev => {
+      if (!prev.isDemoModalVisible) return prev;
+      logDemoAction('HIDE_DEMO_MODAL', { atStep: prev.currentStep });
+      return { ...prev, isDemoModalVisible: false };
+    });
+  }, [logDemoAction]);
+
+  const showDemoModal = useCallback(() => {
+    setState(prev => {
+      if (prev.isDemoModalVisible) return prev;
+      logDemoAction('SHOW_DEMO_MODAL', { atStep: prev.currentStep });
+      return { ...prev, isDemoModalVisible: true };
+    });
+  }, [logDemoAction]);
+
+  const setInteractionStep = useCallback((step: DemoInteractionStep) => {
+    setState(prev => {
+      logDemoAction('SET_INTERACTION_STEP', { interactionStep: step, atStep: prev.currentStep });
+      return { ...prev, interactionStep: step };
+    });
+  }, [logDemoAction]);
+
+  const nextStep = useCallback(() => {
+    setState(prev => {
+      if (!prev.canGoForward || prev.currentStep >= prev.totalSteps) return prev
+
+      const timeNow = Date.now()
+      const stepDuration = (timeNow - prev.stepStartTime) / 1000
+      const newTotalTimeSpent = prev.totalTimeSpent + stepDuration
+      const newStep = (prev.currentStep + 1) as DemoStep
+
+      const newCompletedSteps = [...prev.completedSteps]
+      if (!newCompletedSteps.includes(prev.currentStep)) {
+        newCompletedSteps.push(prev.currentStep)
+      }
+
+      const newState = {
+        ...prev,
+        currentStep: newStep,
+        canGoBack: true,
+        canGoForward: newStep < prev.totalSteps,
+        completedSteps: newCompletedSteps,
+        stepStartTime: timeNow,
+        totalTimeSpent: newTotalTimeSpent,
+        interactionStep: 'idle' as DemoInteractionStep,
+        isDemoModalVisible: true,
+      }
+      
+      logDemoAction('NEXT_STEP', { from: prev.currentStep, to: newStep, totalTime: newTotalTimeSpent }, newState)
+      
+      saveDemoProgress({
+        lastStepReached: newStep,
+        completedSteps: newCompletedSteps,
+        totalTimeSpent: newTotalTimeSpent
+      })
+      
+      return newState
+    })
+  }, [saveDemoProgress, logDemoAction])
+
+  const previousStep = useCallback(() => {
+    setState(prev => {
+      if (!prev.canGoBack)
+        return prev
+
+      const timeNow = Date.now()
+      const stepDuration = (timeNow - prev.stepStartTime) / 1000
+      const newTotalTimeSpent = prev.totalTimeSpent + stepDuration
+      const newStep = (prev.currentStep - 1) as DemoStep
+
+      const newState = {
+        ...prev,
+        currentStep: newStep,
+        canGoBack: newStep > 1,
+        canGoForward: true,
+        stepStartTime: timeNow,
+        totalTimeSpent: newTotalTimeSpent,
+        interactionStep: 'idle' as DemoInteractionStep,
+        isDemoModalVisible: true,
+      }
+      
+      logDemoAction('PREVIOUS_STEP', { from: prev.currentStep, to: newStep, totalTime: newTotalTimeSpent }, newState)
+      
+      saveDemoProgress({
+        lastStepReached: newStep,
+        totalTimeSpent: newTotalTimeSpent
+      })
+
+      return newState
+    })
+  }, [saveDemoProgress, logDemoAction])
+
+  const goToStep = useCallback((step: DemoStep) => {
+    setState(prev => {
+      if (step === prev.currentStep) return prev
+
+      const timeNow = Date.now()
+      const stepDuration = (timeNow - prev.stepStartTime) / 1000
+      const newTotalTimeSpent = prev.totalTimeSpent + stepDuration
+      
+      const newCompletedSteps = [...prev.completedSteps]
+      if (!newCompletedSteps.includes(prev.currentStep)) {
+        newCompletedSteps.push(prev.currentStep)
+      }
+
+      const newState = {
+        ...prev,
+        currentStep: step,
+        canGoBack: step > 1,
+        canGoForward: step < prev.totalSteps,
+        completedSteps: newCompletedSteps,
+        stepStartTime: timeNow,
+        totalTimeSpent: newTotalTimeSpent,
+        interactionStep: 'idle' as DemoInteractionStep,
+        isDemoModalVisible: true,
+      }
+      
+      logDemoAction('GOTO_STEP', { from: prev.currentStep, to: step, totalTime: newTotalTimeSpent }, newState)
+      
+      saveDemoProgress({
+        lastStepReached: step,
+        completedSteps: newCompletedSteps,
+        totalTimeSpent: newTotalTimeSpent
+      })
+
+      return newState
+    })
+  }, [saveDemoProgress, logDemoAction])
+
+  const skipStep = useCallback(() => {
+    setState(prev => {
+      const newSkippedSteps = [...prev.skippedSteps]
+      if (!newSkippedSteps.includes(prev.currentStep)) {
+        newSkippedSteps.push(prev.currentStep)
+      }
+      logDemoAction('SKIP_STEP', { step: prev.currentStep, skipped: newSkippedSteps })
+      
+      if (prev.currentStep >= prev.totalSteps) {
+        // If on the last step, skipping completes the demo
+        const isDemoNowCompleted = true
+        saveDemoProgress({
+          isCompleted: isDemoNowCompleted,
+          completedSteps: prev.completedSteps,
+          skipCount: newSkippedSteps.length
+        })
+        return { ...prev, isOpen: false, isDemoModalVisible: false, isCompleted: isDemoNowCompleted, skippedSteps: newSkippedSteps }
+      }
+      
+      // Otherwise, just go to the next step
+      nextStep()
+      // The state update will be handled by nextStep, but we need to pass the skipped steps
+      return { ...prev, skippedSteps: newSkippedSteps }
+    })
+  }, [nextStep, logDemoAction, saveDemoProgress])
+
+  const skipDemo = useCallback(() => {
+    setState(prev => {
+      logDemoAction('SKIP_DEMO', { fromStep: prev.currentStep })
+      
+      const isDemoNowCompleted = true
+      const newSkippedSteps = [...prev.skippedSteps]
+      for (let i = prev.currentStep; i <= prev.totalSteps; i++) {
+        if (!newSkippedSteps.includes(i)) {
+          newSkippedSteps.push(i)
+        }
+      }
+
+      saveDemoProgress({ 
+        isCompleted: isDemoNowCompleted,
+        skipCount: newSkippedSteps.length
+      })
+      
+      return { ...prev, isOpen: false, isDemoModalVisible: false, isCompleted: isDemoNowCompleted, skippedSteps: newSkippedSteps }
+    })
+  }, [saveDemoProgress, logDemoAction])
+
+  const completeStep = useCallback((step: DemoStep) => {
+    setState(prev => {
+      const newCompletedSteps = [...prev.completedSteps]
+      if (!newCompletedSteps.includes(step)) {
+        newCompletedSteps.push(step)
+      }
+      logDemoAction('COMPLETE_STEP', { step, completed: newCompletedSteps })
+      saveDemoProgress({ completedSteps: newCompletedSteps })
+      return { ...prev, completedSteps: newCompletedSteps }
+    })
+  }, [logDemoAction, saveDemoProgress])
+
+  const completDemo = useCallback(() => {
+    setState(prev => {
+      logDemoAction('COMPLETE_DEMO', { fromStep: prev.currentStep })
+      const isDemoNowCompleted = true
+      const newCompletedSteps = [...prev.completedSteps]
+      if (!newCompletedSteps.includes(prev.currentStep)) {
+        newCompletedSteps.push(prev.currentStep)
+      }
+      
+      saveDemoProgress({
+        isCompleted: isDemoNowCompleted,
+        completedSteps: newCompletedSteps
+      })
+      
+      return { ...prev, isOpen: false, isDemoModalVisible: false, isCompleted: isDemoNowCompleted, completedSteps: newCompletedSteps }
+    })
+  }, [saveDemoProgress, logDemoAction])
+  
+  const resetDemo = useCallback(() => {
+    const resetState = {
+      isOpen: true,
+      isDemoModalVisible: true,
+      interactionStep: 'idle' as DemoInteractionStep,
+      currentStep: 1 as DemoStep,
+      totalSteps: 8 as const,
+      isCompleted: false,
+      canGoBack: false,
+      canGoForward: true,
+      completedSteps: [],
+      skippedSteps: [],
+      stepStartTime: Date.now(),
+      totalTimeSpent: 0
+    }
+    setState(resetState)
+    logDemoAction('RESET_DEMO')
+    saveDemoProgress({
+      isCompleted: false,
+      completedSteps: [],
+      skipCount: 0,
+      lastStepReached: 1,
+      totalTimeSpent: 0
+    })
+  }, [saveDemoProgress, logDemoAction])
 
   /**
    * Load demo progress from Firebase and localStorage
@@ -236,358 +579,54 @@ export function useDemoTour() {
   }, [user?.uid, logDemoAction])
 
   /**
-   * Save demo progress to Firebase and localStorage
+   * Automatically trigger demo for new users or based on query param
    */
-  const saveDemoProgress = useCallback(async (progressData: Partial<DemoProgress>) => {
-    if (!user?.uid) return
-
-    try {
-      logDemoAction('SAVE_PROGRESS_START', progressData)
-
-      // Save to localStorage immediately for offline support
-      const localData = { ...state, ...progressData }
-      localStorage.setItem(`demoProgress_${user.uid}`, JSON.stringify(localData))
-
-      // Save to Firebase for persistence
-      const demoProgress: DemoProgress = {
-        hasSeenDemo: true,
-        completedSteps: state.completedSteps,
-        lastStepReached: state.currentStep,
-        skipCount: state.skippedSteps.length,
-        isCompleted: state.isCompleted,
-        firstStartedAt: startTimeRef.current,
-        totalTimeSpent: state.totalTimeSpent + (Date.now() - state.stepStartTime),
-        ...progressData
-      }
-
-      await userService.updateUserProfile(user.uid, { demoProgress })
-      console.log('✅ Demo progress saved successfully:', demoProgress)
-      logDemoAction('SAVE_PROGRESS_SUCCESS', demoProgress)
-    } catch (error) {
-      console.error('❌ Error saving demo progress:', error)
-      logDemoAction('SAVE_PROGRESS_ERROR', { error: error instanceof Error ? error.message : 'Unknown error' })
-    }
-  }, [user?.uid, state, logDemoAction])
-
-  /**
-   * Check if user should see demo (first-time user detection)
-   * ONLY auto-shows for truly new users who have never seen the demo
-   */
-  const shouldShowDemo = useCallback(async (): Promise<boolean> => {
-    if (!user?.uid) return false
-
-    try {
-      const userProfile = await userService.getUserProfile(user.uid)
-      const demoProgress = userProfile?.demoProgress
-      
-      // Only show demo for truly new users who have NEVER seen the demo
-      // Once a user has seen the demo (completed OR skipped), they must manually trigger it
-      const shouldShow = !demoProgress?.hasSeenDemo && !demoProgress?.isCompleted
-      
-      logDemoAction('SHOULD_SHOW_DEMO_CHECK', { 
-        shouldShow, 
-        hasSeenDemo: demoProgress?.hasSeenDemo,
-        isCompleted: demoProgress?.isCompleted,
-        skipCount: demoProgress?.skipCount,
-        reasoning: shouldShow ? 'New user - never seen demo' : 'Existing user - manual trigger required'
-      })
-      
-      return shouldShow
-    } catch (error) {
-      console.error('❌ Error checking if should show demo:', error)
-      logDemoAction('SHOULD_SHOW_DEMO_ERROR', { error: error instanceof Error ? error.message : 'Unknown error' })
-      return false
-    }
-  }, [user?.uid, logDemoAction])
-
-  // Load progress when user changes
   useEffect(() => {
-    if (user?.uid) {
-      loadDemoProgress()
+    const shouldAutoTrigger = new URLSearchParams(window.location.search).get('demo') === 'true'
+    if (shouldAutoTrigger && !state.isOpen) {
+      logDemoAction('AUTO_TRIGGER_DEMO', { reason: 'query_param' })
+      openDemo()
     }
-  }, [user?.uid, loadDemoProgress])
+  }, [state.isOpen, openDemo, logDemoAction])
 
-  /**
-   * Demo tour actions implementation
-   */
-  const actions: DemoTourActions = {
-    openDemo: useCallback(() => {
-      logDemoAction('OPEN_DEMO')
-      setState(prev => ({ 
-        ...prev, 
-        isOpen: true, 
-        stepStartTime: Date.now() 
-      }))
-      saveDemoProgress({ hasSeenDemo: true, firstStartedAt: Date.now() })
-    }, [logDemoAction, saveDemoProgress]),
+  // Effect to load progress when user is available
+  useEffect(() => {
+    loadDemoProgress()
+  }, [loadDemoProgress])
+  
+  // New user detection logic
+  const isNewUser = user?.metadata.creationTime === user?.metadata.lastSignInTime;
 
-    startDemo: useCallback(() => {
-      logDemoAction('START_DEMO_MANUAL', { triggeredBy: 'user_button' })
-      setState(prev => ({ 
-        ...prev, 
-        isOpen: true, 
-        currentStep: 1,
-        isCompleted: false, // Reset completion status for manual restart
-        stepStartTime: Date.now(),
-        canGoBack: false,
-        canGoForward: true,
-        completedSteps: [],
-        skippedSteps: [],
-        totalTimeSpent: 0 // Reset timer for fresh start
-      }))
-      saveDemoProgress({ 
-        hasSeenDemo: true, 
-        isCompleted: false, // Reset completion status for manual restart
-        firstStartedAt: Date.now(),
-        lastStepReached: 1,
-        completedSteps: [],
-        skipCount: 0 // Reset skip count for manual start
-      })
-    }, [logDemoAction, saveDemoProgress]),
+  // Effect to auto-trigger demo for new users
+  useEffect(() => {
+    if (user?.uid && isNewUser && !state.isOpen) {
+      const timer = setTimeout(() => {
+        logDemoAction('AUTO_TRIGGER_DEMO', { userId: user.uid, isNewUser })
+        openDemo()
+      }, 3000) // 3-second delay
 
-    closeDemo: useCallback(() => {
-      setState(prev => {
-        logDemoAction('CLOSE_DEMO', { 
-          timeSpentOnStep: Date.now() - prev.stepStartTime,
-          currentStep: prev.currentStep 
-        })
-        
-        return { 
-          ...prev, 
-          isOpen: false,
-          totalTimeSpent: prev.totalTimeSpent + (Date.now() - prev.stepStartTime)
-        }
-      })
-    }, [logDemoAction]),
+      return () => clearTimeout(timer)
+    }
+  }, [user, isNewUser, state.isOpen, openDemo, logDemoAction])
 
-    nextStep: useCallback(() => {
-      setState(prev => {
-        if (prev.currentStep < prev.totalSteps) {
-          const nextStep = (prev.currentStep + 1) as DemoStep
-          const timeSpent = Date.now() - prev.stepStartTime
-          
-          logDemoAction('NEXT_STEP', { 
-            fromStep: prev.currentStep, 
-            toStep: nextStep,
-            timeSpentOnStep: timeSpent 
-          })
-          
-          // Save progress with current state
-          saveDemoProgress({ 
-            lastStepReached: Math.max(prev.currentStep, nextStep),
-            totalTimeSpent: prev.totalTimeSpent + timeSpent
-          })
-          
-          return {
-            ...prev,
-            currentStep: nextStep,
-            canGoBack: nextStep > 1,
-            canGoForward: nextStep < prev.totalSteps,
-            stepStartTime: Date.now(),
-            totalTimeSpent: prev.totalTimeSpent + timeSpent
-          }
-        }
-        return prev
-      })
-    }, [logDemoAction, saveDemoProgress]),
 
-    previousStep: useCallback(() => {
-      setState(prev => {
-        if (prev.currentStep > 1) {
-          const prevStep = (prev.currentStep - 1) as DemoStep
-          const timeSpent = Date.now() - prev.stepStartTime
-          
-          logDemoAction('PREVIOUS_STEP', { 
-            fromStep: prev.currentStep, 
-            toStep: prevStep,
-            timeSpentOnStep: timeSpent 
-          })
-          
-          return {
-            ...prev,
-            currentStep: prevStep,
-            canGoBack: prevStep > 1,
-            canGoForward: true,
-            stepStartTime: Date.now(),
-            totalTimeSpent: prev.totalTimeSpent + timeSpent
-          }
-        }
-        return prev
-      })
-    }, [logDemoAction]),
-
-    goToStep: useCallback((step: DemoStep) => {
-      setState(prev => {
-        const timeSpent = Date.now() - prev.stepStartTime
-        
-        logDemoAction('GO_TO_STEP', { 
-          fromStep: prev.currentStep, 
-          toStep: step,
-          timeSpentOnStep: timeSpent 
-        })
-        
-        // Save progress with current state
-        saveDemoProgress({ 
-          lastStepReached: Math.max(prev.currentStep, step),
-          totalTimeSpent: prev.totalTimeSpent + timeSpent
-        })
-        
-        return {
-          ...prev,
-          currentStep: step,
-          canGoBack: step > 1,
-          canGoForward: step < prev.totalSteps,
-          stepStartTime: Date.now(),
-          totalTimeSpent: prev.totalTimeSpent + timeSpent
-        }
-      })
-    }, [logDemoAction, saveDemoProgress]),
-
-    skipStep: useCallback(() => {
-      setState(prev => {
-        const timeSpent = Date.now() - prev.stepStartTime
-        
-        logDemoAction('SKIP_STEP', { 
-          skippedStep: prev.currentStep,
-          timeSpentOnStep: timeSpent 
-        })
-        
-        // Auto-advance to next step if not on last step
-        if (prev.currentStep < prev.totalSteps) {
-          const nextStep = (prev.currentStep + 1) as DemoStep
-          
-          // Save progress with updated state
-          saveDemoProgress({ 
-            lastStepReached: Math.max(prev.currentStep, nextStep),
-            totalTimeSpent: prev.totalTimeSpent + timeSpent
-          })
-          
-          return {
-            ...prev,
-            skippedSteps: [...prev.skippedSteps, prev.currentStep],
-            currentStep: nextStep,
-            canGoBack: nextStep > 1,
-            canGoForward: nextStep < prev.totalSteps,
-            stepStartTime: Date.now(),
-            totalTimeSpent: prev.totalTimeSpent + timeSpent
-          }
-        } else {
-          // If on last step, just mark as skipped without advancing
-          return {
-            ...prev,
-            skippedSteps: [...prev.skippedSteps, prev.currentStep],
-            totalTimeSpent: prev.totalTimeSpent + timeSpent
-          }
-        }
-      })
-    }, [logDemoAction, saveDemoProgress]),
-
-    skipDemo: useCallback(() => {
-      const timeSpent = Date.now() - state.stepStartTime
-      
-      logDemoAction('SKIP_DEMO', { 
-        currentStep: state.currentStep,
-        completedSteps: state.completedSteps,
-        totalTimeSpent: state.totalTimeSpent + timeSpent
-      })
-      
-      setState(prev => ({ 
-        ...prev, 
-        isOpen: false,
-        totalTimeSpent: prev.totalTimeSpent + timeSpent
-      }))
-      
-      // Mark demo as seen and skipped so it doesn't show again
-      saveDemoProgress({ 
-        hasSeenDemo: true,
-        isCompleted: true, // Mark as completed to prevent re-showing
-        skipCount: (state.skippedSteps.length + 1),
-        totalTimeSpent: state.totalTimeSpent + timeSpent,
-        completionDate: Date.now() // Mark when it was skipped
-      })
-    }, [state, logDemoAction, saveDemoProgress]),
-
-    completeStep: useCallback(() => {
-      if (!state.completedSteps.includes(state.currentStep)) {
-        const timeSpent = Date.now() - state.stepStartTime
-        
-        logDemoAction('COMPLETE_STEP', { 
-          completedStep: state.currentStep,
-          timeSpentOnStep: timeSpent 
-        })
-        
-        setState(prev => ({
-          ...prev,
-          completedSteps: [...prev.completedSteps, state.currentStep],
-          totalTimeSpent: prev.totalTimeSpent + timeSpent
-        }))
-        
-        saveDemoProgress({ 
-          completedSteps: [...state.completedSteps, state.currentStep],
-          totalTimeSpent: state.totalTimeSpent + timeSpent
-        })
-      }
-    }, [state, logDemoAction, saveDemoProgress]),
-
-    completDemo: useCallback(() => {
-      const timeSpent = Date.now() - state.stepStartTime
-      
-      logDemoAction('COMPLETE_DEMO', { 
-        completedSteps: state.completedSteps,
-        skippedSteps: state.skippedSteps,
-        totalTimeSpent: state.totalTimeSpent + timeSpent
-      })
-      
-      setState(prev => ({ 
-        ...prev, 
-        isCompleted: true, 
-        isOpen: false,
-        totalTimeSpent: prev.totalTimeSpent + timeSpent
-      }))
-      
-      saveDemoProgress({ 
-        isCompleted: true,
-        completionDate: Date.now(),
-        totalTimeSpent: state.totalTimeSpent + timeSpent
-      })
-    }, [state, logDemoAction, saveDemoProgress]),
-
-    resetDemo: useCallback(() => {
-      logDemoAction('RESET_DEMO')
-      
-      setState({
-        isOpen: false,
-        currentStep: 1,
-        totalSteps: 8,
-        isCompleted: false,
-        canGoBack: false,
-        canGoForward: true,
-        completedSteps: [],
-        skippedSteps: [],
-        stepStartTime: Date.now(),
-        totalTimeSpent: 0
-      })
-      
-      if (user?.uid) {
-        localStorage.removeItem(`demoProgress_${user.uid}`)
-        saveDemoProgress({ 
-          hasSeenDemo: false,
-          completedSteps: [],
-          lastStepReached: 1,
-          skipCount: 0,
-          isCompleted: false,
-          totalTimeSpent: 0
-        })
-      }
-    }, [user?.uid, logDemoAction, saveDemoProgress])
-  }
-
-  return {
-    state,
-    actions,
-    isLoading,
+  return { 
+    ...state,
+    isLoading, 
     error,
-    shouldShowDemo,
-    DEMO_SAMPLE_DATA
+    openDemo,
+    startDemo,
+    closeDemo,
+    hideDemoModal,
+    showDemoModal,
+    setInteractionStep,
+    nextStep,
+    previousStep,
+    goToStep,
+    skipStep,
+    skipDemo,
+    completeStep,
+    completDemo,
+    resetDemo 
   }
 } 

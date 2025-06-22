@@ -131,6 +131,50 @@ export function useDocuments() {
     [user?.uid],
   )
 
+  const createDemoDocument = useCallback(
+    (title: string, content: string) => {
+      console.log('[useDocuments] Creating new DEMO document:', title);
+      
+      const now = Timestamp.now();
+      const demoDocId = `demo_${now.toMillis()}`;
+      
+      const newDoc: Document = {
+        id: demoDocId,
+        title,
+        content,
+        ownerId: 'demo-user', // Mock owner
+        orgId: 'demo-org',
+        status: 'draft',
+        sharedWith: [],
+        isPublic: false,
+        publicViewMode: 'view',
+        workflowState: {
+          currentStatus: 'draft',
+          submittedForReview: false,
+          reviewedBy: [],
+        },
+        analysisSummary: {
+          overallScore: 85, // Mock data
+          brandAlignmentScore: 90,
+          lastAnalyzedAt: now,
+          suggestionCount: 5,
+        },
+        lastSaved: now,
+        wordCount: content.split(' ').length,
+        characterCount: content.length,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      setOwnedDocuments((prev: Document[]) => [newDoc, ...prev]);
+      lastSavedContentRef.current[demoDocId] = content;
+
+      console.log('[useDocuments] Demo document created locally with ID:', demoDocId);
+      return demoDocId; // Return ID to set as active
+    },
+    [],
+  );
+
   const updateDocument = useCallback(
     async (documentId: string, updates: Partial<Document>): Promise<boolean> => {
       if (!user?.uid) {
@@ -331,6 +375,7 @@ export function useDocuments() {
     
     // Actions
     createDocument,
+    createDemoDocument,
     updateDocument,
     deleteDocument,
     restoreDocumentVersion,

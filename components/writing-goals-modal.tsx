@@ -29,6 +29,7 @@ interface WritingGoalsModalProps {
   onClose: () => void
   currentGoals: WritingGoals
   onSave: (goals: WritingGoals, title?: string) => void
+  onSaveDemo?: (goals: WritingGoals, title: string) => void
   showOnNewDocument: boolean
   onShowOnNewDocumentChange: (show: boolean) => void
   isNewDocument?: boolean
@@ -40,13 +41,14 @@ export function WritingGoalsModal({
   onClose,
   currentGoals,
   onSave,
+  onSaveDemo,
   showOnNewDocument,
   onShowOnNewDocumentChange,
   isNewDocument = false,
   initialTitle = 'Untitled Document',
 }: WritingGoalsModalProps) {
   const { user } = useAuth()
-  const { state: demoState } = useDemoTourContext()
+  const demoTour = useDemoTourContext()
   console.log('[WritingGoalsModal] Rendering modal:', {
     isOpen,
     isNewDocument,
@@ -58,14 +60,17 @@ export function WritingGoalsModal({
 
   // Demo mode detection
   const isDemoMode = !user && window.location.search.includes('demo=true')
-  const isDemoStep1 = demoState.isOpen && demoState.currentStep === 1
+  const isInteractiveDemoStep = isDemoMode && demoTour.currentStep === 1 && (
+    demoTour.interactionStep === 'highlightNewDocument' || 
+    demoTour.interactionStep === 'openWritingGoalsModal'
+  );
 
   console.log('[WritingGoalsModal] Demo state:', {
     isDemoMode,
-    isDemoStep1,
+    isInteractiveDemoStep,
     userExists: !!user,
-    demoOpen: demoState.isOpen,
-    currentStep: demoState.currentStep
+    demoOpen: demoTour.isOpen,
+    currentStep: demoTour.currentStep
   })
 
   const handleGoalChange = (section: keyof WritingGoals, value: string) => {
@@ -87,14 +92,28 @@ export function WritingGoalsModal({
       goals,
       title: isNewDocument ? documentTitle : undefined,
       isNewDocument,
+      isInteractiveDemoStep,
     })
     
-    if (isNewDocument) {
-      onSave(goals, documentTitle.trim() || 'Untitled Document')
+    if (isInteractiveDemoStep && onSaveDemo) {
+      console.log('[WritingGoalsModal] Saving DEMO document');
+      onSaveDemo(goals, documentTitle.trim() || 'Untitled Document');
+      // Complete Step 1 and advance to Step 2
+      demoTour.completeStep(1);
+      demoTour.setInteractionStep('idle');
+      setTimeout(() => {
+        demoTour.showDemoModal();
+        demoTour.nextStep();
+      }, 1000);
+      onClose();
     } else {
-      onSave(goals)
+      if (isNewDocument) {
+        onSave(goals, documentTitle.trim() || 'Untitled Document')
+      } else {
+        onSave(goals)
+      }
+      onClose()
     }
-    onClose()
   }
 
   const handleReset = () => {
@@ -116,7 +135,7 @@ export function WritingGoalsModal({
 
   // Auto-populate with sample data in demo mode for Step 1
   useEffect(() => {
-    if (isDemoMode && isDemoStep1 && isOpen) {
+    if (isInteractiveDemoStep && isOpen) {
       console.log('[WritingGoalsModal] Demo Step 1 detected - auto-populating with sample data')
       
       // Set sample writing goals
@@ -130,7 +149,7 @@ export function WritingGoalsModal({
         sampleTitle: DEMO_SAMPLE_DATA.sampleDocumentTitle
       })
     }
-  }, [isDemoMode, isDemoStep1, isOpen])
+  }, [isInteractiveDemoStep, isOpen])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -141,14 +160,14 @@ export function WritingGoalsModal({
               <Target className="h-4 w-4 text-primary" />
             </div>
             {isNewDocument ? 'Create New Document' : 'Set Writing Goals'}
-            {isDemoMode && isDemoStep1 && (
+            {isInteractiveDemoStep && (
               <Badge variant="secondary" className="ml-2">
                 Demo Mode
               </Badge>
             )}
           </DialogTitle>
           <DialogDescription>
-            {isDemoMode && isDemoStep1 ? (
+            {isInteractiveDemoStep ? (
               'This demo shows how to set writing goals with sample data. In real use, customize these settings for your specific needs.'
             ) : isNewDocument ? (
               'Set your document title and writing goals to get started with AI-powered assistance.'
