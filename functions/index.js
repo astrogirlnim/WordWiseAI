@@ -298,10 +298,11 @@ exports.healthCheck = onRequest(
     },
 );
 
-// PHASE 1: checkGrammar function removed - Harper.js migration
-// This function has been removed as part of Phase 1 of the Harper.js grammar migration.
+// PHASE 8: checkGrammar function completely removed - Harper.js migration completed
+// The checkGrammar cloud function has been permanently removed as part of the Harper.js migration.
+// Grammar checking now happens entirely client-side using Harper.js WASM engine.
+// This eliminates cloud function costs and improves user privacy.
 // Legacy AI/Cloud Function grammar checking is no longer supported.
-// TODO (Phase 2): This space will be used for Harper.js integration if needed.
 
 exports.analyzeTone = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
   if (!openai) {
