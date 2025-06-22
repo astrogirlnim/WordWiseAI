@@ -1,6 +1,7 @@
 import type React from 'react'
 import type { Metadata } from 'next'
 import { AuthProvider } from '@/lib/auth-context'
+import { DemoTourProvider } from '@/lib/demo-tour-context'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import './globals.css'
@@ -27,7 +28,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <DemoTourProvider>
+              {children}
+            </DemoTourProvider>
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>

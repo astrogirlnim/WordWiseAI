@@ -133,6 +133,9 @@ export function useDemoTour() {
   const { user } = useAuth()
   const startTimeRef = useRef<number>(Date.now())
   
+  // Debug: Log hook instantiation (only once now that we use context)
+  // console.log('🔍 [useDemoTour] Hook instantiated for user:', user?.uid || 'anonymous')
+  
   // Core demo state
   const [state, setState] = useState<DemoTourState>({
     isOpen: false,

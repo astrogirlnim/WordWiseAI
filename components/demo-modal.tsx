@@ -38,7 +38,8 @@ import {
   Edit,
   FileText
 } from 'lucide-react'
-import { useDemoTour, type DemoStep } from '@/hooks/use-demo-tour'
+import { useDemoTourContext } from '@/lib/demo-tour-context'
+import { type DemoStep } from '@/hooks/use-demo-tour'
 import { cn } from '@/lib/utils'
 
 /**
@@ -629,7 +630,7 @@ function StepIndicator({
  * Main Demo Modal Component
  */
 export function DemoModal() {
-  const { state, actions, shouldShowDemo } = useDemoTour()
+  const { state, actions, shouldShowDemo } = useDemoTourContext()
   const { user } = useAuth()
   const router = useRouter()
   const [isAnimating, setIsAnimating] = useState(false)
@@ -643,8 +644,14 @@ export function DemoModal() {
 
   // Additional debugging for modal visibility
   useEffect(() => {
-    console.log('🎯 [DemoModal] State changed - isOpen:', state.isOpen, 'currentStep:', state.currentStep)
-  }, [state.isOpen, state.currentStep])
+    console.log('🎯 [DemoModal] State changed:', {
+      isOpen: state.isOpen,
+      currentStep: state.currentStep,
+      isCompleted: state.isCompleted,
+      canGoBack: state.canGoBack,
+      canGoForward: state.canGoForward
+    })
+  }, [state.isOpen, state.currentStep, state.isCompleted])
 
   // Handle demo trigger from URL parameters and auto-trigger for new users
   useEffect(() => {
@@ -653,7 +660,7 @@ export function DemoModal() {
       const demoParam = urlParams.get('demo')
       
       // Priority 1: URL parameter demo request - always start fresh
-      if (demoParam === 'true' && !state.isOpen && !state.isCompleted) {
+      if (demoParam === 'true' && !state.isOpen) {
         console.log('🎯 [DemoModal] URL demo parameter detected - starting demo fresh')
         setTimeout(() => {
           actions.startDemo()
@@ -661,7 +668,7 @@ export function DemoModal() {
         return
       }
       
-      // Priority 2: Auto-trigger for new users (only if authenticated) - always start fresh
+      // Priority 2: Auto-trigger for new users (only if authenticated and not completed)
       if (user && !state.isOpen && !state.isCompleted) {
         try {
           console.log('🔍 [DemoModal] Checking if new user should see demo...', {
@@ -686,7 +693,7 @@ export function DemoModal() {
     }
     
     checkAndTriggerDemo()
-     }, [user, state.isOpen, state.isCompleted, actions, shouldShowDemo]) // Depend on user auth state
+  }, [user, state.isOpen, state.isCompleted, shouldShowDemo]) // Removed actions dependency to prevent multiple calls
 
   // Current step data
   const currentStepData = DEMO_STEPS.find(step => step.id === state.currentStep) || DEMO_STEPS[0]
