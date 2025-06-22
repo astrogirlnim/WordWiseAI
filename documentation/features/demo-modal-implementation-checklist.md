@@ -174,6 +174,7 @@
     - [ ] Add "Paste Sample Sales Funnel" button (auto-fill editor).
     - [ ] Tooltip for markdown/sales funnel tips.
 
+
 ### ✅ Phase 4, Step 3: Grammar Suggestions & Markdown Preview - IN PROGRESS
 - [ ] Step 3: Grammar Suggestions & Markdown Preview
     - [ ] Highlight grammar suggestions (tooltip/pointer).
