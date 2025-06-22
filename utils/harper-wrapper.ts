@@ -116,7 +116,7 @@ async function initializeHarper(): Promise<void> {
       console.log('[HarperWrapper] CDN_FIX: Loading Harper.js from unpkg CDN...');
       
       // CDN_FIX: Use unpkg CDN for reliable loading (matches Harper.js documentation)
-      const harperCdnUrl = 'https://unpkg.com/harper.js@0.44.0/dist/harper.js';
+      const harperCdnUrl = 'https://unpkg.com/harper.js@latest/dist/harper.js';
       
       // Dynamic import from CDN
       const harperModuleImport = await import(/* webpackIgnore: true */ harperCdnUrl);
