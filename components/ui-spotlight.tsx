@@ -204,22 +204,31 @@ export function UISpotlight({
 
   const SpotlightOverlay = () => (
     <div 
-      className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-300"
-      style={{ backdropFilter: 'blur(2px)' }}
+      className="fixed inset-0 z-50 transition-opacity duration-300"
       onClick={onDismiss}
     >
-      {/* Spotlight cutout */}
+      {/* Background overlay with mask to exclude spotlight area */}
       <div 
-        className="absolute rounded-lg border-4 border-primary shadow-2xl transition-all duration-300"
+        className="absolute inset-0 bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          WebkitMask: `radial-gradient(ellipse ${(targetRect.width + 16) / 2}px ${(targetRect.height + 16) / 2}px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px, transparent 100%, black 100%)`,
+          mask: `radial-gradient(ellipse ${(targetRect.width + 16) / 2}px ${(targetRect.height + 16) / 2}px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px, transparent 100%, black 100%)`
+        }}
+      />
+      
+      {/* Spotlight border and glow effect */}
+      <div 
+        className="absolute rounded-lg transition-all duration-300 pointer-events-none"
         style={{
           left: targetRect.left - 8,
           top: targetRect.top - 8,
           width: targetRect.width + 16,
           height: targetRect.height + 16,
+          border: '4px solid rgb(var(--primary))',
           boxShadow: `
-            0 0 0 9999px rgba(0, 0, 0, 0.5),
             0 0 20px 4px rgb(var(--primary) / 0.8),
-            inset 0 0 0 4px rgb(var(--primary))
+            inset 0 0 0 2px rgb(var(--primary) / 0.3)
           `,
           animation: 'pulse 2s ease-in-out infinite'
         }}

@@ -240,39 +240,69 @@ export function DocumentContainer() {
       }
     }
 
-    // --- Step 2 Logic ---
+    // --- Step 2 Logic: Simplified Flow ---
     if (currentStep === 2) {
       if (interactionStep === 'pasteContent') {
-        console.log('🎯 [DocumentContainer] Demo mode step 2: pasting sample content');
+        console.log('🎯 [DocumentContainer] Demo mode step 2: pasting content and highlighting editor');
+        
+        // First, check if we have an active document and editor area
+        const editorArea = document.querySelector('[data-editor-area]');
+        const hasActiveDocument = !!activeDocumentId && !!activeDocument;
+        
+        if (!hasActiveDocument) {
+          console.warn('🎯 [DocumentContainer] No active document for Step 2, waiting...');
+          // Wait a bit and try again - the document from Step 1 should be loading
+          setTimeout(() => {
+            if (activeDocumentId && activeDocument) {
+              console.log('🎯 [DocumentContainer] Document now available, retrying content paste');
+              demoTour.setInteractionStep('pasteContent'); // Retry
+            } else {
+              console.error('🎯 [DocumentContainer] Document still not available, skipping Step 2');
+              demoTour.setInteractionStep('showContentAdded');
+              demoTour.showDemoModal();
+            }
+          }, 1000);
+          return;
+        }
+        
+        if (!editorArea) {
+          console.warn('🎯 [DocumentContainer] Editor area not yet available, waiting...');
+          // Wait for editor to render
+          setTimeout(() => {
+            const retryEditorArea = document.querySelector('[data-editor-area]');
+            if (retryEditorArea) {
+              console.log('🎯 [DocumentContainer] Editor area now available, pasting content');
+              demoTour.setInteractionStep('pasteContent'); // Retry
+            } else {
+              console.error('🎯 [DocumentContainer] Editor area still not available, skipping Step 2');
+              demoTour.setInteractionStep('showContentAdded');
+              demoTour.showDemoModal();
+            }
+          }, 1000);
+          return;
+        }
+
+        console.log('🎯 [DocumentContainer] Editor ready, pasting sample content');
         updateContentSafely.page(DEMO_SAMPLE_DATA.sampleDocument, 'demo-tour-step-2')
           .then(() => {
             console.log('🎯 [DocumentContainer] Sample content pasted successfully');
-            // After pasting content, highlight the markdown preview button
+            // After pasting content, immediately highlight the editor with "Got it" button
             setTimeout(() => {
-              console.log('🎯 [DocumentContainer] Transitioning to markdown preview highlight');
-              demoTour.setInteractionStep('highlightMarkdownPreview');
-            }, 1000); // Give a moment for content to be visible
+              console.log('🎯 [DocumentContainer] Showing editor spotlight with content');
+              setDemoSpotlightTarget('[data-editor-area]');
+              setDemoSpotlightContent({
+                title: 'Content Added!',
+                description: 'Perfect! We\'ve added sample sales funnel content to show you how the editor works. You can see the rich text formatting and how content flows naturally.',
+                actionText: 'Got It!'
+              });
+              setDemoSpotlightActive(true);
+            }, 800); // Give time for content to render and be visible
           })
           .catch(error => {
             console.error('🎯 [DocumentContainer] Error pasting sample content:', error);
+            demoTour.setInteractionStep('showContentAdded');
             demoTour.showDemoModal(); // Show modal again if it fails
           });
-      } else if (interactionStep === 'highlightMarkdownPreview') {
-        console.log('🎯 [DocumentContainer] Demo mode step 2: highlighting markdown preview button');
-        const markdownPreviewButton = document.querySelector('[data-markdown-preview-button]');
-        if (markdownPreviewButton) {
-          setDemoSpotlightTarget('[data-markdown-preview-button]');
-          setDemoSpotlightContent({
-            title: 'Markdown Preview',
-            description: 'See how your content looks formatted! Click here to toggle between editing and preview modes.',
-            actionText: 'Open Preview'
-          });
-          setDemoSpotlightActive(true);
-        } else {
-          console.warn('🎯 [DocumentContainer] Markdown preview button not found, completing step');
-          demoTour.setInteractionStep('showContentAdded');
-          demoTour.showDemoModal();
-        }
       } else if (interactionStep === 'highlightEditor') {
         console.log('🎯 [DocumentContainer] Auth user step 2: highlighting editor');
         const editorArea = document.querySelector('[data-editor-area]');
@@ -293,61 +323,102 @@ export function DocumentContainer() {
     }
   }, [demoTour.interactionStep, demoTour.currentStep, demoSpotlightActive, user])
 
+  // Automatic demo document creation for Step 2 if no document exists
+  useEffect(() => {
+    const { currentStep, isOpen } = demoTour;
+    const userType = !user ? 'demo_mode' : 'authenticated_user';
+    
+    // Only run for Step 2 when demo is open
+    if (!isOpen || currentStep !== 2) return;
+    
+    // Check if we need to create a document for Step 2
+    const hasActiveDocument = !!activeDocumentId;
+    
+    if (!hasActiveDocument) {
+      console.log('🎯 [DocumentContainer] Step 2 entered without active document - auto-creating demo document');
+      
+      if (userType === 'demo_mode') {
+        // For demo mode, create a demo document automatically
+        console.log('🎯 [DocumentContainer] Creating demo document for Step 2');
+        const newDocId = createDemoDocument(
+          DEMO_SAMPLE_DATA.sampleDocumentTitle,
+          DEMO_SAMPLE_DATA.sampleDocument
+        );
+        if (newDocId) {
+          setActiveDocumentId(newDocId);
+          console.log('🎯 [DocumentContainer] Demo document auto-created for Step 2:', newDocId);
+        }
+      } else {
+        // For authenticated users, create a real document
+        console.log('🎯 [DocumentContainer] Creating real document for authenticated user in Step 2');
+        setIsCreatingNewDocument(true);
+        setNewDocumentTitle('Demo Tour Document');
+        setIsGoalsModalOpen(true);
+      }
+    } else {
+      console.log('🎯 [DocumentContainer] Step 2 has active document:', activeDocumentId);
+    }
+  }, [demoTour.currentStep, demoTour.isOpen, activeDocumentId, user, createDemoDocument, setActiveDocumentId, setIsCreatingNewDocument, setNewDocumentTitle, setIsGoalsModalOpen])
+
   // Handle demo spotlight actions
   const handleDemoSpotlightAction = useCallback(() => {
     const { interactionStep, currentStep } = demoTour;
-    console.log(`🎯 [DocumentContainer] Spotlight action for step: ${interactionStep}`);
+    console.log(`🎯 [DocumentContainer] Spotlight action for step: ${interactionStep} at current step ${currentStep}`);
 
+    // Always hide the spotlight first
     setDemoSpotlightActive(false);
-    demoTour.setInteractionStep('idle');
-    demoTour.showDemoModal();
-
+    
+    // --- Step 1 Completion ---
     if (currentStep === 1) {
       if (interactionStep === 'showCreatedDocument') {
+          // This is for the "Document Created!" modal spotlight. Just advance.
           demoTour.nextStep();
       } else if (interactionStep === 'highlightWritingGoals') {
-          console.log('🎯 [DocumentContainer] User clicked spotlight action for Writing Goals')
+          console.log('🎯 [DocumentContainer] User clicked spotlight action for Writing Goals');
           
-          const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
+          const writingGoalsButton = document.querySelector('[data-writing-goals-button]');
           
           if (writingGoalsButton) {
-            console.log('🎯 [DocumentContainer] Opening Writing Goals modal for existing document')
+            console.log('🎯 [DocumentContainer] Opening Writing Goals modal for existing document');
             setIsGoalsModalOpen(true);
           } else {
-            console.log('🎯 [DocumentContainer] Starting new document creation flow via spotlight')
+            console.log('🎯 [DocumentContainer] Starting new document creation flow via spotlight');
             if (user?.uid) {
-              console.log('🎯 [DocumentContainer] Setting up new document creation state')
-              setIsCreatingNewDocument(true)
-              setNewDocumentTitle('Untitled Document')
-              setIsGoalsModalOpen(true)
+              console.log('🎯 [DocumentContainer] Setting up new document creation state');
+              setIsCreatingNewDocument(true);
+              setNewDocumentTitle('Untitled Document');
+              setIsGoalsModalOpen(true);
             } else {
-              console.warn('🎯 [DocumentContainer] No user available for new document creation')
+              console.warn('🎯 [DocumentContainer] No user available for new document creation');
             }
           }
+          // After action, show modal and advance
+          demoTour.showDemoModal();
           setTimeout(() => {
-            console.log('🎯 [DocumentContainer] Completing demo step 1 after action')
+            console.log('🎯 [DocumentContainer] Completing demo step 1 after action');
             demoTour.completeStep(1);
             demoTour.nextStep();
           }, 1000);
       }
+    // --- Step 2 Completion ---
     } else if (currentStep === 2) {
-      if (interactionStep === 'highlightEditor') {
-        console.log('🎯 [DocumentContainer] Completing demo step 2 after editor highlight');
-        demoTour.completeStep(2);
-        demoTour.nextStep();
-      } else if (interactionStep === 'highlightMarkdownPreview') {
-        console.log('🎯 [DocumentContainer] User interacted with markdown preview - completing step 2');
-        // Set the demo as completed and advance to step 3
-        demoTour.setInteractionStep('showContentAdded');
+       if (interactionStep === 'highlightEditor' || interactionStep === 'pasteContent') {
+        console.log('🎯 [DocumentContainer] User clicked "Got It!" on Step 2 editor spotlight - completing step');
+        
+        // Show the modal again, then advance to the next step
         demoTour.showDemoModal();
+        
         setTimeout(() => {
-          console.log('🎯 [DocumentContainer] Auto-advancing to Step 3 after markdown preview');
+          console.log('🎯 [DocumentContainer] Auto-advancing to Step 3 after editor interaction');
           demoTour.completeStep(2);
           demoTour.nextStep();
-        }, 1500);
+        }, 500); // Shorter delay now that modal is visible
       }
+    } else {
+      // Default behavior if no specific logic: show modal
+      demoTour.showDemoModal();
     }
-  }, [demoTour, user?.uid])
+  }, [demoTour, user?.uid]);
 
   const handleDemoSpotlightDismiss = useCallback(() => {
     console.log('🎯 [DocumentContainer] Demo spotlight dismissed by user')
@@ -740,7 +811,7 @@ export function DocumentContainer() {
             </div>
           )}
           
-          {activeDocument && initialDocument && user?.uid ? (
+          {activeDocument && initialDocument && (user?.uid || activeDocument.id?.startsWith('demo_')) ? (
             <div data-editor-area>
               <DocumentEditor
                 key={activeDocumentId}
@@ -838,6 +909,7 @@ export function DocumentContainer() {
         actionText={demoSpotlightContent.actionText}
         onAction={handleDemoSpotlightAction}
         onDismiss={handleDemoSpotlightDismiss}
+        position="right"
       />
     </div>
   )

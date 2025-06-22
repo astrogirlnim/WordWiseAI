@@ -224,10 +224,15 @@ const StepContent = {
     const handleAction = () => {
       console.log('🎯 [Demo Step 2] Start Writing action triggered for user type:', userType)
       setIsLoading(true);
+      
+      // Hide the demo modal immediately to show the editor
+      console.log('🎯 [Demo Step 2] Hiding demo modal to show editor')
+      demoTour.hideDemoModal();
+      
+      // Trigger the interactive step action
       demoTour.handleInteractiveStepAction(2);
 
-      // For authenticated users, the spotlight will be shown.
-      // We can turn off the loading state after a short delay.
+      // For authenticated users, the spotlight will be shown after a short delay
       if (userType === 'authenticated_user') {
         console.log('🎯 [Demo Step 2] Authenticated user - will highlight editor after delay')
         setTimeout(() => {
@@ -235,7 +240,8 @@ const StepContent = {
           setIsLoading(false)
         }, 1500);
       } else {
-        console.log('🎯 [Demo Step 2] Demo mode - will simulate content paste')
+        console.log('🎯 [Demo Step 2] Demo mode - will simulate content paste and show editor')
+        // Loading state will be cleared when content is pasted and spotlight shows
       }
     };
 
@@ -974,7 +980,7 @@ export function DemoModal() {
   }
 
   return (
-    <Dialog open={demoTour.isOpen} onOpenChange={(open) => !open && handleSkipDemo()}>
+    <Dialog open={demoTour.isOpen && demoTour.isDemoModalVisible} onOpenChange={(open) => !open && handleSkipDemo()}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0"
         aria-describedby="demo-modal-description"
