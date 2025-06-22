@@ -328,6 +328,13 @@ export function DocumentEditor({
         contentCoordinatorRef.current.bindToEditor(editor)
       }
       
+      // Expose editor globally for debugging and demo fallback
+      if (typeof window !== 'undefined') {
+        // @ts-expect-error - Intentionally adding to window for debugging and demo support
+        window.documentEditor = editor;
+        console.log('[DocumentEditor] Editor exposed globally for debugging and demo support');
+      }
+      
       // CRITICAL FIX: Let debounced grammar checking handle initial check
       // Don't call checkGrammarImmediately here as it bypasses debouncing
     },
@@ -413,6 +420,8 @@ export function DocumentEditor({
     console.log('[DocumentEditor] Suggestion keys:', Object.keys(suggestion || {}));
     console.log('[DocumentEditor] Has positioning in suggestion:', !!suggestion?.positioning);
     console.log('[DocumentEditor] Positioning details:', suggestion?.positioning);
+    console.log('[DocumentEditor] Suggestion type:', suggestion?.type);
+    console.log('[DocumentEditor] Suggestion ID:', suggestion?.id);
     
     // Prevent repeated application by checking if already applied
     if (suggestion.status === 'applied') {
@@ -1073,6 +1082,7 @@ export function DocumentEditor({
   console.log('[DocumentEditor] Phase 2: Initializing markdown preview with plain text length:', editorPlainText.length)
   const {
     isPreviewOpen,
+    setIsPreviewOpen,
     previewContent,
     isMarkdownDetected,
     togglePreview,
@@ -1080,6 +1090,19 @@ export function DocumentEditor({
     editorPlainText, // Use plain text instead of HTML
     contentCoordinatorRef // Phase 2: Add coordinator reference
   )
+
+  // Auto-open markdown preview during demo tour
+  useEffect(() => {
+    // Check if we're in demo mode (URL param or demo document)
+    const urlParams = new URLSearchParams(window.location.search)
+    const isDemoMode = urlParams.get('demo') === 'true' || documentId?.startsWith('demo_')
+    
+    // Auto-open markdown preview if we're in demo mode and have markdown content
+    if (isDemoMode && isMarkdownDetected && !isPreviewOpen) {
+      console.log('[DocumentEditor] Demo mode detected with markdown content - auto-opening preview')
+      setIsPreviewOpen(true)
+    }
+  }, [documentId, isMarkdownDetected, isPreviewOpen, setIsPreviewOpen])
 
   console.log('[DocumentEditor] Markdown preview state:', {
     isPreviewOpen,

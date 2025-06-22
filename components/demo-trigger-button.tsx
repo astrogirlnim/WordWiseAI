@@ -4,7 +4,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Play, Sparkles } from 'lucide-react'
-import { useDemoTourContext } from '@/lib/demo-tour-context'
+import { useRouter } from 'next/navigation'
 
 interface DemoTriggerButtonProps {
   variant?: 'default' | 'outline' | 'ghost' | 'secondary'
@@ -34,11 +34,11 @@ export function DemoTriggerButton({
   showTooltip = true,
   className = ''
 }: DemoTriggerButtonProps) {
-  const demoTour = useDemoTourContext()
+  const router = useRouter()
 
   const handleStartDemo = () => {
-    console.log('🎯 [DemoTriggerButton] Manual demo start triggered')
-    demoTour.startDemo()
+    console.log('🎯 [DemoTriggerButton] Redirecting to demo page')
+    router.push('/demo')
   }
 
   const buttonContent = (

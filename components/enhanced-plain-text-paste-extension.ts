@@ -189,11 +189,14 @@ function sanitizeExtractedText(
   
   // Clean up whitespace
   if (options.preserveLineBreaks) {
-    // Preserve line breaks but clean up excessive whitespace
+    // Better preserve paragraph structure with double line breaks
     processedText = processedText
-      .replace(/[ \t]+/g, ' ')        // Collapse spaces and tabs
-      .replace(/\n\s*/g, '\n')        // Clean up line breaks
-      .replace(/\n{3,}/g, '\n\n');    // Limit consecutive line breaks
+      .replace(/\r\n/g, '\n')          // Normalize Windows line endings
+      .replace(/\r/g, '\n')            // Normalize old Mac line endings
+      .replace(/[ \t]+/g, ' ')         // Collapse spaces and tabs
+      .replace(/\n[ \t]*/g, '\n')      // Remove spaces/tabs after line breaks
+      .replace(/\n{3,}/g, '\n\n')      // Limit to double line breaks for paragraphs
+      .trim();                         // Remove leading/trailing whitespace
   } else {
     // Convert everything to single-line text
     processedText = processedText

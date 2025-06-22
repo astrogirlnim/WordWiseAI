@@ -1,36 +1,46 @@
 # Demo Modal User Flows - Testing Guide
 
 ## Overview
-This document outlines the testing procedures for the demo modal functionality across different user types and scenarios. The demo modal should provide a guided tour of WordWise AI features while respecting user preferences and ensuring optimal UX.
+This document outlines the testing procedures for the simplified demo modal functionality. The demo modal provides a guided tour of WordWise AI features through a dedicated demo page accessible to all users.
 
-## ✅ Testing Status: PHASE 4, STEPS 1-2 COMPLETE & VERIFIED
+## ✅ Testing Status: SIMPLIFIED SINGLE-FLOW IMPLEMENTATION
 **Test Date**: 2025-01-28  
 **Environment**: Local development with Firebase integration  
-**Status**: Phase 4, Steps 1-2 fully implemented, tested, and verified ✅  
-**Bug Fixes**: UI spotlight functionality fixed, user type detection standardized, enhanced logging added  
+**Status**: Simplified to single demo-only flow ✅  
+**Architecture**: All users access demo via `/demo` page redirect  
 
 ## Test Environment Setup
 
 ### Prerequisites
 - Firebase emulators running (`pnpm emulators:start`)
 - Development server running (`pnpm dev`)
-- Clean browser session (clear localStorage/cookies between user flow tests)
 - Developer console open to monitor logging
 
-### Test Users
-- **Anonymous User**: Not signed in (demo mode)
-- **New User**: First-time signup (authenticated user flow)
-- **Existing User**: Previously signed up (authenticated user flow)
+### Simplified Test Flow
+- **All Users**: Everyone gets the same demo experience via `/demo` page
+- **No User Type Complexity**: Eliminated anonymous vs authenticated branching
+- **Single Entry Point**: "Try Demo" buttons redirect to dedicated demo page
 
-## 🔄 User Flow 1: Anonymous User (Demo Mode) - PHASE 4, STEP 1 TESTING
+## 🔄 Simplified Demo Flow Testing - ALL USERS
 
 ### Test Steps
 
-#### Basic Demo Access
+#### Demo Access from Sign-In Page
 1. Navigate to sign-in page (`/sign-in`)
 2. Click "🚀 Try Demo - No Account Required" button
-3. Verify redirect to `/?demo=true`
-4. Verify demo modal opens to Step 1 with "Document Creation & Goals" title
+3. Verify redirect to `/demo`
+4. Verify demo modal opens automatically to Step 1 with "Document Creation & Goals" title
+
+#### Demo Access from Main App (Authenticated Users)
+1. Sign in to main app
+2. Click "Try Demo" button in navigation bar
+3. Verify redirect to `/demo`
+4. Verify demo modal opens automatically to Step 1
+
+#### Demo Access via Direct URL
+1. Navigate directly to `/demo`
+2. Verify demo modal opens automatically to Step 1
+3. Verify demo environment loads properly
 
 #### Phase 4, Step 1 - Demo Mode Verification
 5. **User Type Detection**: 

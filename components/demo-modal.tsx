@@ -84,9 +84,8 @@ const StepContent = {
     const demoTour = useDemoTourContext()
     const [isLoading, setIsLoading] = useState(false)
 
-    const userType = !user && window.location.search.includes('demo=true')
-      ? 'demo_mode'
-      : 'authenticated_user';
+    // Simplified demo mode - all users get demo experience
+const userType = 'demo_mode';
 
     const handleAction = () => {
       setIsLoading(true);
@@ -200,7 +199,8 @@ const StepContent = {
     const [isComplete, setIsComplete] = useState(false)
 
     // Consistent user type detection: demo mode only for anonymous users
-    const userType = !user ? 'demo_mode' : 'authenticated_user'
+    // Simplified demo mode - all users get demo experience  
+  const userType = 'demo_mode'
 
     // Enhanced logging for Step 2
     useEffect(() => {
@@ -232,17 +232,9 @@ const StepContent = {
       // Trigger the interactive step action
       demoTour.handleInteractiveStepAction(2);
 
-      // For authenticated users, the spotlight will be shown after a short delay
-      if (userType === 'authenticated_user') {
-        console.log('🎯 [Demo Step 2] Authenticated user - will highlight editor after delay')
-        setTimeout(() => {
-          console.log('🎯 [Demo Step 2] Clearing loading state for authenticated user')
-          setIsLoading(false)
-        }, 1500);
-      } else {
-        console.log('🎯 [Demo Step 2] Demo mode - will simulate content paste and show editor')
-        // Loading state will be cleared when content is pasted and spotlight shows
-      }
+      // Demo mode - will simulate content paste and show editor
+      console.log('🎯 [Demo Step 2] Demo mode - will simulate content paste and show editor')
+      // Loading state will be cleared when content is pasted and spotlight shows
     };
 
     return (
@@ -261,36 +253,20 @@ const StepContent = {
           </div>
         </div>
 
-        {/* User Type Specific Instructions */}
-        {userType === 'demo_mode' ? (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
-            <div className="flex items-start gap-3">
-              <Play className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-              <div>
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  Demo Mode Active
-                </p>
-                <p className="mt-1 text-xs text-blue-700 dark:text-blue-200">
-                  We&apos;ll add sample content to the editor, then show you the markdown preview feature.
-                </p>
-              </div>
+        {/* Demo Mode Instructions */}
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+          <div className="flex items-start gap-3">
+            <Play className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                Demo Mode Active
+              </p>
+              <p className="mt-1 text-xs text-blue-700 dark:text-blue-200">
+                We&apos;ll add sample content to the editor, then show you the markdown preview feature.
+              </p>
             </div>
           </div>
-        ) : (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
-            <div className="flex items-start gap-3">
-              <Eye className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-              <div>
-                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  Guided Tour
-                </p>
-                <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
-                  We&apos;ll highlight the editor area and show you the markdown preview features.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         <div className="space-y-3">
           <h5 className="font-medium">Editor features:</h5>
@@ -321,7 +297,7 @@ const StepContent = {
             {isLoading ? (
               <>
                 <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-transparent border-t-white" />
-                {userType === 'demo_mode' ? 'Adding Sample Content...' : 'Highlighting Editor...'}
+                Adding Sample Content...
               </>
             ) : isComplete ? (
               <>

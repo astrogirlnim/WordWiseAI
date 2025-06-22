@@ -60,17 +60,15 @@ export default function SignInPage() {
   }
 
   /**
-   * Handle demo button click - starts demo tour for guest users
+   * Handle demo button click - redirects to dedicated demo page
    * This allows users to explore WordWise AI features without creating an account
    */
   const handleTryDemo = async () => {
-    console.log('🎯 Try Demo clicked from sign-in page')
+    console.log('🎯 Try Demo clicked from sign-in page - redirecting to demo page')
     try {
-      // For demo, we'll create a temporary guest session or redirect to demo
-      // For now, redirect to main app and auto-trigger demo
-      router.push('/?demo=true')
+      router.push('/demo')
     } catch (error) {
-      console.error('❌ Error starting demo:', error)
+      console.error('❌ Error redirecting to demo:', error)
       setError('Failed to start demo. Please try again.')
     }
   }

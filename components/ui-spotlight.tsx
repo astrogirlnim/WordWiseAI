@@ -207,13 +207,51 @@ export function UISpotlight({
       className="fixed inset-0 z-50 transition-opacity duration-300"
       onClick={onDismiss}
     >
-      {/* Background overlay with mask to exclude spotlight area */}
+      {/* Top overlay */}
       <div 
-        className="absolute inset-0 bg-black/50"
+        className="absolute bg-black/50"
         style={{ 
           backdropFilter: 'blur(2px)',
-          WebkitMask: `radial-gradient(ellipse ${(targetRect.width + 16) / 2}px ${(targetRect.height + 16) / 2}px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px, transparent 100%, black 100%)`,
-          mask: `radial-gradient(ellipse ${(targetRect.width + 16) / 2}px ${(targetRect.height + 16) / 2}px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px, transparent 100%, black 100%)`
+          left: 0,
+          top: 0,
+          right: 0,
+          bottom: `${window.innerHeight - (targetRect.top - 8)}px`
+        }}
+      />
+      
+      {/* Bottom overlay */}
+      <div 
+        className="absolute bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          left: 0,
+          top: `${targetRect.bottom + 8}px`,
+          right: 0,
+          bottom: 0
+        }}
+      />
+      
+      {/* Left overlay */}
+      <div 
+        className="absolute bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          left: 0,
+          top: `${targetRect.top - 8}px`,
+          width: `${targetRect.left - 8}px`,
+          height: `${targetRect.height + 16}px`
+        }}
+      />
+      
+      {/* Right overlay */}
+      <div 
+        className="absolute bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          left: `${targetRect.right + 8}px`,
+          top: `${targetRect.top - 8}px`,
+          right: 0,
+          height: `${targetRect.height + 16}px`
         }}
       />
       

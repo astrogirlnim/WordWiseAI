@@ -220,9 +220,16 @@ export class EditorContentCoordinator {
         return true;
       }
 
+      // Special handling for markdown content in demo mode
+      let processedContent = update.content;
+      if (update.source === 'demo-tour-step-2' && typeof update.content === 'string') {
+        processedContent = this.processMarkdownContent(update.content);
+        console.log('[EditorContentCoordinator] Processed markdown content for demo, length:', processedContent.length);
+      }
+
       // Apply the update with appropriate parameters
       const shouldEmitUpdate = update.type === 'user';
-      this.editor.commands.setContent(update.content, shouldEmitUpdate);
+      this.editor.commands.setContent(processedContent, shouldEmitUpdate);
 
       // Handle React state updates through coordinator
       if (update.metadata?.onStateUpdate && typeof update.metadata.onStateUpdate === 'function') {
@@ -288,6 +295,61 @@ export class EditorContentCoordinator {
     if (this.options.enableLogging && beforeLength !== this.updateQueue.length) {
       console.log(`[EditorContentCoordinator] Cleared ${beforeLength - this.updateQueue.length} lower priority updates`);
     }
+  }
+
+  /**
+   * Process markdown content to preserve formatting and spacing
+   */
+  private processMarkdownContent(markdownText: string): string {
+    console.log('[EditorContentCoordinator] Processing markdown content for proper spacing');
+    
+    // Convert markdown to HTML while preserving line breaks and structure
+    const lines = markdownText.split('\n');
+    const htmlLines: string[] = [];
+    let inCodeBlock = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Handle code blocks
+      if (line.startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+        htmlLines.push(inCodeBlock ? '<pre><code>' : '</code></pre>');
+        continue;
+      }
+      
+      if (inCodeBlock) {
+        htmlLines.push(line);
+        continue;
+      }
+      
+      // Handle headers
+      if (line.startsWith('# ')) {
+        htmlLines.push(`<h1>${line.substring(2)}</h1>`);
+      } else if (line.startsWith('## ')) {
+        htmlLines.push(`<h2>${line.substring(3)}</h2>`);
+      } else if (line.startsWith('### ')) {
+        htmlLines.push(`<h3>${line.substring(4)}</h3>`);
+      } else if (line.startsWith('#### ')) {
+        htmlLines.push(`<h4>${line.substring(5)}</h4>`);
+      } else if (line.trim() === '') {
+        // Preserve empty lines as paragraph breaks
+        htmlLines.push('<br>');
+      } else {
+        // Regular text - convert bold/italic markdown
+        let processedLine = line
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')  // Bold
+          .replace(/\*([^*]+)\*/g, '<em>$1</em>')              // Italic
+          .replace(/`([^`]+)`/g, '<code>$1</code>');           // Inline code
+        
+        htmlLines.push(`<p>${processedLine}</p>`);
+      }
+    }
+    
+    const result = htmlLines.join('');
+    console.log('[EditorContentCoordinator] Converted markdown to HTML, first 200 chars:', result.substring(0, 200));
+    
+    return result;
   }
 
   /**

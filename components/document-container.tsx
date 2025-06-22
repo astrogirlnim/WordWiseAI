@@ -160,19 +160,17 @@ export function DocumentContainer() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isDistractionFree])
 
-  // New interactive demo tour logic
+  // Simplified demo tour logic - all users get demo mode experience
   useEffect(() => {
     const { interactionStep, currentStep } = demoTour
 
-    const userType = !user ? 'demo_mode' : 'authenticated_user';
-    
     // Reset spotlight if not in an interactive step
     if (interactionStep === 'idle') {
       if (demoSpotlightActive) setDemoSpotlightActive(false);
       return;
     }
     
-    console.log(`🎯 [DocumentContainer] Handling interaction step: ${interactionStep} for step ${currentStep}`);
+    console.log(`🎯 [DocumentContainer] Handling demo interaction step: ${interactionStep} for step ${currentStep}`);
 
     // --- Step 1 Logic ---
     if (currentStep === 1) {
@@ -184,7 +182,7 @@ export function DocumentContainer() {
         
         setDemoSpotlightTarget(targetSelector)
         setDemoSpotlightContent({
-          title: userType === 'demo_mode' ? 'Start Your Demo Document' : 'Create a New Document',
+          title: 'Start Your Demo Document',
           description: 'Click here to begin. You can set specific writing goals for our AI to follow.',
         })
         setDemoSpotlightActive(true)
@@ -282,21 +280,80 @@ export function DocumentContainer() {
           return;
         }
 
-        console.log('🎯 [DocumentContainer] Editor ready, pasting sample content');
-        updateContentSafely.page(DEMO_SAMPLE_DATA.sampleDocument, 'demo-tour-step-2')
-          .then(() => {
-            console.log('🎯 [DocumentContainer] Sample content pasted successfully');
-            // After pasting content, immediately highlight the editor with "Got it" button
-            setTimeout(() => {
-              console.log('🎯 [DocumentContainer] Showing editor spotlight with content');
-              setDemoSpotlightTarget('[data-editor-area]');
-              setDemoSpotlightContent({
-                title: 'Content Added!',
-                description: 'Perfect! We\'ve added sample sales funnel content to show you how the editor works. You can see the rich text formatting and how content flows naturally.',
-                actionText: 'Got It!'
-              });
-              setDemoSpotlightActive(true);
-            }, 800); // Give time for content to render and be visible
+        console.log('🎯 [DocumentContainer] Editor ready, pasting sample content with line break preservation');
+        
+        // CRITICAL FIX: Ensure content coordinator is bound and ready before pasting
+        const tryPasteContent = async () => {
+          try {
+            // First try using the content coordinator (preferred method)
+            const success = await updateContentSafely.page(DEMO_SAMPLE_DATA.sampleDocument, 'demo-tour-step-2');
+            
+            if (!success) {
+              console.warn('🎯 [DocumentContainer] Content coordinator failed, trying direct editor approach');
+              
+              // Fallback: Try to get the editor instance directly and set content with line break preservation
+              // @ts-expect-error - Accessing global debug reference if available
+              const editor = window.documentEditor || null;
+              
+              if (editor && !editor.isDestroyed) {
+                console.log('🎯 [DocumentContainer] Using direct editor content update with line break preservation');
+                
+                // Process the content to preserve line breaks properly
+                const processedContent = DEMO_SAMPLE_DATA.sampleDocument
+                  .replace(/\r\n/g, '\n')          // Normalize Windows line endings
+                  .replace(/\r/g, '\n')            // Normalize old Mac line endings
+                  .replace(/[ \t]+/g, ' ')         // Collapse spaces and tabs
+                  .replace(/\n[ \t]*/g, '\n')      // Remove spaces/tabs after line breaks
+                  .replace(/\n{3,}/g, '\n\n')      // Limit to double line breaks for paragraphs
+                  .trim();                         // Remove leading/trailing whitespace
+                
+                // Convert to HTML with proper paragraph breaks
+                const htmlContent = processedContent
+                  .split('\n\n')                   // Split on double line breaks (paragraphs)
+                  .filter(paragraph => paragraph.trim()) // Remove empty paragraphs
+                  .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`) // Convert single line breaks to <br> within paragraphs
+                  .join('');                       // Join paragraphs
+                
+                console.log('🎯 [DocumentContainer] Processed content preview:', htmlContent.substring(0, 200));
+                
+                // Set content directly with proper HTML structure
+                editor.commands.setContent(htmlContent, false);
+                
+                console.log('🎯 [DocumentContainer] Direct editor content update successful');
+                return true;
+              } else {
+                console.error('🎯 [DocumentContainer] No editor instance available for direct update');
+                return false;
+              }
+            }
+            
+            return success;
+          } catch (error) {
+            console.error('🎯 [DocumentContainer] Error during content paste:', error);
+            return false;
+          }
+        };
+        
+        tryPasteContent()
+          .then((success) => {
+            if (success) {
+              console.log('🎯 [DocumentContainer] Sample content pasted successfully with line breaks preserved');
+              // After pasting content, immediately highlight the editor with "Got it" button
+              setTimeout(() => {
+                console.log('🎯 [DocumentContainer] Showing editor spotlight with content');
+                setDemoSpotlightTarget('[data-editor-area]');
+                setDemoSpotlightContent({
+                  title: 'Content Added!',
+                  description: 'Perfect! We\'ve added sample sales funnel content to show you how the editor works. You can see the rich text formatting and how content flows naturally with proper paragraph breaks.',
+                  actionText: 'Got It!'
+                });
+                setDemoSpotlightActive(true);
+              }, 800); // Give time for content to render and be visible
+            } else {
+              console.error('🎯 [DocumentContainer] Failed to paste content, proceeding anyway');
+              demoTour.setInteractionStep('showContentAdded');
+              demoTour.showDemoModal(); // Show modal again if it fails
+            }
           })
           .catch(error => {
             console.error('🎯 [DocumentContainer] Error pasting sample content:', error);
@@ -326,7 +383,6 @@ export function DocumentContainer() {
   // Automatic demo document creation for Step 2 if no document exists
   useEffect(() => {
     const { currentStep, isOpen } = demoTour;
-    const userType = !user ? 'demo_mode' : 'authenticated_user';
     
     // Only run for Step 2 when demo is open
     if (!isOpen || currentStep !== 2) return;
@@ -337,28 +393,20 @@ export function DocumentContainer() {
     if (!hasActiveDocument) {
       console.log('🎯 [DocumentContainer] Step 2 entered without active document - auto-creating demo document');
       
-      if (userType === 'demo_mode') {
-        // For demo mode, create a demo document automatically
-        console.log('🎯 [DocumentContainer] Creating demo document for Step 2');
-        const newDocId = createDemoDocument(
-          DEMO_SAMPLE_DATA.sampleDocumentTitle,
-          DEMO_SAMPLE_DATA.sampleDocument
-        );
-        if (newDocId) {
-          setActiveDocumentId(newDocId);
-          console.log('🎯 [DocumentContainer] Demo document auto-created for Step 2:', newDocId);
-        }
-      } else {
-        // For authenticated users, create a real document
-        console.log('🎯 [DocumentContainer] Creating real document for authenticated user in Step 2');
-        setIsCreatingNewDocument(true);
-        setNewDocumentTitle('Demo Tour Document');
-        setIsGoalsModalOpen(true);
+      // Always create a demo document in demo mode
+      console.log('🎯 [DocumentContainer] Creating demo document for Step 2');
+      const newDocId = createDemoDocument(
+        DEMO_SAMPLE_DATA.sampleDocumentTitle,
+        DEMO_SAMPLE_DATA.sampleDocument
+      );
+      if (newDocId) {
+        setActiveDocumentId(newDocId);
+        console.log('🎯 [DocumentContainer] Demo document auto-created for Step 2:', newDocId);
       }
     } else {
       console.log('🎯 [DocumentContainer] Step 2 has active document:', activeDocumentId);
     }
-  }, [demoTour.currentStep, demoTour.isOpen, activeDocumentId, user, createDemoDocument, setActiveDocumentId, setIsCreatingNewDocument, setNewDocumentTitle, setIsGoalsModalOpen])
+  }, [demoTour.currentStep, demoTour.isOpen, activeDocumentId, createDemoDocument, setActiveDocumentId])
 
   // Handle demo spotlight actions
   const handleDemoSpotlightAction = useCallback(() => {
