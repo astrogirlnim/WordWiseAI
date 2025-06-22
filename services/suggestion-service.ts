@@ -21,13 +21,13 @@ import type { AISuggestion } from '@/types/ai-features'
 
 export class SuggestionService {
   /**
-   * Subscribe to AI suggestions for a specific document
+   * Subscribe to AI style suggestions for a specific document
    * @param documentId - The document ID to fetch suggestions for
    * @param userId - The user ID for security filtering
    * @param onUpdate - Callback function to handle suggestions updates
    * @returns Unsubscribe function
    */
-  static subscribeToSuggestions(
+  static subscribeToStyleSuggestions(
     documentId: string,
     userId: string,
     onUpdate: (suggestions: AISuggestion[]) => void
@@ -39,7 +39,7 @@ export class SuggestionService {
       suggestionsRef,
       where('userId', '==', userId),
       where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'asc')
     )
 
     return onSnapshot(q, 
@@ -73,10 +73,18 @@ export class SuggestionService {
         })
         
         console.log('[SuggestionService] Processed suggestions:', suggestions.length)
-        onUpdate(suggestions)
+        onUpdate(suggestions.reverse())
       },
       (error: FirestoreError) => {
         console.error('[SuggestionService] Error subscribing to suggestions:', error)
+        console.error('[SuggestionService] Error code:', error.code)
+        console.error('[SuggestionService] Error message:', error.message)
+        
+        if (error.code === 'failed-precondition' && error.message.includes('index')) {
+          console.error('[SuggestionService] Missing Firestore index detected. Please deploy firestore indexes.')
+          console.error('[SuggestionService] Run: firebase deploy --only firestore:indexes')
+        }
+        
         // Still call onUpdate with empty array to handle errors gracefully
         onUpdate([])
       }
@@ -264,7 +272,7 @@ export class SuggestionService {
       suggestionsRef,
       where('userId', '==', userId),
       where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'asc')
     )
     return onSnapshot(q,
       (snapshot: QuerySnapshot<DocumentData>) => {
@@ -272,6 +280,10 @@ export class SuggestionService {
         const suggestions: AISuggestion[] = []
         snapshot.forEach((doc) => {
           const data = doc.data()
+          console.log('[SuggestionService] Raw Firestore data for funnel suggestion:', doc.id, data)
+          console.log('[SuggestionService] Has positioning in Firestore data:', !!data.positioning)
+          console.log('[SuggestionService] Positioning data from Firestore:', data.positioning)
+          
           const suggestion: AISuggestion = {
             id: doc.id,
             documentId: data.documentId || documentId,
@@ -285,15 +297,28 @@ export class SuggestionService {
             confidence: data.confidence || 90,
             status: data.status || 'pending',
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
-            appliedAt: data.appliedAt instanceof Timestamp ? data.appliedAt.toMillis() : undefined
+            appliedAt: data.appliedAt instanceof Timestamp ? data.appliedAt.toMillis() : undefined,
+            // 🔥 CRITICAL FIX: Preserve positioning data from Firestore
+            ...(data.positioning && { positioning: data.positioning })
           }
+          
+          console.log('[SuggestionService] Created suggestion object with positioning:', !!suggestion.positioning)
+          console.log('[SuggestionService] Final suggestion positioning:', suggestion.positioning)
           suggestions.push(suggestion)
         })
         console.log('[SuggestionService] Processed funnel suggestions:', suggestions.length)
-        onUpdate(suggestions)
+        onUpdate(suggestions.reverse())
       },
       (error: FirestoreError) => {
         console.error('[SuggestionService] Error subscribing to funnel suggestions:', error)
+        console.error('[SuggestionService] Error code:', error.code)
+        console.error('[SuggestionService] Error message:', error.message)
+        
+        if (error.code === 'failed-precondition' && error.message.includes('index')) {
+          console.error('[SuggestionService] Missing Firestore index detected. Please deploy firestore indexes.')
+          console.error('[SuggestionService] Run: firebase deploy --only firestore:indexes')
+        }
+        
         onUpdate([])
       }
     )

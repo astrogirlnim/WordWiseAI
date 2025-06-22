@@ -15,6 +15,12 @@ export interface AISuggestion {
   status: 'pending' | 'applied' | 'dismissed'
   createdAt: number
   appliedAt?: number
+  // Optional positioning for funnel suggestions
+  positioning?: SuggestionPositioning
+  // Optional funnel-specific properties
+  targetAudience?: string
+  intent?: string
+  domain?: string
 }
 
 export interface ToneAnalysis {
@@ -49,6 +55,16 @@ export interface UserFeedback {
   createdAt: number
 }
 
+// Positioning strategy for intelligent funnel suggestion placement with character indices
+export interface SuggestionPositioning {
+  strategy: 'insert' | 'replace' | 'append'
+  startIndex: number  // Character position where action starts (0-based)
+  endIndex: number    // Character position where action ends (0-based, same as startIndex for inserts)
+  targetText: string  // Text being replaced (for validation, empty for inserts)
+  insertionPoint: string  // Human-readable description of positioning logic
+  preserveExisting: boolean  // Whether to preserve existing content
+}
+
 // New funnel-specific suggestion types
 export interface FunnelSuggestion {
   id: string
@@ -58,6 +74,14 @@ export interface FunnelSuggestion {
   title: string
   description: string
   suggestedText: string
+  originalText: string
+  // Legacy position field for backward compatibility
+  position: {
+    start: number
+    end: number
+  }
+  // New intelligent positioning structure
+  positioning?: SuggestionPositioning
   confidence: number
   status: 'pending' | 'applied' | 'dismissed'
   createdAt: number

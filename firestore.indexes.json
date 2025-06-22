@@ -5,7 +5,34 @@
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "documentId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "styleSuggestions",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "funnelSuggestions",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "funnelSuggestions",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "documentId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
     },
     {
@@ -15,13 +42,6 @@
         { "fieldPath": "documentId", "order": "ASCENDING" },
         { "fieldPath": "email", "order": "ASCENDING" },
         { "fieldPath": "isUsed", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionId": "shareTokens",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "documentId", "order": "ASCENDING" }
       ]
     }
   ],

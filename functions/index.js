@@ -1,4 +1,3 @@
- 
 /**
  * Import function triggers from their respective submodules:
  *
@@ -108,48 +107,67 @@ exports.generateSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (reque
 });
 
 exports.generateStyleSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
-  const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
-  if (!openai) {
-    logger.error("OpenAI client not initialized for generateStyleSuggestions. Check API key configuration.");
-    throw new HttpsError("internal", "Server configuration error.");
-  }
-  logger.log("generateStyleSuggestions called", {uid: request.auth?.uid});
-  const userId = request.auth?.uid;
-  if (!userId) {
-    logger.error("User not authenticated for generateStyleSuggestions");
-    throw new HttpsError("unauthenticated", "You must be logged in to use this feature.");
-  }
+  // BEGIN: Deep Auth and Payload Logging
+  logger.log("[generateStyleSuggestions] --- TOP OF FUNCTION ---");
+  logger.log("[generateStyleSuggestions] Full request.auth:", { auth: request.auth });
+  logger.log("[generateStyleSuggestions] request.auth.uid:", { uid: request.auth?.uid });
+  logger.log("[generateStyleSuggestions] request.auth.token:", { token: request.auth?.token });
+  logger.log("[generateStyleSuggestions] request.data:", { data: request.data });
+  // END: Deep Auth and Payload Logging
+  try {
+    const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
+    logger.log("[generateStyleSuggestions] Function called", {uid: request.auth?.uid, data: request.data});
+    if (!openai) {
+      logger.error("OpenAI client not initialized for generateStyleSuggestions. Check API key configuration.");
+      throw new HttpsError("internal", "Server configuration error.");
+    }
+    logger.log("generateStyleSuggestions called", {uid: request.auth?.uid});
+    logger.log("[generateStyleSuggestions] Full auth context", {
+      auth: request.auth,
+      hasAuth: !!request.auth,
+      uid: request.auth?.uid,
+      token: request.auth?.token ? 'present' : 'missing'
+    });
+    const userId = request.auth?.uid;
+    if (!userId) {
+      logger.error("User not authenticated for generateStyleSuggestions", {
+        authPresent: !!request.auth,
+        authKeys: request.auth ? Object.keys(request.auth) : 'no auth object'
+      });
+      throw new HttpsError("unauthenticated", "You must be logged in to use this feature.");
+    }
 
-  // Rate limiting logic - copied from generateSuggestions
-  const now = Date.now();
-  const userEntry = userCalls.get(userId) || {count: 0, startTime: now};
+    // Rate limiting logic - copied from generateSuggestions
+    const now = Date.now();
+    const userEntry = userCalls.get(userId) || {count: 0, startTime: now};
 
-  if (now - userEntry.startTime > rateLimit.timeframe) {
-    userEntry.startTime = now;
-    userEntry.count = 0;
-  }
+    if (now - userEntry.startTime > rateLimit.timeframe) {
+      userEntry.startTime = now;
+      userEntry.count = 0;
+    }
 
-  userEntry.count++;
-  userCalls.set(userId, userEntry);
+    userEntry.count++;
+    userCalls.set(userId, userEntry);
 
-  if (userEntry.count > rateLimit.maxCalls) {
-    logger.warn("Rate limit exceeded for generateStyleSuggestions", {userId, count: userEntry.count});
-    throw new HttpsError(
-      "resource-exhausted",
-      "Rate limit exceeded. Please try again later."
-    );
-  }
+    if (userEntry.count > rateLimit.maxCalls) {
+      logger.warn("Rate limit exceeded for generateStyleSuggestions", {userId, count: userEntry.count});
+      throw new HttpsError(
+        "resource-exhausted",
+        "Rate limit exceeded. Please try again later."
+      );
+    }
 
-  const {text, goals, documentId} = request.data;
-  if (!text || !documentId) {
-    logger.error("Invalid arguments for generateStyleSuggestions", {textExists: !!text, documentId});
-    throw new HttpsError(
-      "invalid-argument",
-      "The function must be called with 'text' and 'documentId'."
-    );
-  }
+    const {text, goals, documentId} = request.data;
+    logger.log("[generateStyleSuggestions] Payload received", {documentId, textLength: text ? text.length : 0, goals});
+    if (!text || !documentId) {
+      logger.error("Invalid arguments for generateStyleSuggestions", {textExists: !!text, documentId});
+      throw new HttpsError(
+        "invalid-argument",
+        "The function must be called with 'text' and 'documentId'."
+      );
+    }
 
-  let systemPrompt = `Act as a world-class writing assistant. Your primary task is to analyze the user's text and provide suggestions to improve its style and readability.
+    let systemPrompt = `Act as a world-class writing assistant. Your primary task is to analyze the user's text and provide suggestions to improve its style and readability.
 
 You MUST return a valid JSON object. This object must have a single key, "suggestions", which contains an array of 1 to 5 suggestion objects. If the text is perfect and no suggestions are applicable, return an empty array for the "suggestions" key.
 
@@ -166,59 +184,68 @@ Your analysis should focus exclusively on the following aspects:
 
 You MUST NOT suggest any grammatical or spelling corrections. Your focus is entirely on style and readability improvements.`;
 
-  if (goals) {
-    systemPrompt += `\n\nThe user has provided the following writing goals. Please tailor your suggestions to help the user meet these specific goals:\n${JSON.stringify(goals, null, 2)}`;
-  }
-
-  try {
-    logger.log("Calling OpenAI API for style suggestions", {userId, documentId, textLength: text.length, goals});
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {role: "system", content: systemPrompt},
-        {role: "user", content: text},
-      ],
-      response_format: {type: "json_object"},
-    });
-
-    const responseContent = completion.choices[0].message.content;
-    logger.log("OpenAI style suggestions generated", {userId, responseContent});
-
-    // The model is asked for a JSON object containing a "suggestions" array.
-    const parsedResponse = JSON.parse(responseContent);
-    const suggestionsFromAI = parsedResponse.suggestions || [];
-
-    if (suggestionsFromAI.length === 0) {
-      logger.log("No style suggestions generated by AI.", {userId, documentId});
-      return {success: true, suggestionsAdded: 0};
+    if (goals) {
+      systemPrompt += `\n\nThe user has provided the following writing goals. Please tailor your suggestions to help the user meet these specific goals:\n${JSON.stringify(goals, null, 2)}`;
     }
 
-    const batch = admin.firestore().batch();
-    const suggestionsCollection = admin.firestore().collection(`documents/${documentId}/styleSuggestions`);
+    try {
+      logger.log("[generateStyleSuggestions] Calling OpenAI API", {userId, documentId, textLength: text.length, goals});
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {role: "system", content: systemPrompt},
+          {role: "user", content: text},
+        ],
+        response_format: {type: "json_object"},
+      });
 
-    suggestionsFromAI.forEach((suggestion) => {
-      const newSuggestionRef = suggestionsCollection.doc();
-      const newSuggestion = {
-        ...suggestion,
-        id: newSuggestionRef.id,
-        documentId,
-        userId,
-        status: "pending",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        position: {start: -1, end: -1}, // Placeholder for now
-        confidence: 90, // Placeholder
-      };
-      batch.set(newSuggestionRef, newSuggestion);
-    });
+      const responseContent = completion.choices[0].message.content;
+      logger.log("[generateStyleSuggestions] OpenAI response", {userId, documentId, responseContent});
 
-    await batch.commit();
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(responseContent);
+      } catch (parseError) {
+        logger.error("[generateStyleSuggestions] Failed to parse OpenAI response as JSON", {responseContent, parseError});
+        throw new HttpsError("internal", "OpenAI did not return valid JSON.");
+      }
+      const suggestionsFromAI = parsedResponse.suggestions || [];
+      logger.log("[generateStyleSuggestions] Parsed suggestions", {count: suggestionsFromAI.length, suggestionsFromAI});
 
-    logger.log(`Added ${suggestionsFromAI.length} new style suggestions to document.`, {userId, documentId});
+      if (suggestionsFromAI.length === 0) {
+        logger.log("No style suggestions generated by AI.", {userId, documentId});
+        return {success: true, suggestionsAdded: 0};
+      }
 
-    return {success: true, suggestionsAdded: suggestionsFromAI.length};
-  } catch (error) {
-    logger.error("Error in generateStyleSuggestions function:", error, {userId, documentId});
-    throw new HttpsError("internal", "Failed to generate and save style suggestions.");
+      const batch = admin.firestore().batch();
+      const suggestionsCollection = admin.firestore().collection(`documents/${documentId}/styleSuggestions`);
+
+      suggestionsFromAI.forEach((suggestion, idx) => {
+        const newSuggestionRef = suggestionsCollection.doc();
+        const newSuggestion = {
+          ...suggestion,
+          documentId,
+          userId,
+          status: "pending",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          position: {start: -1, end: -1},
+          confidence: suggestion.confidence || 90,
+        };
+        logger.log(`[generateStyleSuggestions] Writing suggestion to Firestore`, {idx, newSuggestion});
+        batch.set(newSuggestionRef, newSuggestion);
+      });
+
+      await batch.commit();
+      logger.log(`[generateStyleSuggestions] Successfully wrote all suggestions to Firestore`, {count: suggestionsFromAI.length});
+
+      return {success: true, suggestionsAdded: suggestionsFromAI.length};
+    } catch (error) {
+      logger.error("[generateStyleSuggestions] Error in function", {fullError: error, errorMessage: error.message, stack: error.stack});
+      throw new HttpsError("internal", "Failed to generate and save style suggestions.");
+    }
+  } catch (outerError) {
+    logger.error("[generateStyleSuggestions] Top-level error before function code runs", {fullError: outerError, errorMessage: outerError.message, stack: outerError.stack});
+    throw new HttpsError("internal", "Top-level error in generateStyleSuggestions: " + outerError.message);
   }
 });
 
@@ -388,7 +415,7 @@ exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async 
     );
   }
 
-  const {documentId, goals, currentDraft} = request.data;
+  const {documentId, goals, currentDraft, documentTitle} = request.data;
   if (!documentId || !goals) {
     logger.error("Invalid arguments for generateFunnelSuggestions", {documentId, goals});
     throw new HttpsError(
@@ -398,41 +425,17 @@ exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async 
   }
 
   // Check for existing suggestions to prevent duplicates
-  try {
-    const existingSuggestionsSnapshot = await admin.firestore()
-      .collection(`documents/${documentId}/funnelSuggestions`)
-      .where('userId', '==', userId)
-      .where('status', '==', 'pending')
-      .get();
-    
-    if (!existingSuggestionsSnapshot.empty) {
-      logger.log("Found existing pending funnel suggestions, skipping generation", {
-        documentId,
-        userId,
-        existingCount: existingSuggestionsSnapshot.size
-      });
-      
-      // Return existing suggestions instead of generating new ones
-      const existingSuggestions = existingSuggestionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      return {
-        suggestions: existingSuggestions,
-        generatedAt: Date.now(),
-        basedOnGoals: true,
-        note: 'Returned existing suggestions to prevent duplicates'
-      };
-    }
-  } catch (error) {
-    logger.warn("Error checking for existing suggestions, continuing with generation", {error});
-  }
+  // Phase 1: Removed duplicate prevention logic to allow regeneration
+  // The client now handles clearing existing suggestions before calling this function
+  logger.log("Phase 1: Proceeding with funnel suggestions generation (duplicate prevention removed)", {
+    documentId,
+    userId
+  });
 
-  // Build comprehensive prompt for funnel copy suggestions with standardized output
-  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your task is to analyze the user's writing goals and current draft, then provide EXACTLY 4 specific types of funnel copy suggestions in a standardized format.
+  // Build comprehensive prompt for funnel copy suggestions with intelligent positioning
+  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your task is to analyze the existing document content and provide EXACTLY 4 strategic funnel copy suggestions with INTELLIGENT POSITIONING based on the actual content.
 
-CRITICAL: You MUST return a valid JSON object with exactly this structure. Never deviate from this format:
+CRITICAL: You MUST return a valid JSON object with exactly this structure:
 
 {
   "suggestions": [
@@ -442,7 +445,13 @@ CRITICAL: You MUST return a valid JSON object with exactly this structure. Never
       "description": "A compelling headline that captures attention and communicates core value",
       "suggestedText": "Your primary headline text here (keep under 10 words)",
       "confidence": 85,
-      "position": "document-start"
+      "positioning": {
+        "strategy": "insert|replace|append",
+        "location": "document-start|after-existing-headline|before-main-content|document-end",
+        "targetText": "specific text to replace (if strategy is 'replace')",
+        "insertionPoint": "detailed description of where to insert",
+        "preserveExisting": true|false
+      }
     },
     {
       "type": "subheadline", 
@@ -450,7 +459,13 @@ CRITICAL: You MUST return a valid JSON object with exactly this structure. Never
       "description": "A subheadline that elaborates on the main value proposition",
       "suggestedText": "Your supporting subheadline text here (1-2 sentences)",
       "confidence": 80,
-      "position": "after-headline"
+      "positioning": {
+        "strategy": "insert",
+        "location": "after-headline",
+        "targetText": "",
+        "insertionPoint": "Insert after any existing headline or at document start if no headline exists",
+        "preserveExisting": true
+      }
     },
     {
       "type": "cta",
@@ -458,20 +473,58 @@ CRITICAL: You MUST return a valid JSON object with exactly this structure. Never
       "description": "A clear, action-oriented CTA that drives the desired behavior",
       "suggestedText": "Your CTA button text here (2-4 words)",
       "confidence": 90,
-      "position": "document-end"
+      "positioning": {
+        "strategy": "append",
+        "location": "document-end",
+        "targetText": "",
+        "insertionPoint": "Add at the very end of the document as a final call to action",
+        "preserveExisting": true
+      }
     },
     {
       "type": "outline",
       "title": "Content Structure",
       "description": "A strategic content outline optimized for conversions",
-      "suggestedText": "1. Hook: Opening statement\n2. Problem: Pain point identification\n3. Solution: Your offering\n4. Benefits: Key advantages\n5. Social Proof: Testimonials/stats\n6. Call to Action: Final push",
+      "suggestedText": "1. Hook: Opening statement\\n2. Problem: Pain point identification\\n3. Solution: Your offering\\n4. Benefits: Key advantages\\n5. Social Proof: Testimonials/stats\\n6. Call to Action: Final push",
       "confidence": 75,
-      "position": "content-structure"
+      "positioning": {
+        "strategy": "insert",
+        "location": "after-headlines",
+        "targetText": "",
+        "insertionPoint": "Insert after any existing headlines but before the main body content",
+        "preserveExisting": true
+      }
     }
   ],
   "generatedAt": ${Date.now()},
-  "basedOnGoals": true
+  "basedOnGoals": true,
+  "documentAnalysis": {
+    "hasExistingHeadline": false,
+    "hasExistingCTA": false,
+    "contentLength": 0,
+    "mainContentStart": 0
+  }
 }
+
+POSITIONING STRATEGIES:
+- "insert": Add new content without removing existing content
+- "replace": Replace specific existing text with the suggestion
+- "append": Add content at the end of the document
+
+LOCATION OPTIONS:
+- "document-start": Very beginning of the document
+- "after-existing-headline": After any existing headline/title
+- "before-main-content": Before the main body content starts
+- "after-headlines": After all headline-level content
+- "document-end": At the very end of the document
+
+INTELLIGENT POSITIONING RULES:
+1. If document has existing headlines, place new headlines strategically around them
+2. If document is very long (>1000 chars), prefer insertion over replacement
+3. If document is short (<500 chars), consider strategic replacement
+4. Always preserve existing valuable content unless explicitly replacing
+5. For CTAs, check if document already has call-to-action language
+6. For outlines, place them where they provide maximum structural benefit
 
 STRICT REQUIREMENTS:
 - Always generate EXACTLY 4 suggestions with types: headline, subheadline, cta, outline
@@ -479,13 +532,16 @@ STRICT REQUIREMENTS:
 - Keep headlines under 10 words
 - Keep CTAs under 4 words
 - Make outlines specific and actionable
-- Tailor ALL content to the specific goals provided
+- Analyze the existing content to determine the best positioning strategy
+- Preserve existing content unless replacement is clearly beneficial
 
-Writing Goals Context:
+Document Context:
+- Title: ${documentTitle || 'Untitled'}
 - Target Audience: ${goals.audience || 'general audience'}
 - Formality Level: ${goals.formality || 'professional'}
 - Marketing Domain: ${goals.domain || 'general business'}
 - Primary Intent: ${goals.intent || 'inform'}
+- Document Length: ${currentDraft ? currentDraft.length : 0} characters
 
 Focus Areas Based on Goals:
 1. Headlines: Match the ${goals.formality || 'professional'} tone while appealing to ${goals.audience || 'general audience'}
@@ -493,7 +549,19 @@ Focus Areas Based on Goals:
 3. CTAs: Drive ${goals.intent || 'engagement'} behavior with appropriate urgency
 4. Outlines: Structure content to achieve ${goals.intent || 'informational'} goals
 
-${currentDraft && currentDraft.trim() ? `\nCurrent Draft Context (use this to inform suggestions):\n${currentDraft.substring(0, 1000)}${currentDraft.length > 1000 ? '...' : ''}` : '\nNo current draft provided - create suggestions from goals alone.'}`;
+DOCUMENT CONTENT ANALYSIS:
+${currentDraft && currentDraft.trim() ? 
+  `Current Document Content (${currentDraft.length} chars):
+${currentDraft.substring(0, 2000)}${currentDraft.length > 2000 ? '...[content truncated]' : ''}
+
+ANALYZE THIS CONTENT TO DETERMINE:
+1. Does it have existing headlines? Where?
+2. Does it have existing CTAs? Where?
+3. What is the main content structure?
+4. Where would funnel suggestions add the most value?
+5. What content should be preserved vs. enhanced?` 
+  : 
+  'No document body provided - create suggestions optimized for a new document with strategic positioning.'}`;
 
   try {
     logger.log("Calling OpenAI API for standardized funnel suggestions", {
@@ -541,34 +609,59 @@ ${currentDraft && currentDraft.trim() ? `\nCurrent Draft Context (use this to in
             title: "Attention-Grabbing Headline",
             description: "A compelling headline that captures attention",
             suggestedText: `Transform Your ${goals.domain || 'Business'} Today`,
-            confidence: 70
+            confidence: 70,
+            positioning: {
+              strategy: 'insert',
+              location: 'document-start',
+              targetText: '',
+              insertionPoint: 'Insert at the very beginning of the document',
+              preserveExisting: true
+            }
           },
           subheadline: {
             title: "Supporting Subheadline", 
             description: "Supporting information about your value proposition",
             suggestedText: `Discover how ${goals.audience || 'professionals'} can achieve better results with our proven approach.`,
-            confidence: 65
+            confidence: 65,
+            positioning: {
+              strategy: 'insert',
+              location: 'after-headline',
+              targetText: '',
+              insertionPoint: 'Insert after any existing headline or at document start if no headline exists',
+              preserveExisting: true
+            }
           },
           cta: {
             title: "Call to Action",
             description: "Action-oriented button text",
             suggestedText: "Get Started",
-            confidence: 80
+            confidence: 80,
+            positioning: {
+              strategy: 'append',
+              location: 'document-end',
+              targetText: '',
+              insertionPoint: 'Add at the very end of the document as a final call to action',
+              preserveExisting: true
+            }
           },
           outline: {
             title: "Content Structure",
             description: "Strategic content outline for maximum impact",
             suggestedText: "1. Hook: Opening that grabs attention\n2. Problem: Identify key challenges\n3. Solution: Present your offering\n4. Benefits: Show clear advantages\n5. Proof: Add credibility\n6. Action: Clear next steps",
-            confidence: 60
+            confidence: 60,
+            positioning: {
+              strategy: 'insert',
+              location: 'after-headlines',
+              targetText: '',
+              insertionPoint: 'Insert after any existing headlines but before the main body content',
+              preserveExisting: true
+            }
           }
         };
         
         return {
           type,
-          ...defaults[type],
-          position: type === 'headline' ? 'document-start' : 
-                   type === 'subheadline' ? 'after-headline' :
-                   type === 'cta' ? 'document-end' : 'content-structure'
+          ...defaults[type]
         };
       });
       
@@ -587,8 +680,22 @@ ${currentDraft && currentDraft.trim() ? `\nCurrent Draft Context (use this to in
       targetAudience: goals.audience || 'general',
       intent: goals.intent || 'inform',
       domain: goals.domain || 'business',
-      originalText: '', // Funnel suggestions don't replace text
-      position: suggestion.position || {
+      originalText: '', // Funnel suggestions don't replace text initially
+      // Ensure positioning structure exists, with fallback for backward compatibility
+      positioning: suggestion.positioning || {
+        strategy: 'insert',
+        location: {
+          headline: 'document-start',
+          subheadline: 'after-headline', 
+          cta: 'document-end',
+          outline: 'after-headlines'
+        }[suggestion.type] || 'document-end',
+        targetText: '',
+        insertionPoint: `Insert ${suggestion.type} at appropriate location`,
+        preserveExisting: true
+      },
+      // Keep legacy position field for backward compatibility
+      position: suggestion.position || suggestion.positioning?.location || {
         headline: 'document-start',
         subheadline: 'after-headline', 
         cta: 'document-end',

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { SuggestionService } from '@/services/suggestion-service'
 import { AIService } from '@/services/ai-service'
-import type { AISuggestion, FunnelSuggestion } from '@/types/ai-features'
+import type { AISuggestion, SuggestionPositioning } from '@/types/ai-features'
 import type { WritingGoals } from '@/types/writing-goals'
 import { useToast } from './use-toast'
 import { debounce } from 'lodash'
@@ -13,13 +13,14 @@ const AI_SUGGESTIONS_DEBOUNCE = 1000; // ms - Phase 2: 1 second debounce
 interface UseAISuggestionsOptions {
   documentId: string | null
   autoSubscribe?: boolean
-  contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
+  contentCoordinatorRef?: React.RefObject<{ getState: () => { isUserTyping: boolean; isProcessingUpdate: boolean; queueLength: number; lastUserInputTime: number; timeSinceLastInput: number } } | null> // Phase 2: Add coordinator reference with proper typing
+  currentContent?: string // Phase 1: Add current content for refresh functionality
 }
 
 interface UseAISuggestionsReturn {
   suggestions: AISuggestion[]
   styleSuggestions: AISuggestion[]
-  funnelSuggestions: FunnelSuggestion[]
+  funnelSuggestions: AISuggestion[]
   totalSuggestionsCount: number
   loading: boolean
   loadingStyleSuggestions: boolean
@@ -31,7 +32,8 @@ interface UseAISuggestionsReturn {
   batchDismissSuggestions: (suggestionIds: string[]) => Promise<void>
   reloadSuggestions: () => void
   refreshSuggestions: () => void
-  generateFunnelSuggestions: (goals: WritingGoals, content: string) => Promise<void>
+  refreshFunnelSuggestions: () => void
+  generateFunnelSuggestions: (goals: WritingGoals, content: string, documentTitle?: string) => Promise<void>
   suggestionCount: number
 }
 
@@ -43,15 +45,19 @@ interface UseAISuggestionsReturn {
 export function useAISuggestions({ 
   documentId, 
   autoSubscribe = true,
-  contentCoordinatorRef
+  contentCoordinatorRef,
+  currentContent = ''
 }: UseAISuggestionsOptions): UseAISuggestionsReturn {
   const { user } = useAuth()
   const { toast } = useToast()
   
-  const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
+  const [styleSuggestions, setStyleSuggestions] = useState<AISuggestion[]>([])
+  const [funnelSuggestions, setFunnelSuggestions] = useState<AISuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [generatingFunnelSuggestions, setGeneratingFunnelSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const suggestions: AISuggestion[] = useMemo(() => [...styleSuggestions, ...funnelSuggestions], [styleSuggestions, funnelSuggestions])
 
   console.log('[useAISuggestions] Phase 2: Hook initialized with documentId:', documentId, 'user:', user?.uid)
 
@@ -83,7 +89,8 @@ export function useAISuggestions({
         userId: !!user?.uid,
         autoSubscribe
       })
-      setSuggestions([])
+      setStyleSuggestions([])
+      setFunnelSuggestions([])
       setError(null)
       return
     }
@@ -93,36 +100,28 @@ export function useAISuggestions({
     setError(null)
 
     // Subscribe to style suggestions
-    const unsubscribeStyle = SuggestionService.subscribeToSuggestions(
+    const unsubscribeStyle = SuggestionService.subscribeToStyleSuggestions(
       documentId,
       user.uid,
       (newStyleSuggestions) => {
         console.log('[useAISuggestions] Received style suggestions update:', newStyleSuggestions.length)
-        setSuggestions(prev => {
-          // Remove old style suggestions, keep funnel
-          const funnel = prev.filter(s => s.type === 'headline' || s.type === 'subheadline' || s.type === 'cta' || s.type === 'outline')
-          return [...funnel, ...newStyleSuggestions]
-        })
+        setStyleSuggestions(newStyleSuggestions)
         setLoading(false)
         setError(null)
       }
     )
 
     // Subscribe to funnel suggestions
-    const unsubscribeFunnel = SuggestionService.subscribeToFunnelSuggestions ? SuggestionService.subscribeToFunnelSuggestions(
+    const unsubscribeFunnel = SuggestionService.subscribeToFunnelSuggestions(
       documentId,
       user.uid,
       (newFunnelSuggestions) => {
         console.log('[useAISuggestions] Received funnel suggestions update:', newFunnelSuggestions.length)
-        setSuggestions(prev => {
-          // Remove old funnel suggestions, keep style
-          const style = prev.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')
-          return [...style, ...newFunnelSuggestions]
-        })
+        setFunnelSuggestions(newFunnelSuggestions)
         setLoading(false)
         setError(null)
       }
-    ) : () => {};
+    )
 
     // Cleanup subscription on unmount or dependency change
     return () => {
@@ -134,6 +133,7 @@ export function useAISuggestions({
 
   /**
    * Apply a suggestion to the document
+   * Updated to handle AISuggestion with optional positioning data
    */
   const applySuggestion = useCallback(async (suggestion: AISuggestion) => {
     console.log('[useAISuggestions] applySuggestion called', suggestion);
@@ -293,10 +293,80 @@ export function useAISuggestions({
   }, [documentId, user?.uid])
 
   /**
+   * Phase 1: Refresh suggestions by clearing existing ones and regenerating new ones
+   */
+  const refreshSuggestionsWithClear = useCallback(async () => {
+    console.log('[useAISuggestions] Phase 1: Refresh suggestions requested for document:', documentId)
+    
+    if (!documentId || !user?.uid) {
+      console.log('[useAISuggestions] Phase 1: Cannot refresh - missing requirements')
+      toast({
+        title: 'Error',
+        description: 'Missing document or user information.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    console.log('[useAISuggestions] Phase 1: Starting suggestion refresh process')
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Phase 1: Clear existing style suggestions
+      console.log('[useAISuggestions] Phase 1: Clearing existing style suggestions')
+      await SuggestionService.clearExistingSuggestions(documentId, user.uid, 'style')
+      
+      // Phase 1: Clear existing funnel suggestions
+      console.log('[useAISuggestions] Phase 1: Clearing existing funnel suggestions')
+      await SuggestionService.clearExistingSuggestions(documentId, user.uid, 'funnel')
+      
+      // Phase 1: Wait a moment for the clear operations to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Phase 1: Generate new style suggestions with current document content
+      console.log('[useAISuggestions] Phase 1: Generating new style suggestions with content length:', currentContent.length)
+      console.log('[useAISuggestions] Phase 1: User authentication status:', {
+        isAuthenticated: !!user,
+        userId: user?.uid,
+        userEmail: user?.email
+      })
+      
+      if (currentContent.trim()) {
+        await AIService.generateStyleSuggestions(documentId, currentContent)
+        console.log('[useAISuggestions] Phase 1: Style suggestions generation triggered successfully')
+      } else {
+        console.log('[useAISuggestions] Phase 1: No content provided, skipping style suggestions generation')
+      }
+      
+      // Phase 1: Show success feedback
+      toast({
+        title: 'Suggestions Refreshed',
+        description: 'All suggestions have been cleared and new ones are being generated.',
+      })
+      
+      console.log('[useAISuggestions] Phase 1: Suggestion refresh process completed successfully')
+      
+    } catch (error) {
+      console.error('[useAISuggestions] Phase 1: Error refreshing suggestions:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to refresh suggestions: ${errorMessage}`)
+      
+      toast({
+        title: 'Error Refreshing Suggestions',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+         } finally {
+      setLoading(false)
+    }
+  }, [documentId, user?.uid, currentContent, toast])
+
+  /**
    * Internal function to generate funnel suggestions (non-debounced)
    * Phase 2: Separated internal logic from debounced wrapper
    */
-  const generateFunnelSuggestionsInternal = useCallback(async (goals: WritingGoals, content: string) => {
+  const generateFunnelSuggestionsInternal = useCallback(async (goals: WritingGoals, content: string, documentTitle?: string) => {
     if (!documentId || !user?.uid) {
       console.error('[useAISuggestions] Cannot generate funnel suggestions - missing documentId or userId')
       toast({
@@ -318,7 +388,7 @@ export function useAISuggestions({
     setError(null)
 
     try {
-      const result = await AIService.generateFunnelSuggestions(documentId, goals, content)
+      const result = await AIService.generateFunnelSuggestions(documentId, goals, content, documentTitle)
       console.log('[useAISuggestions] Phase 2: Funnel suggestions generated:', result)
       toast({
         title: 'Funnel Suggestions Generated',
@@ -344,9 +414,9 @@ export function useAISuggestions({
    * Phase 2: Implement 1 second debounce and respect typing lock
    */
   const debouncedGenerateFunnelSuggestions = useMemo(() => 
-    debounce((goals: WritingGoals, content: string) => {
+    debounce((goals: WritingGoals, content: string, documentTitle?: string) => {
       console.log('[useAISuggestions] Phase 2: Starting debounced funnel suggestions generation');
-      generateFunnelSuggestionsInternal(goals, content);
+      generateFunnelSuggestionsInternal(goals, content, documentTitle);
     }, AI_SUGGESTIONS_DEBOUNCE),
     [generateFunnelSuggestionsInternal]
   );
@@ -355,56 +425,75 @@ export function useAISuggestions({
    * Public function to generate funnel suggestions based on writing goals
    * Phase 2: Now uses debounced version
    */
-  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string) => {
+  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string, documentTitle?: string) => {
     console.log('[useAISuggestions] Phase 2: Request to generate funnel suggestions (debounced)');
-    debouncedGenerateFunnelSuggestions(goals, content);
+    debouncedGenerateFunnelSuggestions(goals, content, documentTitle);
   }, [debouncedGenerateFunnelSuggestions])
 
-  // Separate suggestions by type
-  const styleSuggestions = suggestions.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')
-  const funnelSuggestions: FunnelSuggestion[] = suggestions
-    .filter(s => s.type === 'headline' || s.type === 'subheadline' || s.type === 'cta' || s.type === 'outline')
-    .map(s => ({
-      id: s.id,
-      documentId: s.documentId,
-      userId: s.userId,
-      type: s.type as 'headline' | 'subheadline' | 'cta' | 'outline',
-      title: s.title,
-      description: s.description,
-      suggestedText: s.suggestedText,
-      confidence: s.confidence,
-      status: s.status,
-      createdAt: s.createdAt,
-      appliedAt: s.appliedAt
-    }))
-  
-  // Wrapper functions to match expected signatures
-  const applySuggestionWrapper = useCallback(async (suggestionId: string) => {
-    const suggestion = suggestions.find(s => s.id === suggestionId)
-    if (suggestion) {
-      await applySuggestion(suggestion)
-    }
-  }, [suggestions, applySuggestion])
+  /**
+   * Refresh funnel suggestions by clearing existing ones and regenerating new ones
+   */
+  const refreshFunnelSuggestionsWithClear = useCallback(async () => {
+    console.log('[useAISuggestions] Funnel Refresh: Requested for document:', documentId)
 
-  const dismissSuggestionWrapper = useCallback(async (suggestionId: string) => {
-    const suggestion = suggestions.find(s => s.id === suggestionId)
-    if (suggestion) {
-      // Pass the type so SuggestionService can use the correct collection
-      await SuggestionService.dismissSuggestion(suggestion.documentId, suggestionId, suggestion.type)
-    } else {
-      // fallback for legacy
-      await dismissSuggestion(suggestionId)
+    if (!documentId || !user?.uid) {
+      console.log('[useAISuggestions] Funnel Refresh: Cannot refresh - missing requirements')
+      toast({
+        title: 'Error',
+        description: 'Missing document or user information.',
+        variant: 'destructive',
+      })
+      return
     }
-  }, [suggestions, dismissSuggestion])
 
-  const suggestionCount = suggestions.length
+    console.log('[useAISuggestions] Funnel Refresh: Starting funnel suggestion refresh process')
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Clear existing funnel suggestions only
+      console.log('[useAISuggestions] Funnel Refresh: Clearing existing funnel suggestions')
+      await SuggestionService.clearExistingSuggestions(documentId, user.uid, 'funnel')
+
+      // Wait a moment for the clear operation to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Regenerate funnel suggestions using current writing goals and content
+      if (typeof window !== 'undefined') {
+        // Try to get writing goals and document title from global state if needed
+        // For now, we assume the sidebar will pass them as props
+      }
+      // We'll need to expose a way to pass writingGoals, currentContent, and documentTitle
+      // For now, just log a warning if not available
+      console.log('[useAISuggestions] Funnel Refresh: You must call this with writingGoals, currentContent, and documentTitle from the sidebar.')
+      // This function will be called from the sidebar with those arguments
+      // So we do not call generateFunnelSuggestions here directly
+      toast({
+        title: 'Funnel Suggestions Cleared',
+        description: 'Existing funnel suggestions have been cleared. Please regenerate new ones.',
+      })
+      console.log('[useAISuggestions] Funnel Refresh: Funnel suggestions cleared. Ready to regenerate.')
+    } catch (error) {
+      console.error('[useAISuggestions] Funnel Refresh: Error refreshing funnel suggestions:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to refresh funnel suggestions: ${errorMessage}`)
+      toast({
+        title: 'Error Refreshing Funnel Suggestions',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [documentId, user?.uid, toast])
+
   const totalSuggestionsCount = suggestions.length
   const loadingStyleSuggestions = loading
   const loadingFunnelSuggestions = loading
-  const refreshSuggestions = reloadSuggestions
+  const refreshSuggestions = refreshSuggestionsWithClear
 
   console.log('[useAISuggestions] Current state:', {
-    suggestionCount,
+    suggestionCount: suggestions.length,
     totalSuggestionsCount,
     styleSuggestionsCount: styleSuggestions.length,
     funnelSuggestionsCount: funnelSuggestions.length,
@@ -417,10 +506,47 @@ export function useAISuggestions({
     userId: user?.uid
   })
 
+  // Wrapper functions to match expected signatures
+  const applySuggestionWrapper = useCallback(async (suggestionId: string) => {
+    console.log('[useAISuggestions] applySuggestionWrapper called with ID:', suggestionId);
+    
+    // First check regular suggestions (style, grammar, etc.)
+    const suggestion = suggestions.find(s => s.id === suggestionId);
+    if (suggestion) {
+      console.log('[useAISuggestions] Found suggestion in regular suggestions array:', suggestion.type);
+      await applySuggestion(suggestion);
+      return;
+    }
+    
+    // Then check funnel suggestions (which have positioning data)
+    const funnelSuggestion = funnelSuggestions.find(s => s.id === suggestionId);
+    if (funnelSuggestion) {
+      console.log('[useAISuggestions] Found suggestion in funnel suggestions array:', funnelSuggestion.type);
+      console.log('[useAISuggestions] Funnel suggestion has positioning:', !!funnelSuggestion.positioning);
+      
+      console.log('[useAISuggestions] Applying funnel suggestion with positioning data:', funnelSuggestion.positioning);
+      await applySuggestion(funnelSuggestion);
+      return;
+    }
+    
+    console.warn('[useAISuggestions] Suggestion not found in either array:', suggestionId);
+  }, [suggestions, funnelSuggestions, applySuggestion]);
+
+  const dismissSuggestionWrapper = useCallback(async (suggestionId: string) => {
+    const suggestion = suggestions.find(s => s.id === suggestionId)
+    if (suggestion) {
+      // Pass the type so SuggestionService can use the correct collection
+      await SuggestionService.dismissSuggestion(suggestion.documentId, suggestionId, suggestion.type)
+    } else {
+      // fallback for legacy
+      await dismissSuggestion(suggestionId)
+    }
+  }, [suggestions, dismissSuggestion])
+
   return {
     suggestions,
     styleSuggestions,
-    funnelSuggestions,
+    funnelSuggestions: funnelSuggestions as AISuggestion[],
     totalSuggestionsCount,
     loading,
     loadingStyleSuggestions,
@@ -432,7 +558,8 @@ export function useAISuggestions({
     batchDismissSuggestions,
     reloadSuggestions,
     refreshSuggestions,
+    refreshFunnelSuggestions: refreshFunnelSuggestionsWithClear,
     generateFunnelSuggestions,
-    suggestionCount
+    suggestionCount: suggestions.length
   }
 }

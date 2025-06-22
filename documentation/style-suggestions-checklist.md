@@ -4,13 +4,13 @@
 
 | Area | Implemented? | Notes |
 |------|--------------|-------|
-| Cloud Function (`generateStyleSuggestions`) | ✅ Exists | Needs stricter validation & error handling |
-| Firestore Sub-collection (`styleSuggestions`) | ✅ Referenced | Cloud Function writes to it; no additional setup required |
+| Cloud Function (`generateStyleSuggestions`) | ✅ Exists | Backend function exists, but UI integration has been removed. |
+| Firestore Sub-collection (`styleSuggestions`) | ✅ Referenced | Function writes to it, but no longer surfaced in the UI. |
 | Firestore Rules | ✅ Entry exists | Uses expensive `get()` call; optimise condition |
 | Index Deployment | ❓ | `firestore.indexes.json` updated but **may not be deployed** to all environments |
 | Service Layer (`suggestion-service.ts`) | ❌ Missing | CRUD helpers not implemented |
-| React Hook (`use-style-suggestions.ts`) | ❌ Missing | No state management for suggestions |
-| UI Integration | ❌ Missing | Sidebar tab, badge counts, editor glue code not present |
+| React Hook (`use-style-suggestions.ts`) | ❌ Missing | No state management for style suggestions |
+| UI Integration | ❌ Removed | The AI sidebar now only supports funnel suggestions. Style suggestions are no longer shown in the UI. |
 | Tests (Unit / E2E) | ❌ Missing | No test coverage yet |
 
 ### Relevant Files & Status 📂
@@ -23,10 +23,18 @@
 | `firestore.rules` | **Implemented (needs optimisation)** | Adds `styleSuggestions` sub-collection rule |
 | `firestore.indexes.json` | **Exists (not deployed)** | Defines composite index on `(documentId, createdAt)` |
 | `app/globals.css` | **Implemented** | Gold underline class for `.grammar-error.style` |
-| `components/ai-suggestions.tsx` | **Implemented (generic)** | Card component already renders `style` suggestions |
+| `components/ai-suggestions.tsx` | **Updated** | Now only renders funnel suggestions. Style suggestions UI removed. |
 | *(missing)* `services/suggestion-service.ts` | **Not created** | CRUD operations for suggestions |
 | *(missing)* `hooks/use-style-suggestions.ts` | **Not created** | React hook for fetching & applying suggestions |
-| *(missing)* UI sidebar/tab integration | **Not created** | Surfacing suggestions in the interface |
+
+---
+
+## Sidebar UI Refactor
+
+- The AI sidebar now only supports funnel copy suggestions.
+- All style suggestion UI, tabs, and related logic have been removed.
+- The workflow for style suggestions is no longer available in the sidebar.
+- The funnel copy workflow is now the only supported AI suggestion workflow in the sidebar.
 
 ### Critical Problems to Address  ⚠️
 1. **Unvalidated AI Response** – Cloud Function spreads unknown properties from OpenAI. Add schema validation & sanitisation before writing to Firestore.
