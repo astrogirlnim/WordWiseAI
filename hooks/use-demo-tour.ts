@@ -57,6 +57,8 @@ export interface DemoTourState {
 export interface DemoTourActions {
   /** Open the demo modal and start/resume tour */
   openDemo: () => void
+  /** Manually trigger demo for existing users (bypasses auto-trigger logic) */
+  startDemo: () => void
   /** Close the demo modal */
   closeDemo: () => void
   /** Navigate to next step */
@@ -264,9 +266,11 @@ export function useDemoTour() {
       const demoProgress = userProfile?.demoProgress
       
       // Show demo if:
-      // 1. User has never seen demo, OR
-      // 2. User started but never completed demo
-      const shouldShow = !demoProgress?.hasSeenDemo || (!demoProgress?.isCompleted && demoProgress?.skipCount < 3)
+      // 1. User has never seen demo AND never completed it, OR
+      // 2. User started but never completed demo AND hasn't skipped too many times
+      // Note: Once demo is completed OR skipped, it should not auto-show again
+      const shouldShow = (!demoProgress?.hasSeenDemo && !demoProgress?.isCompleted) || 
+                        (!demoProgress?.isCompleted && demoProgress?.hasSeenDemo && (demoProgress?.skipCount || 0) < 3)
       
       logDemoAction('SHOULD_SHOW_DEMO_CHECK', { 
         shouldShow, 
@@ -302,6 +306,26 @@ export function useDemoTour() {
         stepStartTime: Date.now() 
       }))
       saveDemoProgress({ hasSeenDemo: true, firstStartedAt: Date.now() })
+    }, [logDemoAction, saveDemoProgress]),
+
+    startDemo: useCallback(() => {
+      logDemoAction('START_DEMO_MANUAL', { triggeredBy: 'user_button' })
+      setState(prev => ({ 
+        ...prev, 
+        isOpen: true, 
+        currentStep: 1,
+        stepStartTime: Date.now(),
+        canGoBack: false,
+        canGoForward: true,
+        completedSteps: [],
+        skippedSteps: []
+      }))
+      saveDemoProgress({ 
+        hasSeenDemo: true, 
+        isCompleted: false, // Reset completion status for manual restart
+        firstStartedAt: Date.now(),
+        lastStepReached: 1
+      })
     }, [logDemoAction, saveDemoProgress]),
 
     closeDemo: useCallback(() => {
@@ -456,9 +480,13 @@ export function useDemoTour() {
         totalTimeSpent: prev.totalTimeSpent + timeSpent
       }))
       
+      // Mark demo as seen and skipped so it doesn't show again
       saveDemoProgress({ 
-        skipCount: state.skippedSteps.length + 1,
-        totalTimeSpent: state.totalTimeSpent + timeSpent
+        hasSeenDemo: true,
+        isCompleted: true, // Mark as completed to prevent re-showing
+        skipCount: (state.skippedSteps.length + 1),
+        totalTimeSpent: state.totalTimeSpent + timeSpent,
+        completionDate: Date.now() // Mark when it was skipped
       })
     }, [state, logDemoAction, saveDemoProgress]),
 
