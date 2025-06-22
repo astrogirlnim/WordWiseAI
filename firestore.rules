@@ -47,5 +47,27 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       allow create: if request.auth != null;
     }
+
+    // Glossaries Collection - users can only access their own glossaries
+    match /glossaries/{glossaryId} {
+      // Allow create with proper userId validation
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Allow read/update/delete for existing documents owned by user
+      allow read, update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Terms subcollection
+      match /terms/{termId} {
+        // Allow create with proper userId validation (check parent document)
+        allow create: if request.auth != null && 
+          request.resource.data.userId == request.auth.uid;
+          
+        // Allow read/update/delete for existing terms owned by user
+        allow read, update, delete: if request.auth != null && 
+          resource.data.userId == request.auth.uid;
+      }
+    }
   }
 }
