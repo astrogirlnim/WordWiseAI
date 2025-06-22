@@ -30,17 +30,8 @@ import {
   Target, 
   Users, 
   TrendingUp, 
-  Zap, 
-  Shield, 
-  Clock, 
   CheckCircle,
-  ArrowRight,
-  PenTool,
-  BarChart3,
-  MessageSquare,
-  Globe,
-  Megaphone,
-  BookOpen
+  ArrowRight
 } from 'lucide-react'
 
 const signUpSchema = z
