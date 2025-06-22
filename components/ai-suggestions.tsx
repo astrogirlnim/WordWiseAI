@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Check, X, Megaphone, Loader2 } from 'lucide-react'
+import { Check, X, Megaphone } from 'lucide-react'
 import type { FunnelSuggestion } from '@/types/ai-features'
 
 interface AISuggestionsProps {
