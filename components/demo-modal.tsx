@@ -887,6 +887,13 @@ export function DemoModal() {
     console.log('[DemoModal] Completing demo')
     demoTour.completDemo()
     clearDemoUrlParameter()
+    if (user) {
+      console.log('[DemoModal] Authenticated user - redirecting to home')
+      router.push('/')
+    } else {
+      console.log('[DemoModal] Unauthenticated user - redirecting to sign-in')
+      router.push('/sign-in')
+    }
   }
 
   /**
@@ -896,14 +903,12 @@ export function DemoModal() {
     console.log('[DemoModal] Skipping demo')
     demoTour.skipDemo()
     clearDemoUrlParameter()
-    
-    // Redirect based on authentication status
-    if (!user) {
+    if (user) {
+      console.log('[DemoModal] Authenticated user - redirecting to home')
+      router.push('/')
+    } else {
       console.log('[DemoModal] Unauthenticated user - redirecting to sign-in')
       router.push('/sign-in')
-    } else {
-      console.log('[DemoModal] Authenticated user - staying on main page')
-      // Stay on current page, modal will close
     }
   }
 
@@ -956,7 +961,7 @@ export function DemoModal() {
   }
 
   return (
-    <Dialog open={demoTour.isOpen && demoTour.isDemoModalVisible} onOpenChange={(open) => !open && handleSkipDemo()}>
+    <Dialog open={demoTour.isOpen && demoTour.isDemoModalVisible} onOpenChange={(open) => { if (!open) handleSkipDemo(); }}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0"
         aria-describedby="demo-modal-description"

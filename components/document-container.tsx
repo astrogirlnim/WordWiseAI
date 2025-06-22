@@ -86,6 +86,8 @@ export function DocumentContainer() {
     actionText?: string
   }>({ title: '', description: '' })
 
+  const [demoMarkdownSource, setDemoMarkdownSource] = useState<string | null>(null)
+
   console.log('[DocumentContainer] Rendered with:', {
     totalDocs: documents.length,
     ownedDocs: ownedDocuments.length,
@@ -287,7 +289,9 @@ export function DocumentContainer() {
           try {
             // First try using the content coordinator (preferred method)
             const success = await updateContentSafely.page(DEMO_SAMPLE_DATA.sampleDocument, 'demo-tour-step-2');
-            
+            if (success) {
+              setDemoMarkdownSource(DEMO_SAMPLE_DATA.sampleDocument); // Store markdown for preview
+            }
             if (!success) {
               console.warn('🎯 [DocumentContainer] Content coordinator failed, trying direct editor approach');
               
@@ -318,6 +322,7 @@ export function DocumentContainer() {
                 
                 // Set content directly with proper HTML structure
                 editor.commands.setContent(htmlContent, false);
+                setDemoMarkdownSource(DEMO_SAMPLE_DATA.sampleDocument); // Store markdown for preview
                 
                 console.log('🎯 [DocumentContainer] Direct editor content update successful');
                 return true;
@@ -869,6 +874,7 @@ export function DocumentContainer() {
                 saveStatus={saveStatus}
                 readOnly={!canUserEdit}
                 grammarCheckEnabled={true}
+                demoMarkdownSource={demoMarkdownSource}
               />
             </div>
           ) : (
@@ -958,6 +964,7 @@ export function DocumentContainer() {
         onAction={handleDemoSpotlightAction}
         onDismiss={handleDemoSpotlightDismiss}
         position="right"
+        disableScroll={demoSpotlightTarget === '[data-editor-area]'}
       />
     </div>
   )

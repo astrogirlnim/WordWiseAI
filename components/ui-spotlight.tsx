@@ -29,6 +29,8 @@ interface UISpotlightProps {
   showCloseButton?: boolean
   /** Additional CSS classes */
   className?: string
+  /** Whether to disable scrollIntoView */
+  disableScroll?: boolean
 }
 
 /**
@@ -54,7 +56,8 @@ export function UISpotlight({
   onDismiss,
   position = 'auto',
   showCloseButton = true,
-  className
+  className,
+  disableScroll = false,
 }: UISpotlightProps) {
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number; placement: string }>({
@@ -83,12 +86,16 @@ export function UISpotlight({
         console.log('🎯 [UISpotlight] Target element found:', targetSelector, element)
         setTargetElement(element)
         
-        // Scroll element into view if needed
-        element.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center',
-          inline: 'center'
-        })
+        if (!disableScroll) {
+          console.log('🎯 [UISpotlight] Scrolling target into view')
+          element.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'center'
+          })
+        } else {
+          console.log('🎯 [UISpotlight] Scroll disabled for target:', targetSelector)
+        }
       } else {
         console.warn('🎯 [UISpotlight] Target element not found:', targetSelector)
       }
@@ -102,7 +109,7 @@ export function UISpotlight({
       const timer = setTimeout(findElement, 100)
       return () => clearTimeout(timer)
     }
-  }, [targetSelector, isActive, targetElement])
+  }, [targetSelector, isActive, targetElement, disableScroll])
 
   // Calculate tooltip position
   useEffect(() => {
@@ -272,6 +279,22 @@ export function UISpotlight({
         }}
       />
 
+      {/* Got It button in top right of highlight */}
+      {actionText && onAction && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onAction(); }}
+          className="absolute z-50 bg-primary text-white font-semibold rounded-md shadow-lg px-4 py-2 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary top-0 right-0"
+          style={{
+            left: targetRect.left + targetRect.width - 8 - 120, // 120px from right edge of highlight
+            top: targetRect.top - 8 + 12, // 12px from top edge of highlight
+            minWidth: 100,
+            maxWidth: 180
+          }}
+        >
+          {actionText}
+        </button>
+      )}
+
       {/* Tooltip */}
       <Card 
         className={cn(
@@ -316,22 +339,6 @@ export function UISpotlight({
           </div>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
-
-        {actionText && onAction && (
-          <>
-            <Separator />
-            <CardContent className="pt-3">
-              <Button 
-                onClick={onAction}
-                className="w-full"
-                size="sm"
-              >
-                <Sparkles className="mr-2 h-4 w-4" />
-                {actionText}
-              </Button>
-            </CardContent>
-          </>
-        )}
       </Card>
 
       {/* Pointer arrow */}

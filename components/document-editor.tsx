@@ -58,7 +58,7 @@ interface DocumentEditorProps {
   readOnly?: boolean
   grammarCheckEnabled?: boolean
   onAISuggestionsChange?: (suggestions: AISuggestion[]) => void
-
+  demoMarkdownSource?: string | null
 }
 
 export function DocumentEditor({
@@ -70,7 +70,7 @@ export function DocumentEditor({
   readOnly = false,
   grammarCheckEnabled = false,
   onAISuggestionsChange,
-
+  demoMarkdownSource = null,
 }: DocumentEditorProps) {
   console.log(`[DocumentEditor] Phase 1 Integration: Rendering with EditorContentCoordinator. Document ID: ${documentId}`)
   const [title, setTitle] = useState(initialDocument.title || 'Untitled Document')
@@ -1079,7 +1079,9 @@ export function DocumentEditor({
   // Phase 2.2: Plain text is also updated immediately in onUpdate callback for real-time preview
 
   // Phase 2: Initialize markdown preview with coordinator reference
-  console.log('[DocumentEditor] Phase 2: Initializing markdown preview with plain text length:', editorPlainText.length)
+  // Use demoMarkdownSource if present (demo mode), otherwise use editorPlainText
+  const previewSource = demoMarkdownSource ?? editorPlainText;
+  console.log('[DocumentEditor] Markdown preview source:', demoMarkdownSource ? 'demoMarkdownSource' : 'editorPlainText', 'length:', previewSource.length);
   const {
     isPreviewOpen,
     setIsPreviewOpen,
@@ -1087,8 +1089,8 @@ export function DocumentEditor({
     isMarkdownDetected,
     togglePreview,
   } = useMarkdownPreview(
-    editorPlainText, // Use plain text instead of HTML
-    contentCoordinatorRef // Phase 2: Add coordinator reference
+    previewSource,
+    contentCoordinatorRef
   )
 
   // Auto-open markdown preview during demo tour

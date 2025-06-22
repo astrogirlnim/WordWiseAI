@@ -301,6 +301,7 @@
 - [ ] Test full demo flow end-to-end, fix bugs/UX issues.
 - [ ] Update/create documentation in `docs/` for demo modal and onboarding.
 - [ ] Commit changes with clear, descriptive messages (no slashes/backslashes).
+- [ ] **NEW:** After clicking Skip Demo, Complete Demo, or closing the modal (X), the user is redirected: authenticated users to '/', unauthenticated users to '/sign-in'.
 
 ---
 

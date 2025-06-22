@@ -540,3 +540,20 @@ document.querySelector('[data-new-document-button-main]')
 **Last Updated**: 2025-01-27  
 **Phase**: 4, Step 1 Implementation Testing  
 **Status**: Ready for verification testing 🧪 
+
+## Exit & Redirect Behavior (2025-06-23)
+
+- When a user clicks **Skip Demo**, **Complete Demo**, or the **X** (close) button on the demo modal:
+  - **If authenticated:** They are redirected to the home/dashboard page (`/`).
+  - **If not authenticated:** They are redirected to the sign-in page (`/sign-in`).
+- This applies at any step of the demo and ensures users always return to a clear entry point.
+- All redirects are client-side and immediate.
+
+---
+
+### Example (Phase 4, Step 2):
+- User clicks "Skip Demo" → redirected to appropriate page.
+- User completes demo (last step) → redirected to appropriate page.
+- User closes modal (X) → redirected to appropriate page.
+
+--- 
