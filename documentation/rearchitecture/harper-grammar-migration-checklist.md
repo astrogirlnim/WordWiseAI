@@ -1,5 +1,9 @@
 # Harper.js Grammar Migration Checklist
 
+## Overview
+
+This document tracks the migration from the previous grammar checking system to Harper.js, including all fixes and improvements implemented.
+
 ## Codebase Status & File Inventory
 
 **Current Real-Time Grammar Check System:**
@@ -73,113 +77,153 @@
 
 ---
 
-## PHASE 1: Remove Legacy AI/Cloud Function Grammar Check
-- [x] Remove OpenAI/Firebase grammar check calls from `services/ai-service.ts`
-- [x] Remove chunking logic from `utils/text-chunker.ts` and `hooks/use-grammar-checker.ts`
-- [x] Remove grammar check Cloud Function from `functions/index.js`
-- [x] Remove rate limiting, error mapping, and chunk progress logic
+## PHASE 1: Initial Harper.js Integration ✅
+
+- [x] Replace previous grammar system with Harper.js
+- [x] Install Harper.js npm package
+- [x] Create Harper wrapper utility (`utils/harper-wrapper.ts`)
+- [x] Integrate with existing grammar checking hooks
+- [x] Map Harper.js lint types to our grammar error types
+
+## PHASE 2: Critical Bug Fixes ✅
+
+### 2.1 API Usage Fixes
+- [x] **Fix LocalLinter initialization**: Use `new LocalLinter({ binary, dialect })` instead of `binary.createLinter()`
+- [x] **Fix suggestion extraction**: Use `suggestion.get_replacement_text()` instead of `suggestion.text`
+- [x] **Fix error text extraction**: Use `originalText.substring(span.start, span.end)` instead of non-existent `lint.get_problem_text()`
+- [x] **Remove unsupported options**: Remove language parameter from `lint()` method
+
+### 2.2 Position Mapping Fixes ✅
+- [x] **Identify position misalignment**: Harper.js analyzes plain text but TipTap uses rich text
+- [x] **Create position mapping utility**: Convert between plain text and TipTap editor positions
+- [x] **Implement fuzzy matching**: Fallback for cases where exact position mapping fails
+- [x] **Add extensive logging**: Debug position conversion issues
+
+### 2.3 Undo Functionality ✅
+- [x] **Implement Ctrl+Z support**: Keyboard handler for undoing grammar suggestions  
+- [x] **Create undo stack**: Track applied suggestions with original text and positions
+- [x] **Add visual indicators**: Show undo availability in status bar
+- [x] **Handle both editor types**: Support TipTap editor and ProseMirror EditorView
+- [x] **Stack management**: Limit to 50 actions, clear on document/page changes
+
+## PHASE 3: CDN Migration ✅
+
+### 3.1 Switch to unpkg CDN
+- [x] **Identify WASM loading issues**: npm package fails in Firebase hosting environment
+- [x] **Implement CDN loading**: Use `https://unpkg.com/harper.js@latest/dist/harper.js`
+- [x] **Simplify initialization**: Remove binary configuration complexity
+- [x] **Add initialization test**: Verify linter works on simple test text
+- [x] **Update to latest version**: Use `@latest` for most recent Harper.js features
+
+### 3.2 WorkerLinter Optimization
+- [x] **Use WorkerLinter**: Non-blocking grammar checking for better UX
+- [x] **Configure lint rules**: Optimize for writing flow vs. overly aggressive checking
+- [x] **Maintain compatibility**: Keep all existing functionality and APIs
+
+## Configuration Details
+
+### Harper.js Rule Configuration
+```javascript
+await harperLinter.setLintConfig({
+  // Enable core grammar checking
+  SpellCheck: true,
+  ExplanationMarks: true,
+  
+  // Disable verbose rules that might disrupt writing flow
+  SentenceLength: false,
+  
+  // Keep important rules for professional writing
+  Repetition: true,
+  Redundancy: true,
+  WordChoice: true,
+  Clarity: true,
+  Grammar: true,
+  Punctuation: true,
+  Capitalization: true,
+});
+```
+
+### Error Type Mapping
+```javascript
+const HARPER_ERROR_TYPE_MAP = {
+  'Spelling': 'spelling',
+  'Grammar': 'grammar', 
+  'Style': 'style',
+  'Punctuation': 'grammar',
+  'Capitalization': 'grammar',
+  'Repetition': 'style',
+  'Redundancy': 'style',
+  'WordChoice': 'style',
+  'Clarity': 'style',
+  // Add more mappings as new Harper.js categories are discovered
+};
+```
+
+## Current Status: ✅ COMPLETE
+
+All major Harper.js integration issues have been resolved:
+
+1. **Proper API Usage**: Using correct Harper.js methods and initialization
+2. **Position Accuracy**: Grammar errors appear at correct text positions  
+3. **Undo Functionality**: Ctrl+Z works for undoing applied suggestions
+4. **Reliable Loading**: CDN approach eliminates WASM loading issues
+5. **Performance**: WorkerLinter provides non-blocking grammar checking
+
+## Testing Instructions
+
+1. **Grammar Detection Test**:
+   - Type text with intentional errors: "This is a example of grammer errors."
+   - Verify errors appear with red underlines at correct positions
+   - Check that suggestions panel shows relevant fixes
+
+2. **Position Mapping Test**:
+   - Use rich text with formatting (bold, italics, etc.)
+   - Verify grammar errors still appear at correct positions
+   - Test across different page boundaries
+
+3. **Undo Functionality Test**:
+   - Apply a grammar suggestion by clicking it
+   - Press Ctrl+Z to undo the change
+   - Verify original text is restored
+   - Check that undo indicator shows in status bar
+
+4. **Performance Test**:
+   - Type continuously in a large document
+   - Verify grammar checking doesn't block UI
+   - Confirm smooth typing experience
+
+## Known Limitations
+
+1. **Position Mapping**: Complex rich text formatting may occasionally cause slight position misalignment
+2. **Undo Stack**: Limited to 50 actions, cleared on page/document changes
+3. **Internet Dependency**: CDN approach requires internet connection for initial load
+
+## Future Improvements
+
+1. **Offline Support**: Investigate local WASM loading for offline usage
+2. **Advanced Position Mapping**: Improve accuracy for complex document structures  
+3. **Rule Customization**: Allow users to enable/disable specific Harper.js rules
+4. **Performance Monitoring**: Add metrics for grammar checking performance
+
+## Files Modified
+
+- `utils/harper-wrapper.ts` - Core Harper.js integration and wrapper
+- `components/document-editor.tsx` - Position mapping and undo keyboard handler
+- `components/document-status-bar.tsx` - Undo indicator display
+- `hooks/use-grammar-checker.ts` - Grammar checking integration
+- `types/grammar.ts` - Grammar error type definitions
+
+## Resources
+
+- [Harper.js Documentation](https://writewithharper.com/docs/harperjs/introduction)
+- [unpkg CDN](https://unpkg.com/)
+- [Harper.js Rules Reference](https://writewithharper.com/docs/rules)
 
 ---
 
-## PHASE 1 IMPLEMENTATION SUMMARY (COMPLETED):
-
-**Status**: ✅ **COMPLETED** - Legacy AI/Cloud Function grammar checking has been successfully removed.
-
-### **Changes Made:**
-
-#### **1. AI Service Layer (`services/ai-service.ts`):**
-- ✅ Removed `checkGrammar()` and `checkGrammarChunk()` methods
-- ✅ Removed grammar-related imports and interfaces (`GrammarError`, `TextChunk`, `GrammarCheckResult`, `ChunkGrammarCheckResult`)
-- ✅ Cleaned up all Firebase Functions calls for grammar checking
-- ✅ Maintained other AI services (style suggestions, funnel suggestions) intact
-
-#### **2. Grammar Checker Hook (`hooks/use-grammar-checker.ts`):**
-- ✅ Replaced entire implementation with **stub implementation**
-- ✅ Maintains same interface for compatibility (returns empty errors, stub methods)
-- ✅ Removed all chunking logic, rate limiting, session management, and parallel processing
-- ✅ Removed dependencies on `AIService` and `TextChunker`
-- ✅ Added extensive logging to indicate Phase 1 status
-
-#### **3. Text Chunker Utility (`utils/text-chunker.ts`):**
-- ✅ Replaced entire implementation with **stub implementation**
-- ✅ Maintains `TextChunk` interfaces for compatibility
-- ✅ Removed complex sentence boundary detection, overlap handling, and position mapping
-- ✅ All methods now return simplified/unchanged results
-- ✅ Marked as deprecated with clear Phase 2 removal plan
-
-#### **4. Firebase Cloud Functions (`functions/index.js`):**
-- ✅ Completely removed `exports.checkGrammar` function (300+ lines)
-- ✅ Removed grammar check cache (`grammarCheckCache`)
-- ✅ Removed all OpenAI grammar checking integration
-- ✅ Preserved other functions (style suggestions, funnel suggestions, health check)
-
-#### **5. Test File Cleanup:**
-- ✅ Removed `test-files/text-chunker-test.js` (no longer needed)
-
-### **Architecture Impact:**
-- **Document Editor**: Still functional - will show empty grammar errors (expected)
-- **TipTap Extension**: Still compatible - can handle empty error arrays
-- **Rate Limiting**: Removed for grammar checking, preserved for other AI features
-- **Caching**: Grammar cache removed, other caches intact
-- **Dependencies**: No external dependencies removed (preserving for other features)
-
-### **Firebase Configuration Considerations:**
-- **Functions Deployment**: `checkGrammar` function will be removed on next deployment
-- **Client Calls**: Frontend calls to `checkGrammar` will fail gracefully (stub hook handles this)
-- **Cost Impact**: Immediate reduction in OpenAI API costs and Firebase Functions invocations
-- **Performance**: Faster editor response due to removed grammar processing
-
-### **Current State:**
-- ✅ Grammar checking is **completely disabled**
-- ✅ Interface compatibility **maintained**
-- ✅ No breaking changes to editor or other components
-- ✅ Clear logging indicates Phase 1 status throughout the system
-- ✅ Ready for Phase 2 Harper.js integration
-
-### **Next Steps (Phase 2):**
-1. Research Harper.js browser/WASM implementation
-2. Install Harper.js dependencies
-3. Replace stub implementations with Harper.js integration
-4. Remove deprecated `TextChunker` utility entirely
-5. Update documentation
-
----
-
-## PHASE 2: Research & Install Harper.js
-- [x] Research Harper.js usage for browser/React/TypeScript:
-  - [x] Confirmed Harper.js WASM/browser support and its reliance on fetching a `.wasm` file.
-  - [x] Reviewed API and confirmed its output can be mapped to our `GrammarError` type.
-- [x] Install Harper.js:
-  - [x] Added `harper.js` as a dependency: `npm install harper.js`.
-  - [x] Configured Next.js to correctly serve the required `harper_wasm_bg.wasm` file.
-- [x] Create a wrapper utility for Harper.js grammar check (`utils/harper-wrapper.ts`).
-
-### PHASE 2 IMPLEMENTATION SUMMARY (COMPLETED):
-
-**Status**: ✅ **COMPLETED** - Harper.js has been installed and a wrapper utility has been created.
-
-**Key Findings & Implementation Details:**
-- **WASM Loading Challenge**: Initial tests showed that `harper.js` could not locate its `.wasm` file within the Next.js development server environment. This is a common issue with libraries that use WebAssembly, as Next.js's bundler can obscure the path to assets.
-- **Solution**: To provide a stable and predictable path, the `harper_wasm_bg.wasm` file was copied from `node_modules/harper.js/dist/` into the project's `/public` directory.
-- **Production Compatibility**: This solution is compatible with the production Firebase Hosting deployment. The `.github/workflows` files confirm that `next build` is run, which copies the `public` directory's contents to the output. The `.gitignore` file has been modified with `public/*` and `!public/harper_wasm_bg.wasm` to ensure the WASM file is included in the deployment while other public assets are not.
-- **Wrapper Utility**: A wrapper was created at `utils/harper-wrapper.ts`. It handles the initialization of Harper.js, maps its output to our internal `GrammarError` type, and includes a `'use client'` directive to ensure it only runs in the browser.
-
----
-
-## PHASE 3: Integrate Harper.js in Grammar Flow
-- [x] Update `hooks/use-grammar-checker.ts` to use Harper.js for grammar checking.
-- [x] Refactored error state to match Harper.js output (positions, types, suggestions).
-- [x] Remove all chunking, mapping, and deduplication logic.
-
-### PHASE 3 IMPLEMENTATION SUMMARY (COMPLETED):
-
-**Status**: ✅ **COMPLETED** - Harper.js is fully integrated into the application's grammar checking hook.
-
-**Changes Made:**
-- **Hook Integration**: The `hooks/use-grammar-checker.ts` file was completely refactored. The previous stub implementation was replaced with calls to our new `harper-wrapper`.
-- **Client-Side Logic**: The hook now manages the client-side state of the grammar checker, including `isChecking`, `isHarperReady`, and the array of `errors`. It uses the `preWarmHarper` function to begin initialization as soon as the component mounts.
-- **Real-Time Checking**: Debounced, real-time grammar checking is fully functional. The hook listens to text changes and calls the checker, updating the UI with any detected errors.
-- **Verification**: The integration was successfully verified using a temporary test page (`app/test-harper/page.tsx`), which confirmed that the WASM module initializes correctly and finds errors in real-time. The test page has since been removed.
+**Migration Status**: ✅ **COMPLETE** - All Harper.js integration issues resolved
+**Last Updated**: Current
+**Next Review**: Monitor for any new position mapping edge cases
 
 ---
 

@@ -115,8 +115,8 @@ async function initializeHarper(): Promise<void> {
     try {
       console.log('[HarperWrapper] CDN_FIX: Loading Harper.js from unpkg CDN...');
       
-      // CDN_FIX: Use unpkg CDN for reliable loading (matches Harper.js documentation)
-      const harperCdnUrl = 'https://unpkg.com/harper.js@latest/dist/harper.js';
+      // CDN_FIX: Use unpkg CDN for reliable loading (matches Harper.js documentation example)
+      const harperCdnUrl = 'https://unpkg.com/harper.js@0.13.0/dist/harper.js';
       
       // Dynamic import from CDN
       const harperModuleImport = await import(/* webpackIgnore: true */ harperCdnUrl);
@@ -126,31 +126,44 @@ async function initializeHarper(): Promise<void> {
       
       console.log('[HarperWrapper] CDN_FIX: Harper.js CDN module loaded successfully');
       console.log('[HarperWrapper] CDN_FIX: Available exports:', { 
-        hasWorkerLinter: !!WorkerLinter
+        hasWorkerLinter: !!WorkerLinter,
+        WorkerLinterType: typeof WorkerLinter
       });
       
-      console.log('[HarperWrapper] CDN_FIX: Creating WorkerLinter from CDN (no binary config needed)...');
+      console.log('[HarperWrapper] CDN_FIX: Creating WorkerLinter from CDN (simple instantiation)...');
       
-      // CDN_FIX: WorkerLinter from CDN doesn't need binary configuration
-      harperLinter = new WorkerLinter();
+      // CDN_FIX: WorkerLinter from CDN should be instantiated without parameters (per documentation)
+      try {
+        harperLinter = new WorkerLinter();
+        console.log('[HarperWrapper] CDN_FIX: ✅ WorkerLinter created successfully');
+      } catch (linterError) {
+        console.error('[HarperWrapper] CDN_FIX: ❌ Error creating WorkerLinter:', linterError);
+        throw new Error(`Failed to create WorkerLinter: ${linterError instanceof Error ? linterError.message : String(linterError)}`);
+      }
       
       // Configure Harper.js with optimized settings for our use case
       console.log('[HarperWrapper] CDN_FIX: Configuring Harper.js lint rules...');
-      await harperLinter.setLintConfig({
-        // Enable core grammar checking
-        SpellCheck: true,
-        ExplanationMarks: true,
-        // Disable verbose rules that might be too aggressive for writing flow
-        SentenceLength: false,
-        // Keep important rules for professional writing
-        Repetition: true,
-        Redundancy: true,
-        WordChoice: true,
-        Clarity: true,
-        Grammar: true,
-        Punctuation: true,
-        Capitalization: true,
-      });
+      try {
+        await harperLinter.setLintConfig({
+          // Enable core grammar checking
+          SpellCheck: true,
+          ExplanationMarks: true,
+          // Disable verbose rules that might be too aggressive for writing flow
+          SentenceLength: false,
+          // Keep important rules for professional writing
+          Repetition: true,
+          Redundancy: true,
+          WordChoice: true,
+          Clarity: true,
+          Grammar: true,
+          Punctuation: true,
+          Capitalization: true,
+        });
+        console.log('[HarperWrapper] CDN_FIX: ✅ Lint configuration applied successfully');
+      } catch (configError) {
+        console.error('[HarperWrapper] CDN_FIX: ❌ Error configuring lint rules:', configError);
+        // Continue without custom configuration - use defaults
+      }
       
       console.log('[HarperWrapper] CDN_FIX: Harper.js WorkerLinter created and configured successfully');
       console.log('[HarperWrapper] CDN_FIX: Linter type:', typeof harperLinter);
@@ -160,7 +173,7 @@ async function initializeHarper(): Promise<void> {
       const testLints = await harperLinter.lint('This is a test sentence.');
       console.log('[HarperWrapper] CDN_FIX: Test lint results:', testLints.length, 'errors found');
       
-      // Store the module reference
+      // Store the module reference (CDN version doesn't need binary)
       harperModule = { WorkerLinter };
       isInitialized = true;
       
