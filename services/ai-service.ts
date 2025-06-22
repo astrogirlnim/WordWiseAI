@@ -41,17 +41,20 @@ export class AIService {
    * @param documentId - The document ID to generate suggestions for
    * @param goals - Writing goals to tailor suggestions
    * @param currentDraft - Current document content for context
+   * @param documentTitle - The title of the document
    * @returns Promise with funnel suggestions
    */
   static async generateFunnelSuggestions(
     documentId: string, 
     goals: WritingGoals, 
-    currentDraft: string = ''
+    currentDraft: string = '',
+    documentTitle: string = ''
   ): Promise<FunnelSuggestionsResponse> {
     console.log('[AIService] Generating funnel suggestions...', { 
       documentId, 
       goals, 
-      draftLength: currentDraft.length 
+      draftLength: currentDraft.length,
+      documentTitle
     });
     
     const callable = httpsCallable<
@@ -59,13 +62,14 @@ export class AIService {
         documentId: string; 
         goals: WritingGoals; 
         currentDraft: string;
+        documentTitle: string;
       }, 
       FunnelSuggestionsResponse
     >(functions, 'generateFunnelSuggestions');
 
     try {
       console.log('[AIService] Calling Firebase Function generateFunnelSuggestions');
-      const result = await callable({ documentId, goals, currentDraft });
+      const result = await callable({ documentId, goals, currentDraft, documentTitle });
       const response = result.data;
       
       console.log(`[AIService] Generated ${response.suggestions.length} funnel suggestions successfully`);

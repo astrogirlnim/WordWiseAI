@@ -1,4 +1,3 @@
- 
 /**
  * Import function triggers from their respective submodules:
  *
@@ -388,7 +387,7 @@ exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async 
     );
   }
 
-  const {documentId, goals, currentDraft} = request.data;
+  const {documentId, goals, currentDraft, documentTitle} = request.data;
   if (!documentId || !goals) {
     logger.error("Invalid arguments for generateFunnelSuggestions", {documentId, goals});
     throw new HttpsError(
@@ -430,7 +429,7 @@ exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async 
   }
 
   // Build comprehensive prompt for funnel copy suggestions with standardized output
-  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your task is to analyze the user's writing goals and current draft, then provide EXACTLY 4 specific types of funnel copy suggestions in a standardized format.
+  let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your audience is marketing professionals creating sales funnels. Your task is to analyze the user's writing goals, document title, and current draft, then provide EXACTLY 4 specific types of funnel copy suggestions in a standardized format.
 
 CRITICAL: You MUST return a valid JSON object with exactly this structure. Never deviate from this format:
 
@@ -481,7 +480,8 @@ STRICT REQUIREMENTS:
 - Make outlines specific and actionable
 - Tailor ALL content to the specific goals provided
 
-Writing Goals Context:
+Document Context:
+- Title: ${documentTitle || 'Untitled'}
 - Target Audience: ${goals.audience || 'general audience'}
 - Formality Level: ${goals.formality || 'professional'}
 - Marketing Domain: ${goals.domain || 'general business'}
@@ -493,7 +493,7 @@ Focus Areas Based on Goals:
 3. CTAs: Drive ${goals.intent || 'engagement'} behavior with appropriate urgency
 4. Outlines: Structure content to achieve ${goals.intent || 'informational'} goals
 
-${currentDraft && currentDraft.trim() ? `\nCurrent Draft Context (use this to inform suggestions):\n${currentDraft.substring(0, 1000)}${currentDraft.length > 1000 ? '...' : ''}` : '\nNo current draft provided - create suggestions from goals alone.'}`;
+${currentDraft && currentDraft.trim() ? `\nDocument Body (use this to inform suggestions):\n${currentDraft.substring(0, 1000)}${currentDraft.length > 1000 ? '...' : ''}` : '\nNo document body provided - create suggestions from title and goals alone.'}`;
 
   try {
     logger.log("Calling OpenAI API for standardized funnel suggestions", {

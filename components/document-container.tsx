@@ -550,6 +550,7 @@ export function DocumentContainer() {
             documentId={activeDocumentId}
             writingGoals={writingGoals}
             currentContent={activeDocument?.content}
+            documentTitle={activeDocument?.title}
           />
         )}
       </main>

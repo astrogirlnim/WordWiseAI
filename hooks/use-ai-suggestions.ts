@@ -31,7 +31,7 @@ interface UseAISuggestionsReturn {
   batchDismissSuggestions: (suggestionIds: string[]) => Promise<void>
   reloadSuggestions: () => void
   refreshSuggestions: () => void
-  generateFunnelSuggestions: (goals: WritingGoals, content: string) => Promise<void>
+  generateFunnelSuggestions: (goals: WritingGoals, content: string, documentTitle?: string) => Promise<void>
   suggestionCount: number
 }
 
@@ -292,7 +292,7 @@ export function useAISuggestions({
    * Internal function to generate funnel suggestions (non-debounced)
    * Phase 2: Separated internal logic from debounced wrapper
    */
-  const generateFunnelSuggestionsInternal = useCallback(async (goals: WritingGoals, content: string) => {
+  const generateFunnelSuggestionsInternal = useCallback(async (goals: WritingGoals, content: string, documentTitle?: string) => {
     if (!documentId || !user?.uid) {
       console.error('[useAISuggestions] Cannot generate funnel suggestions - missing documentId or userId')
       toast({
@@ -314,7 +314,7 @@ export function useAISuggestions({
     setError(null)
 
     try {
-      const result = await AIService.generateFunnelSuggestions(documentId, goals, content)
+      const result = await AIService.generateFunnelSuggestions(documentId, goals, content, documentTitle)
       console.log('[useAISuggestions] Phase 2: Funnel suggestions generated:', result)
       toast({
         title: 'Funnel Suggestions Generated',
@@ -340,9 +340,9 @@ export function useAISuggestions({
    * Phase 2: Implement 1 second debounce and respect typing lock
    */
   const debouncedGenerateFunnelSuggestions = useMemo(() => 
-    debounce((goals: WritingGoals, content: string) => {
+    debounce((goals: WritingGoals, content: string, documentTitle?: string) => {
       console.log('[useAISuggestions] Phase 2: Starting debounced funnel suggestions generation');
-      generateFunnelSuggestionsInternal(goals, content);
+      generateFunnelSuggestionsInternal(goals, content, documentTitle);
     }, AI_SUGGESTIONS_DEBOUNCE),
     [generateFunnelSuggestionsInternal]
   );
@@ -351,9 +351,9 @@ export function useAISuggestions({
    * Public function to generate funnel suggestions based on writing goals
    * Phase 2: Now uses debounced version
    */
-  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string) => {
+  const generateFunnelSuggestions = useCallback(async (goals: WritingGoals, content: string, documentTitle?: string) => {
     console.log('[useAISuggestions] Phase 2: Request to generate funnel suggestions (debounced)');
-    debouncedGenerateFunnelSuggestions(goals, content);
+    debouncedGenerateFunnelSuggestions(goals, content, documentTitle);
   }, [debouncedGenerateFunnelSuggestions])
 
   const totalSuggestionsCount = suggestions.length

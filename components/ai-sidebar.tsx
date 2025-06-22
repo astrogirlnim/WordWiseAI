@@ -25,13 +25,15 @@ interface AISidebarProps {
   documentId?: string | null
   writingGoals?: WritingGoals
   currentContent?: string
+  documentTitle?: string
 }
 
 export function AISidebar({ 
   isOpen, 
   documentId,
   writingGoals,
-  currentContent = ''
+  currentContent = '',
+  documentTitle = ''
 }: AISidebarProps) {
   console.log('[AISidebar] Rendering with props:', {
     isOpen,
@@ -63,8 +65,8 @@ export function AISidebar({
       return
     }
     
-    console.log('[AISidebar] Generating funnel suggestions with goals:', writingGoals)
-    await generateFunnelSuggestions(writingGoals, currentContent)
+    console.log('[AISidebar] Generating funnel suggestions with goals:', writingGoals, 'title:', documentTitle)
+    await generateFunnelSuggestions(writingGoals, currentContent, documentTitle)
   }
 
   const isLoading = loadingStyleSuggestions || loadingFunnelSuggestions

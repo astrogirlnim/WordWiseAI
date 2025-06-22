@@ -110,3 +110,13 @@ All features are fully integrated with Firestore/Firebase, OpenAI, and the Next.
 - Implement apply/dismiss logic for suggestions
 - Add notifications for workflow status changes
 - Continue to modularize and document all new features 
+
+---
+
+## 2024-06-09: Funnel Suggestions UX and Prompt Personalization Improvements
+
+- **Funnel suggestions section is now scrollable**: The UI for funnel suggestions in the sidebar uses a scrollable container, improving usability when many suggestions are present.
+- **LLM prompt tailored for marketing professionals**: The backend system prompt for funnel suggestions now explicitly addresses marketing professionals creating sales funnels.
+- **Prompt includes document title, body, and goals**: The backend prompt now incorporates the document title, body/content, and writing goals for more personalized and relevant AI suggestions.
+- **End-to-end document title propagation**: The frontend and backend were updated so the document title is always passed from the React UI to the backend funnel suggestion generator. This ensures the LLM always receives the correct context for each document.
+- **React funnel suggestion trigger updated**: The funnel suggestion trigger in the React code now always passes the document title, ensuring full context is available for every AI call. 
