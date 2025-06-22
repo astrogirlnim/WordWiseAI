@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -8,10 +8,18 @@ import { Input } from '@/components/ui/input'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,13 +32,32 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { 
+  Sparkles, 
+  Target, 
+  Users, 
+  TrendingUp, 
+  Zap, 
+  Shield, 
+  Clock, 
+  CheckCircle,
+  ArrowRight,
+  PenTool,
+  BarChart3,
+  MessageSquare,
+  Globe,
+  Megaphone,
+  BookOpen,
+  Star,
+  Quote
+} from 'lucide-react'
 
 const signInSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
   password: z.string().min(1, { message: 'Password is required' }),
 })
 
-export default function SignInPage() {
+export default function LandingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { signIn, signInWithGoogle } = useAuth()
@@ -45,29 +72,40 @@ export default function SignInPage() {
   })
 
   const handleSubmit = async (values: z.infer<typeof signInSchema>) => {
+    console.log('🔑 Sign-in form submitted:', { email: values.email })
     setLoading(true)
     setError('')
 
     try {
       await signIn(values.email, values.password)
+      console.log('✅ Sign-in successful, redirecting to main app')
       router.push('/')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to sign in'
+      console.error('❌ Sign-in error:', error)
       setError(message)
     } finally {
       setLoading(false)
     }
   }
 
-  /**
-   * Handle demo button click - starts demo tour for guest users
-   * This allows users to explore WordWise AI features without creating an account
-   */
-  const handleTryDemo = async () => {
-    console.log('🎯 Try Demo clicked from sign-in page')
+  const handleGoogleSignIn = async () => {
+    console.log('🔑 Google sign-in initiated')
     try {
-      // For demo, we'll create a temporary guest session or redirect to demo
-      // For now, redirect to main app and auto-trigger demo
+      await signInWithGoogle()
+      console.log('✅ Google sign-in successful, redirecting to main app')
+      router.push('/')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to sign in with Google'
+      console.error('❌ Google sign-in error:', error)
+      setError(message)
+    }
+  }
+
+  const handleTryDemo = async () => {
+    console.log('🎯 Try Demo clicked from landing page')
+    try {
+      // Redirect to demo mode
       router.push('/?demo=true')
     } catch (error) {
       console.error('❌ Error starting demo:', error)
@@ -76,108 +114,679 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle>WordWise AI</CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleSubmit)}
-              className="space-y-4"
-            >
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="you@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {error && (
-                <div className="text-center text-sm text-red-600">{error}</div>
-              )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Signing in...' : 'Sign In'}
-              </Button>
-            </form>
-          </Form>
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+    <div className="min-h-screen bg-background">
+      {/* Navigation Header */}
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/85">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-9 w-9 items-center justify-center">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-retro-primary to-retro-sunset opacity-90" />
+              <div className="relative z-10 h-4 w-4 rounded-full bg-white/90 shadow-sm" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
+            <div className="flex flex-col">
+              <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-retro-primary to-retro-sunset bg-clip-text text-transparent">
+                WordWise
+              </span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                AI Assistant
               </span>
             </div>
           </div>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={async () => {
-              try {
-                await signInWithGoogle()
-                router.push('/')
-              } catch (error) {
-                const message =
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to sign in with Google'
-                setError(message)
-              }
-            }}
-          >
-            Sign In with Google
-          </Button>
-          <div className="mt-6 text-center">
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or explore features
-                </span>
-              </div>
-            </div>
+
+          {/* Navigation Actions */}
+          <div className="flex items-center gap-4">
             <Button
-              variant="default"
-              className="w-full mb-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 border-0 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600"
+              variant="ghost"
               onClick={handleTryDemo}
+              className="hidden md:flex"
             >
-              🚀 Try Demo - No Account Required
+              Try Demo
             </Button>
-          </div>
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{' '}
-            <Link href="/sign-up" className="text-blue-600 hover:underline">
-              Sign up
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">Sign In</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Welcome Back</DialogTitle>
+                  <DialogDescription>
+                    Sign in to your WordWise AI account
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Form {...form}>
+                    <form
+                      onSubmit={form.handleSubmit(handleSubmit)}
+                      className="space-y-4"
+                    >
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input placeholder="you@example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="••••••••" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {error && (
+                        <div className="text-center text-sm text-red-600">{error}</div>
+                      )}
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? 'Signing in...' : 'Sign In'}
+                      </Button>
+                    </form>
+                  </Form>
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or continue with
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleGoogleSignIn}
+                  >
+                    Sign In with Google
+                  </Button>
+                  
+                  <div className="text-center text-sm">
+                    Don&apos;t have an account?{' '}
+                    <Link href="/sign-up" className="text-primary hover:underline">
+                      Sign up
+                    </Link>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Link href="/sign-up">
+              <Button className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90">
+                Get Started Free
+              </Button>
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </header>
+
+      <main>
+        {/* Hero Section */}
+        <section className="relative overflow-hidden py-20 lg:py-32">
+          <div className="absolute inset-0 bg-gradient-to-br from-retro-primary/5 via-transparent to-retro-sunset/5" />
+          <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-4xl text-center">
+              <Badge variant="outline" className="mb-6 border-retro-primary/20 text-retro-primary">
+                <Sparkles className="mr-1 h-3 w-3" />
+                AI Trading Assistant for Marketing Professionals
+              </Badge>
+              
+              <h1 className="mb-6 text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+                Transform Your Sales Funnels with{' '}
+                <span className="bg-gradient-to-r from-retro-primary to-retro-sunset bg-clip-text text-transparent">
+                  AI-Powered Copy
+                </span>
+              </h1>
+              
+              <p className="mb-8 text-xl text-muted-foreground sm:text-2xl lg:max-w-3xl lg:mx-auto">
+                The only writing assistant built specifically for marketing professionals. 
+                Get conversion-focused suggestions, psychological triggers, and funnel optimization 
+                powered by advanced AI.
+              </p>
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+                <Link href="/sign-up">
+                  <Button 
+                    size="lg" 
+                    className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90 text-white font-semibold px-8 py-6 text-lg"
+                  >
+                    Start Writing Better Copy
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  onClick={handleTryDemo}
+                  className="px-8 py-6 text-lg border-retro-primary/20 hover:border-retro-primary/40"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Try Demo - No Account Required
+                </Button>
+              </div>
+
+              <div className="mt-12 flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  No credit card required
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Real-time collaboration
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Unlimited AI suggestions
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section className="py-20 lg:py-32">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+                Built for Marketing Professionals
+              </h2>
+              <p className="text-xl text-muted-foreground">
+                Every feature is designed to help you create high-converting sales funnels, 
+                landing pages, and marketing copy that drives results.
+              </p>
+            </div>
+
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Conversion-Focused AI */}
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-retro-primary/10 p-2">
+                      <Target className="h-6 w-6 text-retro-primary" />
+                    </div>
+                    <CardTitle className="text-lg">Conversion-Focused AI</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-4">
+                    AI suggestions prioritize conversion rate optimization over generic writing quality.
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-primary" />
+                      Psychological trigger detection
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-primary" />
+                      CTA optimization suggestions
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-primary" />
+                      Urgency and scarcity enhancement
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Funnel Stage Awareness */}
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-retro-secondary/10 p-2">
+                      <TrendingUp className="h-6 w-6 text-retro-secondary" />
+                    </div>
+                    <CardTitle className="text-lg">Funnel Stage Awareness</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-4">
+                    AI understands where each page fits in your sales funnel and adapts suggestions accordingly.
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-secondary" />
+                      Awareness → Interest → Conversion
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-secondary" />
+                      Stage-appropriate messaging
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-secondary" />
+                      Objection handling suggestions
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Real-Time Collaboration */}
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-retro-cyan/10 p-2">
+                      <Users className="h-6 w-6 text-retro-cyan" />
+                    </div>
+                    <CardTitle className="text-lg">Real-Time Collaboration</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-4">
+                    Work together with your marketing team in real-time with live editing and comments.
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-cyan" />
+                      Live document editing
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-cyan" />
+                      Team comments & feedback
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-cyan" />
+                      Version history & control
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* A/B Testing Suggestions */}
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-retro-sunset/10 p-2">
+                      <BarChart3 className="h-6 w-6 text-retro-sunset" />
+                    </div>
+                    <CardTitle className="text-lg">A/B Testing Ready</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-4">
+                    Get variations and suggestions optimized for testing different approaches.
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-sunset" />
+                      Multiple headline variations
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-sunset" />
+                      CTA text alternatives
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-sunset" />
+                      Copy positioning options
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Brand Voice Alignment */}
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-retro-accent/10 p-2">
+                      <MessageSquare className="h-6 w-6 text-retro-accent" />
+                    </div>
+                    <CardTitle className="text-lg">Brand Voice Alignment</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-4">
+                    Maintain consistent brand voice across all your marketing materials and funnels.
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-accent" />
+                      Custom brand guidelines
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-accent" />
+                      Tone alignment checking
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-retro-accent" />
+                      Consistency reports
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Grammar & Style */}
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-green-500/10 p-2">
+                      <PenTool className="h-6 w-6 text-green-500" />
+                    </div>
+                    <CardTitle className="text-lg">Advanced Grammar & Style</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-4">
+                    Professional-grade grammar checking with marketing-specific style suggestions.
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                      Real-time error detection
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                      Marketing writing style
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                      Readability optimization
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Target Audience Section */}
+        <section className="py-20 lg:py-32 bg-muted/30">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+                Perfect for Marketing Teams
+              </h2>
+              <p className="text-xl text-muted-foreground">
+                Whether you&apos;re a solo marketer or part of a large team, WordWise AI adapts to your workflow.
+              </p>
+            </div>
+
+            <div className="grid gap-8 sm:grid-cols-3">
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-primary/10">
+                  <Megaphone className="h-8 w-8 text-retro-primary" />
+                </div>
+                <h3 className="mb-2 text-xl font-semibold">Marketing Managers</h3>
+                <p className="text-muted-foreground">
+                  Create and optimize landing pages with conversion-focused AI suggestions. 
+                  Manage team guidelines and ensure brand consistency across all campaigns.
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-secondary/10">
+                  <PenTool className="h-8 w-8 text-retro-secondary" />
+                </div>
+                <h3 className="mb-2 text-xl font-semibold">Copywriters</h3>
+                <p className="text-muted-foreground">
+                  Write sales pages, email sequences, and ad copy with real-time conversion optimization. 
+                  Get psychological trigger suggestions and objection handling tips.
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-cyan/10">
+                  <TrendingUp className="h-8 w-8 text-retro-cyan" />
+                </div>
+                <h3 className="mb-2 text-xl font-semibold">Growth Hackers</h3>
+                <p className="text-muted-foreground">
+                  A/B test different copy variations and analyze performance metrics. 
+                  Get data-driven suggestions for funnel optimization and conversion improvement.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Use Cases Section */}
+        <section className="py-20 lg:py-32">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+                Every Type of Marketing Content
+              </h2>
+              <p className="text-xl text-muted-foreground">
+                From landing pages to email sequences, WordWise AI helps you create content that converts.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+                <Globe className="mb-3 h-8 w-8 text-retro-primary" />
+                <h3 className="mb-2 font-semibold">Landing Pages</h3>
+                <p className="text-sm text-muted-foreground">
+                  Lead magnets, product sales, webinar registration pages
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+                <BookOpen className="mb-3 h-8 w-8 text-retro-secondary" />
+                <h3 className="mb-2 font-semibold">Sales Pages</h3>
+                <p className="text-sm text-muted-foreground">
+                  Long-form sales letters, product descriptions, checkout pages
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+                <MessageSquare className="mb-3 h-8 w-8 text-retro-cyan" />
+                <h3 className="mb-2 font-semibold">Email Sequences</h3>
+                <p className="text-sm text-muted-foreground">
+                  Welcome series, nurture campaigns, sales sequences
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+                <Zap className="mb-3 h-8 w-8 text-retro-sunset" />
+                <h3 className="mb-2 font-semibold">Ad Copy</h3>
+                <p className="text-sm text-muted-foreground">
+                  Facebook/Google ads, social media copy, PPC campaigns
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials Section */}
+        <section className="py-20 lg:py-32 bg-muted/30">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+                Trusted by Marketing Professionals
+              </h2>
+              <p className="text-xl text-muted-foreground">
+                Join thousands of marketers who are already creating better converting copy with WordWise AI.
+              </p>
+            </div>
+
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="mb-4 flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-retro-primary text-retro-primary" />
+                    ))}
+                  </div>
+                  <Quote className="mb-3 h-6 w-6 text-muted-foreground" />
+                  <p className="mb-4 text-muted-foreground">
+                    &quot;WordWise AI completely transformed how we approach funnel copywriting. 
+                    The conversion-focused suggestions helped us increase our landing page conversions significantly.&quot;
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-retro-primary to-retro-sunset" />
+                    <div>
+                      <p className="font-semibold">Sarah Chen</p>
+                      <p className="text-sm text-muted-foreground">Marketing Manager</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="mb-4 flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-retro-primary text-retro-primary" />
+                    ))}
+                  </div>
+                  <Quote className="mb-3 h-6 w-6 text-muted-foreground" />
+                  <p className="mb-4 text-muted-foreground">
+                    &quot;The psychological trigger detection is incredible. It catches things I would never 
+                    think of and suggests improvements that actually work in real campaigns.&quot;
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-retro-secondary to-retro-accent" />
+                    <div>
+                      <p className="font-semibold">Marcus Rodriguez</p>
+                      <p className="text-sm text-muted-foreground">Senior Copywriter</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="mb-4 flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-retro-primary text-retro-primary" />
+                    ))}
+                  </div>
+                  <Quote className="mb-3 h-6 w-6 text-muted-foreground" />
+                  <p className="mb-4 text-muted-foreground">
+                    &quot;Finally, a writing tool that understands marketing! The funnel stage awareness 
+                    means I get relevant suggestions whether I&apos;m writing awareness content or bottom-funnel copy.&quot;
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-retro-cyan to-retro-primary" />
+                    <div>
+                      <p className="font-semibold">Jessica Kim</p>
+                      <p className="text-sm text-muted-foreground">Growth Hacker</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-20 lg:py-32">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+                Ready to Transform Your Marketing Copy?
+              </h2>
+              <p className="text-xl text-muted-foreground mb-8">
+                Join thousands of marketing professionals who are already creating better converting copy with WordWise AI.
+              </p>
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-center mb-8">
+                <Link href="/sign-up">
+                  <Button 
+                    size="lg" 
+                    className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90 text-white font-semibold px-8 py-6 text-lg"
+                  >
+                    Start Your Free Trial
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  onClick={handleTryDemo}
+                  className="px-8 py-6 text-lg border-retro-primary/20 hover:border-retro-primary/40"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Try Demo First
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-green-500" />
+                  Enterprise security
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-green-500" />
+                  Setup in under 2 minutes
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Cancel anytime
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border/40 bg-muted/30 py-12">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="relative flex h-8 w-8 items-center justify-center">
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-retro-primary to-retro-sunset opacity-90" />
+                  <div className="relative z-10 h-3 w-3 rounded-full bg-white/90 shadow-sm" />
+                </div>
+                <span className="text-lg font-bold bg-gradient-to-r from-retro-primary to-retro-sunset bg-clip-text text-transparent">
+                  WordWise AI
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                AI-powered writing assistant built specifically for marketing professionals and sales funnel optimization.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-3 font-semibold">Product</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><button onClick={handleTryDemo} className="hover:text-foreground transition-colors">Demo</button></li>
+                <li><Link href="/sign-up" className="hover:text-foreground transition-colors">Sign Up</Link></li>
+                <li><Link href="/sign-in" className="hover:text-foreground transition-colors">Sign In</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="mb-3 font-semibold">Features</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>Conversion AI</li>
+                <li>Funnel Optimization</li>
+                <li>Real-time Collaboration</li>
+                <li>Brand Voice Alignment</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="mb-3 font-semibold">Use Cases</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>Landing Pages</li>
+                <li>Sales Pages</li>
+                <li>Email Marketing</li>
+                <li>Ad Copy</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 border-t border-border/40 pt-8 text-center text-sm text-muted-foreground">
+            <p>&copy; 2024 WordWise AI. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
