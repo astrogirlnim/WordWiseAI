@@ -59,6 +59,22 @@ export default function SignInPage() {
     }
   }
 
+  /**
+   * Handle demo button click - starts demo tour for guest users
+   * This allows users to explore WordWise AI features without creating an account
+   */
+  const handleTryDemo = async () => {
+    console.log('🎯 Try Demo clicked from sign-in page')
+    try {
+      // For demo, we'll create a temporary guest session or redirect to demo
+      // For now, redirect to main app and auto-trigger demo
+      router.push('/?demo=true')
+    } catch (error) {
+      console.error('❌ Error starting demo:', error)
+      setError('Failed to start demo. Please try again.')
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
@@ -135,6 +151,25 @@ export default function SignInPage() {
           >
             Sign In with Google
           </Button>
+          <div className="mt-6 text-center">
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or explore features
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full mb-4 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:from-blue-100 hover:to-purple-100"
+              onClick={handleTryDemo}
+            >
+              🚀 Try Demo - No Account Required
+            </Button>
+          </div>
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{' '}
             <Link href="/sign-up" className="text-blue-600 hover:underline">
