@@ -55,7 +55,10 @@ export function AISidebar({
     applySuggestion,
     dismissSuggestion,
     refreshSuggestions
-  } = useAISuggestions({ documentId: documentId || null })
+  } = useAISuggestions({ 
+    documentId: documentId || null,
+    currentContent // Phase 1: Pass current content for refresh functionality
+  })
 
   if (!isOpen) return null
 
@@ -92,7 +95,15 @@ export function AISidebar({
           <Button
             size="sm"
             variant="ghost"
-            onClick={refreshSuggestions}
+            onClick={() => {
+              console.log('[AISidebar] Phase 1: Refresh button clicked', {
+                documentId,
+                hasCurrentContent: !!currentContent,
+                currentContentLength: currentContent.length,
+                isLoading
+              })
+              refreshSuggestions()
+            }}
             disabled={isLoading}
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />

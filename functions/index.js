@@ -107,48 +107,60 @@ exports.generateSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (reque
 });
 
 exports.generateStyleSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
-  const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
-  if (!openai) {
-    logger.error("OpenAI client not initialized for generateStyleSuggestions. Check API key configuration.");
-    throw new HttpsError("internal", "Server configuration error.");
-  }
-  logger.log("generateStyleSuggestions called", {uid: request.auth?.uid});
-  const userId = request.auth?.uid;
-  if (!userId) {
-    logger.error("User not authenticated for generateStyleSuggestions");
-    throw new HttpsError("unauthenticated", "You must be logged in to use this feature.");
-  }
+  try {
+    const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
+    logger.log("[generateStyleSuggestions] Function called", {uid: request.auth?.uid, data: request.data});
+    if (!openai) {
+      logger.error("OpenAI client not initialized for generateStyleSuggestions. Check API key configuration.");
+      throw new HttpsError("internal", "Server configuration error.");
+    }
+    logger.log("generateStyleSuggestions called", {uid: request.auth?.uid});
+    logger.log("[generateStyleSuggestions] Full auth context", {
+      auth: request.auth,
+      hasAuth: !!request.auth,
+      uid: request.auth?.uid,
+      token: request.auth?.token ? 'present' : 'missing'
+    });
+    const userId = request.auth?.uid;
+    if (!userId) {
+      logger.error("User not authenticated for generateStyleSuggestions", {
+        authPresent: !!request.auth,
+        authKeys: request.auth ? Object.keys(request.auth) : 'no auth object'
+      });
+      throw new HttpsError("unauthenticated", "You must be logged in to use this feature.");
+    }
 
-  // Rate limiting logic - copied from generateSuggestions
-  const now = Date.now();
-  const userEntry = userCalls.get(userId) || {count: 0, startTime: now};
+    // Rate limiting logic - copied from generateSuggestions
+    const now = Date.now();
+    const userEntry = userCalls.get(userId) || {count: 0, startTime: now};
 
-  if (now - userEntry.startTime > rateLimit.timeframe) {
-    userEntry.startTime = now;
-    userEntry.count = 0;
-  }
+    if (now - userEntry.startTime > rateLimit.timeframe) {
+      userEntry.startTime = now;
+      userEntry.count = 0;
+    }
 
-  userEntry.count++;
-  userCalls.set(userId, userEntry);
+    userEntry.count++;
+    userCalls.set(userId, userEntry);
 
-  if (userEntry.count > rateLimit.maxCalls) {
-    logger.warn("Rate limit exceeded for generateStyleSuggestions", {userId, count: userEntry.count});
-    throw new HttpsError(
-      "resource-exhausted",
-      "Rate limit exceeded. Please try again later."
-    );
-  }
+    if (userEntry.count > rateLimit.maxCalls) {
+      logger.warn("Rate limit exceeded for generateStyleSuggestions", {userId, count: userEntry.count});
+      throw new HttpsError(
+        "resource-exhausted",
+        "Rate limit exceeded. Please try again later."
+      );
+    }
 
-  const {text, goals, documentId} = request.data;
-  if (!text || !documentId) {
-    logger.error("Invalid arguments for generateStyleSuggestions", {textExists: !!text, documentId});
-    throw new HttpsError(
-      "invalid-argument",
-      "The function must be called with 'text' and 'documentId'."
-    );
-  }
+    const {text, goals, documentId} = request.data;
+    logger.log("[generateStyleSuggestions] Payload received", {documentId, textLength: text ? text.length : 0, goals});
+    if (!text || !documentId) {
+      logger.error("Invalid arguments for generateStyleSuggestions", {textExists: !!text, documentId});
+      throw new HttpsError(
+        "invalid-argument",
+        "The function must be called with 'text' and 'documentId'."
+      );
+    }
 
-  let systemPrompt = `Act as a world-class writing assistant. Your primary task is to analyze the user's text and provide suggestions to improve its style and readability.
+    let systemPrompt = `Act as a world-class writing assistant. Your primary task is to analyze the user's text and provide suggestions to improve its style and readability.
 
 You MUST return a valid JSON object. This object must have a single key, "suggestions", which contains an array of 1 to 5 suggestion objects. If the text is perfect and no suggestions are applicable, return an empty array for the "suggestions" key.
 
@@ -165,59 +177,68 @@ Your analysis should focus exclusively on the following aspects:
 
 You MUST NOT suggest any grammatical or spelling corrections. Your focus is entirely on style and readability improvements.`;
 
-  if (goals) {
-    systemPrompt += `\n\nThe user has provided the following writing goals. Please tailor your suggestions to help the user meet these specific goals:\n${JSON.stringify(goals, null, 2)}`;
-  }
-
-  try {
-    logger.log("Calling OpenAI API for style suggestions", {userId, documentId, textLength: text.length, goals});
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {role: "system", content: systemPrompt},
-        {role: "user", content: text},
-      ],
-      response_format: {type: "json_object"},
-    });
-
-    const responseContent = completion.choices[0].message.content;
-    logger.log("OpenAI style suggestions generated", {userId, responseContent});
-
-    // The model is asked for a JSON object containing a "suggestions" array.
-    const parsedResponse = JSON.parse(responseContent);
-    const suggestionsFromAI = parsedResponse.suggestions || [];
-
-    if (suggestionsFromAI.length === 0) {
-      logger.log("No style suggestions generated by AI.", {userId, documentId});
-      return {success: true, suggestionsAdded: 0};
+    if (goals) {
+      systemPrompt += `\n\nThe user has provided the following writing goals. Please tailor your suggestions to help the user meet these specific goals:\n${JSON.stringify(goals, null, 2)}`;
     }
 
-    const batch = admin.firestore().batch();
-    const suggestionsCollection = admin.firestore().collection(`documents/${documentId}/styleSuggestions`);
+    try {
+      logger.log("[generateStyleSuggestions] Calling OpenAI API", {userId, documentId, textLength: text.length, goals});
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {role: "system", content: systemPrompt},
+          {role: "user", content: text},
+        ],
+        response_format: {type: "json_object"},
+      });
 
-    suggestionsFromAI.forEach((suggestion) => {
-      const newSuggestionRef = suggestionsCollection.doc();
-      const newSuggestion = {
-        ...suggestion,
-        id: newSuggestionRef.id,
-        documentId,
-        userId,
-        status: "pending",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        position: {start: -1, end: -1}, // Placeholder for now
-        confidence: 90, // Placeholder
-      };
-      batch.set(newSuggestionRef, newSuggestion);
-    });
+      const responseContent = completion.choices[0].message.content;
+      logger.log("[generateStyleSuggestions] OpenAI response", {userId, documentId, responseContent});
 
-    await batch.commit();
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(responseContent);
+      } catch (parseError) {
+        logger.error("[generateStyleSuggestions] Failed to parse OpenAI response as JSON", {responseContent, parseError});
+        throw new HttpsError("internal", "OpenAI did not return valid JSON.");
+      }
+      const suggestionsFromAI = parsedResponse.suggestions || [];
+      logger.log("[generateStyleSuggestions] Parsed suggestions", {count: suggestionsFromAI.length, suggestionsFromAI});
 
-    logger.log(`Added ${suggestionsFromAI.length} new style suggestions to document.`, {userId, documentId});
+      if (suggestionsFromAI.length === 0) {
+        logger.log("No style suggestions generated by AI.", {userId, documentId});
+        return {success: true, suggestionsAdded: 0};
+      }
 
-    return {success: true, suggestionsAdded: suggestionsFromAI.length};
-  } catch (error) {
-    logger.error("Error in generateStyleSuggestions function:", error, {userId, documentId});
-    throw new HttpsError("internal", "Failed to generate and save style suggestions.");
+      const batch = admin.firestore().batch();
+      const suggestionsCollection = admin.firestore().collection(`documents/${documentId}/styleSuggestions`);
+
+      suggestionsFromAI.forEach((suggestion, idx) => {
+        const newSuggestionRef = suggestionsCollection.doc();
+        const newSuggestion = {
+          ...suggestion,
+          documentId,
+          userId,
+          status: "pending",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          position: {start: -1, end: -1},
+          confidence: suggestion.confidence || 90,
+        };
+        logger.log(`[generateStyleSuggestions] Writing suggestion to Firestore`, {idx, newSuggestion});
+        batch.set(newSuggestionRef, newSuggestion);
+      });
+
+      await batch.commit();
+      logger.log(`[generateStyleSuggestions] Successfully wrote all suggestions to Firestore`, {count: suggestionsFromAI.length});
+
+      return {success: true, suggestionsAdded: suggestionsFromAI.length};
+    } catch (error) {
+      logger.error("[generateStyleSuggestions] Error in function", {fullError: error, errorMessage: error.message, stack: error.stack});
+      throw new HttpsError("internal", "Failed to generate and save style suggestions.");
+    }
+  } catch (outerError) {
+    logger.error("[generateStyleSuggestions] Top-level error before function code runs", {fullError: outerError, errorMessage: outerError.message, stack: outerError.stack});
+    throw new HttpsError("internal", "Top-level error in generateStyleSuggestions: " + outerError.message);
   }
 });
 
@@ -397,36 +418,12 @@ exports.generateFunnelSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async 
   }
 
   // Check for existing suggestions to prevent duplicates
-  try {
-    const existingSuggestionsSnapshot = await admin.firestore()
-      .collection(`documents/${documentId}/funnelSuggestions`)
-      .where('userId', '==', userId)
-      .where('status', '==', 'pending')
-      .get();
-    
-    if (!existingSuggestionsSnapshot.empty) {
-      logger.log("Found existing pending funnel suggestions, skipping generation", {
-        documentId,
-        userId,
-        existingCount: existingSuggestionsSnapshot.size
-      });
-      
-      // Return existing suggestions instead of generating new ones
-      const existingSuggestions = existingSuggestionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      return {
-        suggestions: existingSuggestions,
-        generatedAt: Date.now(),
-        basedOnGoals: true,
-        note: 'Returned existing suggestions to prevent duplicates'
-      };
-    }
-  } catch (error) {
-    logger.warn("Error checking for existing suggestions, continuing with generation", {error});
-  }
+  // Phase 1: Removed duplicate prevention logic to allow regeneration
+  // The client now handles clearing existing suggestions before calling this function
+  logger.log("Phase 1: Proceeding with funnel suggestions generation (duplicate prevention removed)", {
+    documentId,
+    userId
+  });
 
   // Build comprehensive prompt for funnel copy suggestions with standardized output
   let systemPrompt = `You are a world-class marketing copywriter and funnel optimization expert. Your audience is marketing professionals creating sales funnels. Your task is to analyze the user's writing goals, document title, and current draft, then provide EXACTLY 4 specific types of funnel copy suggestions in a standardized format.

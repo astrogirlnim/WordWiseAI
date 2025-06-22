@@ -14,6 +14,7 @@ interface UseAISuggestionsOptions {
   documentId: string | null
   autoSubscribe?: boolean
   contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
+  currentContent?: string // Phase 1: Add current content for refresh functionality
 }
 
 interface UseAISuggestionsReturn {
@@ -43,7 +44,8 @@ interface UseAISuggestionsReturn {
 export function useAISuggestions({ 
   documentId, 
   autoSubscribe = true,
-  contentCoordinatorRef
+  contentCoordinatorRef,
+  currentContent = ''
 }: UseAISuggestionsOptions): UseAISuggestionsReturn {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -289,6 +291,76 @@ export function useAISuggestions({
   }, [documentId, user?.uid])
 
   /**
+   * Phase 1: Refresh suggestions by clearing existing ones and regenerating new ones
+   */
+  const refreshSuggestionsWithClear = useCallback(async () => {
+    console.log('[useAISuggestions] Phase 1: Refresh suggestions requested for document:', documentId)
+    
+    if (!documentId || !user?.uid) {
+      console.log('[useAISuggestions] Phase 1: Cannot refresh - missing requirements')
+      toast({
+        title: 'Error',
+        description: 'Missing document or user information.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    console.log('[useAISuggestions] Phase 1: Starting suggestion refresh process')
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Phase 1: Clear existing style suggestions
+      console.log('[useAISuggestions] Phase 1: Clearing existing style suggestions')
+      await SuggestionService.clearExistingSuggestions(documentId, user.uid, 'style')
+      
+      // Phase 1: Clear existing funnel suggestions
+      console.log('[useAISuggestions] Phase 1: Clearing existing funnel suggestions')
+      await SuggestionService.clearExistingSuggestions(documentId, user.uid, 'funnel')
+      
+      // Phase 1: Wait a moment for the clear operations to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Phase 1: Generate new style suggestions with current document content
+      console.log('[useAISuggestions] Phase 1: Generating new style suggestions with content length:', currentContent.length)
+      console.log('[useAISuggestions] Phase 1: User authentication status:', {
+        isAuthenticated: !!user,
+        userId: user?.uid,
+        userEmail: user?.email
+      })
+      
+      if (currentContent.trim()) {
+        await AIService.generateStyleSuggestions(documentId, currentContent)
+        console.log('[useAISuggestions] Phase 1: Style suggestions generation triggered successfully')
+      } else {
+        console.log('[useAISuggestions] Phase 1: No content provided, skipping style suggestions generation')
+      }
+      
+      // Phase 1: Show success feedback
+      toast({
+        title: 'Suggestions Refreshed',
+        description: 'All suggestions have been cleared and new ones are being generated.',
+      })
+      
+      console.log('[useAISuggestions] Phase 1: Suggestion refresh process completed successfully')
+      
+    } catch (error) {
+      console.error('[useAISuggestions] Phase 1: Error refreshing suggestions:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to refresh suggestions: ${errorMessage}`)
+      
+      toast({
+        title: 'Error Refreshing Suggestions',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+         } finally {
+      setLoading(false)
+    }
+  }, [documentId, user?.uid, currentContent, toast])
+
+  /**
    * Internal function to generate funnel suggestions (non-debounced)
    * Phase 2: Separated internal logic from debounced wrapper
    */
@@ -359,7 +431,7 @@ export function useAISuggestions({
   const totalSuggestionsCount = suggestions.length
   const loadingStyleSuggestions = loading
   const loadingFunnelSuggestions = loading
-  const refreshSuggestions = reloadSuggestions
+  const refreshSuggestions = refreshSuggestionsWithClear
 
   console.log('[useAISuggestions] Current state:', {
     suggestionCount: suggestions.length,
