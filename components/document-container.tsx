@@ -17,6 +17,7 @@ import { DistractionFreeToggle } from './distraction-free-toggle'
 import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { AuditService, AuditEvent } from '@/services/audit-service'
+import { DemoModal } from './demo-modal'
 
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
@@ -595,6 +596,9 @@ export function DocumentContainer() {
         isNewDocument={isCreatingNewDocument}
         initialTitle={newDocumentTitle}
       />
+
+      {/* Demo Modal */}
+      <DemoModal />
     </div>
   )
 }
