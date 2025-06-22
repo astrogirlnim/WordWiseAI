@@ -152,17 +152,11 @@ export function useDemoTour() {
   /**
    * Comprehensive logging utility for demo analytics
    */
-  const logDemoAction = useCallback((action: string, data?: any) => {
+  const logDemoAction = useCallback((action: string, data?: any, stateSnapshot?: Partial<DemoTourState>) => {
     const logData = {
       timestamp: new Date().toISOString(),
       userId: user?.uid || 'anonymous',
       action,
-      currentStep: state.currentStep,
-      totalSteps: state.totalSteps,
-      completedSteps: state.completedSteps,
-      skippedSteps: state.skippedSteps,
-      timeSpent: Date.now() - state.stepStartTime,
-      totalTimeSpent: state.totalTimeSpent,
       ...data
     }
     
@@ -176,7 +170,7 @@ export function useDemoTour() {
       existingLogs.shift()
     }
     localStorage.setItem('demoTourLogs', JSON.stringify(existingLogs))
-  }, [user?.uid, state])
+  }, [user?.uid])
 
   /**
    * Load demo progress from Firebase and localStorage
@@ -311,124 +305,141 @@ export function useDemoTour() {
     }, [logDemoAction, saveDemoProgress]),
 
     closeDemo: useCallback(() => {
-      logDemoAction('CLOSE_DEMO', { 
-        timeSpentOnStep: Date.now() - state.stepStartTime,
-        currentStep: state.currentStep 
+      setState(prev => {
+        logDemoAction('CLOSE_DEMO', { 
+          timeSpentOnStep: Date.now() - prev.stepStartTime,
+          currentStep: prev.currentStep 
+        })
+        
+        return { 
+          ...prev, 
+          isOpen: false,
+          totalTimeSpent: prev.totalTimeSpent + (Date.now() - prev.stepStartTime)
+        }
       })
-      setState(prev => ({ 
-        ...prev, 
-        isOpen: false,
-        totalTimeSpent: prev.totalTimeSpent + (Date.now() - prev.stepStartTime)
-      }))
-    }, [logDemoAction, state.stepStartTime, state.currentStep]),
+    }, [logDemoAction]),
 
     nextStep: useCallback(() => {
-      if (state.currentStep < state.totalSteps) {
-        const nextStep = (state.currentStep + 1) as DemoStep
-        const timeSpent = Date.now() - state.stepStartTime
-        
-        logDemoAction('NEXT_STEP', { 
-          fromStep: state.currentStep, 
-          toStep: nextStep,
-          timeSpentOnStep: timeSpent 
-        })
-        
-        setState(prev => ({
-          ...prev,
-          currentStep: nextStep,
-          canGoBack: nextStep > 1,
-          canGoForward: nextStep < state.totalSteps,
-          stepStartTime: Date.now(),
-          totalTimeSpent: prev.totalTimeSpent + timeSpent
-        }))
-        
-        saveDemoProgress({ 
-          lastStepReached: Math.max(state.currentStep, nextStep),
-          totalTimeSpent: state.totalTimeSpent + timeSpent
-        })
-      }
-    }, [state, logDemoAction, saveDemoProgress]),
+      setState(prev => {
+        if (prev.currentStep < prev.totalSteps) {
+          const nextStep = (prev.currentStep + 1) as DemoStep
+          const timeSpent = Date.now() - prev.stepStartTime
+          
+          logDemoAction('NEXT_STEP', { 
+            fromStep: prev.currentStep, 
+            toStep: nextStep,
+            timeSpentOnStep: timeSpent 
+          })
+          
+          // Save progress with current state
+          saveDemoProgress({ 
+            lastStepReached: Math.max(prev.currentStep, nextStep),
+            totalTimeSpent: prev.totalTimeSpent + timeSpent
+          })
+          
+          return {
+            ...prev,
+            currentStep: nextStep,
+            canGoBack: nextStep > 1,
+            canGoForward: nextStep < prev.totalSteps,
+            stepStartTime: Date.now(),
+            totalTimeSpent: prev.totalTimeSpent + timeSpent
+          }
+        }
+        return prev
+      })
+    }, [logDemoAction, saveDemoProgress]),
 
     previousStep: useCallback(() => {
-      if (state.currentStep > 1) {
-        const prevStep = (state.currentStep - 1) as DemoStep
-        const timeSpent = Date.now() - state.stepStartTime
+      setState(prev => {
+        if (prev.currentStep > 1) {
+          const prevStep = (prev.currentStep - 1) as DemoStep
+          const timeSpent = Date.now() - prev.stepStartTime
+          
+          logDemoAction('PREVIOUS_STEP', { 
+            fromStep: prev.currentStep, 
+            toStep: prevStep,
+            timeSpentOnStep: timeSpent 
+          })
+          
+          return {
+            ...prev,
+            currentStep: prevStep,
+            canGoBack: prevStep > 1,
+            canGoForward: true,
+            stepStartTime: Date.now(),
+            totalTimeSpent: prev.totalTimeSpent + timeSpent
+          }
+        }
+        return prev
+      })
+    }, [logDemoAction]),
+
+    goToStep: useCallback((step: DemoStep) => {
+      setState(prev => {
+        const timeSpent = Date.now() - prev.stepStartTime
         
-        logDemoAction('PREVIOUS_STEP', { 
-          fromStep: state.currentStep, 
-          toStep: prevStep,
+        logDemoAction('GO_TO_STEP', { 
+          fromStep: prev.currentStep, 
+          toStep: step,
           timeSpentOnStep: timeSpent 
         })
         
-        setState(prev => ({
+        // Save progress with current state
+        saveDemoProgress({ 
+          lastStepReached: Math.max(prev.currentStep, step),
+          totalTimeSpent: prev.totalTimeSpent + timeSpent
+        })
+        
+        return {
           ...prev,
-          currentStep: prevStep,
-          canGoBack: prevStep > 1,
-          canGoForward: true,
+          currentStep: step,
+          canGoBack: step > 1,
+          canGoForward: step < prev.totalSteps,
           stepStartTime: Date.now(),
           totalTimeSpent: prev.totalTimeSpent + timeSpent
-        }))
-      }
-    }, [state, logDemoAction]),
-
-    goToStep: useCallback((step: DemoStep) => {
-      const timeSpent = Date.now() - state.stepStartTime
-      
-      logDemoAction('GO_TO_STEP', { 
-        fromStep: state.currentStep, 
-        toStep: step,
-        timeSpentOnStep: timeSpent 
+        }
       })
-      
-      setState(prev => ({
-        ...prev,
-        currentStep: step,
-        canGoBack: step > 1,
-        canGoForward: step < state.totalSteps,
-        stepStartTime: Date.now(),
-        totalTimeSpent: prev.totalTimeSpent + timeSpent
-      }))
-      
-      saveDemoProgress({ 
-        lastStepReached: Math.max(state.currentStep, step),
-        totalTimeSpent: state.totalTimeSpent + timeSpent
-      })
-    }, [state, logDemoAction, saveDemoProgress]),
+    }, [logDemoAction, saveDemoProgress]),
 
     skipStep: useCallback(() => {
-      const timeSpent = Date.now() - state.stepStartTime
-      
-      logDemoAction('SKIP_STEP', { 
-        skippedStep: state.currentStep,
-        timeSpentOnStep: timeSpent 
-      })
-      
-      setState(prev => ({
-        ...prev,
-        skippedSteps: [...prev.skippedSteps, state.currentStep],
-        totalTimeSpent: prev.totalTimeSpent + timeSpent
-      }))
-      
-      // Auto-advance to next step (inline logic to avoid circular dependency)
-      if (state.currentStep < state.totalSteps) {
-        const nextStep = (state.currentStep + 1) as DemoStep
-        const additionalTimeSpent = Date.now() - state.stepStartTime
+      setState(prev => {
+        const timeSpent = Date.now() - prev.stepStartTime
         
-        setState(prev => ({
-          ...prev,
-          currentStep: nextStep,
-          canGoBack: nextStep > 1,
-          canGoForward: nextStep < state.totalSteps,
-          stepStartTime: Date.now(),
-          totalTimeSpent: prev.totalTimeSpent + additionalTimeSpent
-        }))
-        
-        saveDemoProgress({ 
-          lastStepReached: Math.max(state.currentStep, nextStep),
-          totalTimeSpent: state.totalTimeSpent + additionalTimeSpent
+        logDemoAction('SKIP_STEP', { 
+          skippedStep: prev.currentStep,
+          timeSpentOnStep: timeSpent 
         })
-      }
-    }, [state, logDemoAction, saveDemoProgress]),
+        
+        // Auto-advance to next step if not on last step
+        if (prev.currentStep < prev.totalSteps) {
+          const nextStep = (prev.currentStep + 1) as DemoStep
+          
+          // Save progress with updated state
+          saveDemoProgress({ 
+            lastStepReached: Math.max(prev.currentStep, nextStep),
+            totalTimeSpent: prev.totalTimeSpent + timeSpent
+          })
+          
+          return {
+            ...prev,
+            skippedSteps: [...prev.skippedSteps, prev.currentStep],
+            currentStep: nextStep,
+            canGoBack: nextStep > 1,
+            canGoForward: nextStep < prev.totalSteps,
+            stepStartTime: Date.now(),
+            totalTimeSpent: prev.totalTimeSpent + timeSpent
+          }
+        } else {
+          // If on last step, just mark as skipped without advancing
+          return {
+            ...prev,
+            skippedSteps: [...prev.skippedSteps, prev.currentStep],
+            totalTimeSpent: prev.totalTimeSpent + timeSpent
+          }
+        }
+      })
+    }, [logDemoAction, saveDemoProgress]),
 
     skipDemo: useCallback(() => {
       const timeSpent = Date.now() - state.stepStartTime

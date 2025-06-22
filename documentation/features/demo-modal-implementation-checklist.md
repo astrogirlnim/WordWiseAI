@@ -654,6 +654,90 @@ const handleSkipDemo = () => {
 🎯 [DemoModal] State changed - isOpen: false currentStep: 1
 ```
 
+### 🎯 **NEW USER AUTO-TRIGGER FUNCTIONALITY** ✅ IMPLEMENTED
+
+**Feature Added**: Automatic demo modal triggering for new users upon sign-in to provide seamless onboarding experience.
+
+**Implementation Details**:
+1. **Enhanced DemoModal component** with comprehensive auto-trigger logic
+2. **Dual trigger support**: URL parameter requests (`?demo=true`) AND new user detection
+3. **Authentication integration** with proper user state checking
+4. **Smart demo detection** using `shouldShowDemo()` function from `useDemoTour` hook
+
+**Auto-Trigger Conditions**:
+- **New users** who have never seen the demo (`!demoProgress?.hasSeenDemo`)
+- **Returning users** who started but never completed the demo (`!demoProgress?.isCompleted`)
+- **Skip limit respect**: Users with skip count less than 3 (prevents demo spam)
+- **Authentication verification**: Proper user state checking before triggering
+
+**Technical Implementation**:
+```typescript
+// Enhanced useEffect with dual trigger logic
+useEffect(() => {
+  const checkAndTriggerDemo = async () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const demoParam = urlParams.get('demo')
+    
+    // Priority 1: URL parameter demo request
+    if (demoParam === 'true' && !state.isOpen && !state.isCompleted) {
+      console.log('🎯 [DemoModal] URL demo parameter detected - opening demo')
+      setTimeout(() => actions.openDemo(), 500)
+      return
+    }
+    
+    // Priority 2: Auto-trigger for new/returning users
+    if (user && !state.isOpen && !state.isCompleted) {
+      console.log('🎯 [DemoModal] No URL demo parameter, checking if new user should see demo')
+      try {
+        const shouldShow = await shouldShowDemo()
+        if (shouldShow) {
+          console.log('🎯 [DemoModal] New/returning user should see demo - auto-opening')
+          setTimeout(() => actions.openDemo(), 1000)
+        }
+      } catch (error) {
+        console.error('[DemoModal] Error checking demo eligibility:', error)
+      }
+    }
+  }
+  
+  checkAndTriggerDemo()
+}, [user, state.isOpen, state.isCompleted, actions, shouldShowDemo])
+```
+
+**Files Modified**:
+- `components/demo-modal.tsx`: Added comprehensive auto-trigger logic with authentication integration
+
+**Testing Results**:
+- ✅ **New User Sign-up**: Demo automatically triggers after account creation and sign-in
+- ✅ **URL Parameter Support**: Manual demo requests via `?demo=true` continue to work seamlessly
+- ✅ **Authentication Integration**: Proper user state checking prevents premature triggering
+- ✅ **Progress Persistence**: Demo resumes from last completed step for returning users
+- ✅ **Smart Detection**: Uses `shouldShowDemo()` logic to respect user preferences and skip limits
+- ✅ **Comprehensive Logging**: Full visibility into auto-trigger decision making
+
+**Console Log Evidence**:
+```
+🎯 [DemoModal] No URL demo parameter, checking if new user should see demo
+🎯 [DemoModal] New/returning user should see demo - auto-opening
+🎯 Demo Tour Action: {action: OPEN_DEMO, currentStep: 4, totalSteps: 7}
+🎯 [DemoModal] State changed - isOpen: true currentStep: 4
+[DemoModal] Rendering with state: {isOpen: true, currentStep: 4, isCompleted: false}
+```
+
+**User Experience Flow**:
+1. **New User Signs Up** → Account created successfully
+2. **User Signs In** → Authentication completes, redirected to main app
+3. **Auto-Trigger Check** → `shouldShowDemo()` evaluates user's demo history
+4. **Demo Opens** → Modal appears automatically with appropriate step progression
+5. **Seamless Onboarding** → User immediately sees value of WordWise AI features
+
+**Benefits**:
+- **Reduced Friction**: No need for users to manually discover demo functionality
+- **Higher Engagement**: Automatic onboarding increases feature adoption
+- **Personalized Experience**: Demo resumes from where user left off
+- **Respect User Choice**: Honors skip limits and completion status
+- **Analytics Ready**: Comprehensive logging for user behavior analysis
+
 ### 🚀 **Ready for Phase 3**
 
 Phase 2 is now complete with a fully functional, professional-grade demo modal that provides an excellent onboarding experience. The foundation is set for Phase 3 (Demo State Management - which is already implemented) and Phase 4 (Demo Step Content & Feature Simulation).
