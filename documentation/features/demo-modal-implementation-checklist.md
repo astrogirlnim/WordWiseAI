@@ -168,12 +168,83 @@
 - **Step Completion Logic**: Separate timeout handling for different user interaction paths
 - **User Authentication Check**: Added proper user.uid validation for document creation flow
 
-### ✅ Phase 4, Step 2: Writing/Copy-Paste Markdown - IN PROGRESS
-- [ ] Step 2: Writing/Copy-Paste Markdown
-    - [ ] Highlight editor area.
-    - [ ] Add "Paste Sample Sales Funnel" button (auto-fill editor).
-    - [ ] Tooltip for markdown/sales funnel tips.
+### ✅ Phase 4, Step 2: Writing/Copy-Paste Markdown - READY FOR IMPLEMENTATION
+- [ ] Step 2: Writing/Copy-Paste Markdown  
+    - [ ] **Step 2.1: User Flow Distinction Logic**
+        - [ ] Detect user type (demo_mode vs authenticated_user) and apply the correct flow.
+        - [ ] **Demo Mode (Anonymous Users)**: Simulate content insertion with DEMO_SAMPLE_DATA without data persistence.
+        - [ ] **Authenticated Users**: Highlight editor with UI spotlight without modifying existing content.
+    - [ ] **Step 2.2: Interactive Tour State Management (in `useDemoTour`)**
+        - [ ] Add interaction steps: `'highlightEditor'`, `'pasteContent'`, `'showContentAdded'`.
+        - [ ] Extend `DemoInteractionStep` type to include new Step 2 interaction states.
+        - [ ] Add state to control demo modal visibility during Step 2 interactions.
+    - [ ] **Step 2.3: "Start Writing" Action Button**
+        - [ ] Replace static Step 2 content with interactive "Start Writing" button in demo modal.
+        - [ ] **Demo Mode Behavior**: Button simulates content insertion with sample sales funnel data.
+        - [ ] **Authenticated User Behavior**: Button highlights editor area with UI spotlight.
+    - [ ] **Step 2.4: User Type Distinction Implementation**
+        - [ ] **Demo Mode (Anonymous Users)**:
+            - [ ] Show "Demo Mode Active" blue info box with writing guidance.
+            - [ ] Button shows "Adding Sample Content..." loading state.
+            - [ ] Simulates sample sales funnel content insertion using DEMO_SAMPLE_DATA.sampleDocument.
+            - [ ] Shows success message and auto-advances to Step 3.
+            - [ ] Uses EditorContentCoordinator for safe content insertion.
+        - [ ] **Authenticated Users (New & Existing)**:
+            - [ ] Show "Guided Tour" amber info box with writing tips.
+            - [ ] Button shows "Highlighting Editor..." loading state.
+            - [ ] Activates UI spotlight on document editor area with educational tooltip.
+            - [ ] No content modification - preserves user's existing content.
+    - [ ] **Step 2.5: Editor Spotlight Integration**
+        - [ ] In `DocumentContainer`, listen for `interactionStep === 'highlightEditor'`.
+        - [ ] Activate `UISpotlight` on editor area (`[data-editor-area]`) with writing tips tooltip.
+        - [ ] Handle spotlight interaction and step completion for authenticated users.
+        - [ ] Provide fallback guidance if no active document exists.
+    - [ ] **Step 2.6: Content Insertion Simulation (Demo Mode Only)**
+        - [ ] Use EditorContentCoordinator to safely insert sample content.
+        - [ ] Leverage existing enhanced-plain-text-paste-extension for content handling.
+        - [ ] Insert DEMO_SAMPLE_DATA.sampleDocument with proper markdown formatting.
+        - [ ] Show visual feedback during content insertion process.
+        - [ ] Auto-advance to Step 3 after successful content insertion.
+    - [ ] **Step 2.7: Firebase & State Management Considerations**
+        - [ ] Ensure demo mode content insertion doesn't trigger Firebase writes.
+        - [ ] Update document state locally for demo visualization only.
+        - [ ] Preserve existing user documents and content during authenticated mode.
+        - [ ] Maintain demo tour progress tracking in Firebase for authenticated users.
+    - [ ] **Step 2.8: Comprehensive Logging & Analytics**
+        - [ ] Add extensive logging for all Step 2 interactions and state changes.
+        - [ ] Track user type detection and content insertion simulation.
+        - [ ] Monitor editor highlighting and spotlight interaction patterns.
+        - [ ] Log step completion and advancement timing data.
+    - [ ] **Step 2.9: Error Handling & Edge Cases**
+        - [ ] Handle missing document scenarios for authenticated users.
+        - [ ] Graceful fallback when editor element not found for spotlight.
+        - [ ] Content insertion error handling in demo mode.
+                 - [ ] UI state recovery from interrupted demo interactions.
 
+**📁 Related Files & Architecture:**
+- `components/demo-modal.tsx` - Step 2 UI content and "Start Writing" action button
+- `hooks/use-demo-tour.ts` - DemoInteractionStep type extension and state management  
+- `components/document-container.tsx` - Editor spotlight integration and interaction handling
+- `components/document-editor.tsx` - Content insertion simulation and EditorContentCoordinator integration
+- `components/ui-spotlight.tsx` - Editor area highlighting with educational tooltips
+- `utils/editor-content-coordinator.ts` - Safe content insertion for demo mode
+- `components/enhanced-plain-text-paste-extension.ts` - Content handling mechanisms
+- `services/document-service.ts` - Ensure no Firebase writes during demo mode
+- `lib/auth-context.tsx` - User type detection for flow distinction
+
+**🔧 Implementation Strategy:**
+- Follow Step 1 patterns: user type detection → action button → loading states → UI spotlight/content simulation → auto-advance
+- Leverage existing EditorContentCoordinator for conflict-free content insertion
+- Use DEMO_SAMPLE_DATA.sampleDocument for rich sales funnel content
+- Implement data-* selectors for reliable UI spotlight targeting
+- Ensure authenticated users see guidance without content modification
+- Maintain comprehensive logging for analytics and debugging
+
+**🔥 Firebase Considerations:**
+- Demo mode: No Firestore writes, local state updates only
+- Authenticated mode: Track demo progress, preserve user documents
+- Content insertion: Use coordinator pattern to avoid version conflicts
+- Error handling: Graceful fallback for offline/connection issues
 
 ### ✅ Phase 4, Step 3: Grammar Suggestions & Markdown Preview - IN PROGRESS
 - [ ] Step 3: Grammar Suggestions & Markdown Preview
