@@ -88,37 +88,14 @@ const StepContent = {
       ? 'demo_mode'
       : 'authenticated_user';
 
-    console.log('🎯 [Demo Step 1] Rendering with user type:', userType);
-
-    const handleSetWritingGoals = () => {
-      console.log('🎯 [Demo Step 1] Set Writing Goals action triggered for user type:', userType);
+    const handleAction = () => {
+      setIsLoading(true);
+      // Centralized logic is now in the hook
+      demoTour.handleInteractiveStepAction(1);
       
-      if (userType === 'demo_mode') {
-        // Demo mode: Open actual Writing Goals modal with sample data
-        setIsLoading(true)
-        console.log('🎯 [Demo Step 1] Demo mode - opening Writing Goals modal with sample data')
-        
-        setTimeout(() => {
-          console.log('🎯 [Demo Step 1] Demo mode - triggering writing goals modal')
-          setIsLoading(false)
-          // Trigger the writing goals modal to open in demo mode
-          demoTour.setInteractionStep('openWritingGoalsModal')
-          demoTour.hideDemoModal()
-        }, 1500)
-      } else {
-        // Authenticated user: Highlight the Writing Goals button
-        setIsLoading(true)
-        console.log('🎯 [Demo Step 1] Authenticated user - highlighting Writing Goals button')
-        
-        setTimeout(() => {
-          setIsLoading(false)
-          demoTour.setInteractionStep('highlightWritingGoals')
-          demoTour.hideDemoModal()
-        }, 1000)
-      }
+      // Spinner display timeout
+      setTimeout(() => setIsLoading(false), 1500);
     }
-
-
 
     return (
       <div className="space-y-4">
@@ -194,7 +171,7 @@ const StepContent = {
         {/* Action Button */}
         <div className="space-y-3 pt-4">
           <Button
-            onClick={handleSetWritingGoals}
+            onClick={handleAction}
             className="w-full"
             size="lg"
             disabled={isLoading}
@@ -216,52 +193,156 @@ const StepContent = {
     );
   },
 
-  Step2: () => (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
-        <div className="flex items-start gap-3">
-          <PenTool className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600 dark:text-orange-400" />
-          <div>
-            <h4 className="font-semibold text-orange-900 dark:text-orange-100">
-              Write & Import Content
-            </h4>
-            <p className="mt-1 text-sm text-orange-700 dark:text-orange-200">
-              Use our powerful editor to write directly or paste existing content. We&apos;ll auto-populate a sales funnel example for this demo.
-            </p>
+  Step2: () => {
+    const { user } = useAuth()
+    const demoTour = useDemoTourContext()
+    const [isLoading, setIsLoading] = useState(false)
+    const [isComplete, setIsComplete] = useState(false)
+
+    // Consistent user type detection: demo mode only for anonymous users
+    const userType = !user ? 'demo_mode' : 'authenticated_user'
+
+    // Enhanced logging for Step 2
+    useEffect(() => {
+      console.log('🎯 [Demo Step 2] Rendering with user type:', userType, {
+        hasUser: !!user,
+        userId: user?.uid,
+        interactionStep: demoTour.interactionStep
+      })
+    }, [userType, user, demoTour.interactionStep])
+
+    useEffect(() => {
+      // Listen for content added signal for demo mode
+      if (demoTour.interactionStep === 'showContentAdded') {
+        console.log('🎯 [Demo Step 2] Content added signal received - completing step')
+        setIsLoading(false);
+        setIsComplete(true);
+        setTimeout(() => {
+          console.log('🎯 [Demo Step 2] Auto-advancing to Step 3')
+          demoTour.completeStep(2);
+          demoTour.nextStep();
+          demoTour.setInteractionStep('idle');
+        }, 2000);
+      }
+    }, [demoTour.interactionStep, demoTour]);
+
+    const handleAction = () => {
+      console.log('🎯 [Demo Step 2] Start Writing action triggered for user type:', userType)
+      setIsLoading(true);
+      demoTour.handleInteractiveStepAction(2);
+
+      // For authenticated users, the spotlight will be shown.
+      // We can turn off the loading state after a short delay.
+      if (userType === 'authenticated_user') {
+        console.log('🎯 [Demo Step 2] Authenticated user - will highlight editor after delay')
+        setTimeout(() => {
+          console.log('🎯 [Demo Step 2] Clearing loading state for authenticated user')
+          setIsLoading(false)
+        }, 1500);
+      } else {
+        console.log('🎯 [Demo Step 2] Demo mode - will simulate content paste')
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+          <div className="flex items-start gap-3">
+            <PenTool className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600 dark:text-orange-400" />
+            <div>
+              <h4 className="font-semibold text-orange-900 dark:text-orange-100">
+                Write & Import Content
+              </h4>
+              <p className="mt-1 text-sm text-orange-700 dark:text-orange-200">
+                Use our powerful editor to write directly or paste existing content.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="space-y-3">
-        <h5 className="font-medium">Editor features:</h5>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Rich markdown support with live preview
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Smart pagination for large documents
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Auto-save with conflict resolution
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Drag-and-drop file imports
-          </li>
-        </ul>
-      </div>
+        {/* User Type Specific Instructions */}
+        {userType === 'demo_mode' ? (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+            <div className="flex items-start gap-3">
+              <Play className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Demo Mode Active
+                </p>
+                <p className="mt-1 text-xs text-blue-700 dark:text-blue-200">
+                  We&apos;ll simulate adding a sample sales funnel document into the editor for you.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+            <div className="flex items-start gap-3">
+              <Eye className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  Guided Tour
+                </p>
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
+                  We&apos;ll highlight the editor area to show you where to start writing.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
-        <p className="text-xs text-amber-700 dark:text-amber-200">
-          <Play className="mr-1 inline h-3 w-3" />
-          We&apos;ll paste a complete sales funnel document to demonstrate all features
-        </p>
+        <div className="space-y-3">
+          <h5 className="font-medium">Editor features:</h5>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Rich markdown support with live preview
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Smart pagination for large documents
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Auto-save with conflict resolution
+            </li>
+          </ul>
+        </div>
+
+        {/* Action Button */}
+        <div className="space-y-3 pt-4">
+          <Button
+            onClick={handleAction}
+            className="w-full"
+            size="lg"
+            disabled={isLoading || isComplete}
+          >
+            {isLoading ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-transparent border-t-white" />
+                {userType === 'demo_mode' ? 'Adding Sample Content...' : 'Highlighting Editor...'}
+              </>
+            ) : isComplete ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Content Added!
+              </>
+            ) : (
+              <>
+                <PenTool className="mr-2 h-4 w-4" />
+                Start Writing
+              </>
+            )}
+          </Button>
+           {isComplete && (
+            <p className="text-center text-sm text-green-600 dark:text-green-400">
+              Sample content added! Moving to the next step...
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  ),
+    )
+  },
 
   Step3: () => (
     <div className="space-y-4">

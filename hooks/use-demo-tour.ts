@@ -26,7 +26,15 @@ import type { DemoProgress } from '@/types/user'
 export type DemoStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 /** The sub-step for interactive UI guidance */
-export type DemoInteractionStep = 'idle' | 'highlightNewDocument' | 'showCreatedDocument' | 'highlightWritingGoals' | 'openWritingGoalsModal';
+export type DemoInteractionStep = 
+  | 'idle' 
+  | 'highlightNewDocument' 
+  | 'showCreatedDocument' 
+  | 'highlightWritingGoals' 
+  | 'openWritingGoalsModal'
+  | 'highlightEditor'
+  | 'pasteContent'
+  | 'showContentAdded';
 
 /**
  * Demo tour state interface for complete state management
@@ -74,6 +82,8 @@ export interface DemoTourActions {
   showDemoModal: () => void;
   /** Set the current step for UI interaction */
   setInteractionStep: (step: DemoInteractionStep) => void;
+  /** Handle the primary action for the current interactive step */
+  handleInteractiveStepAction: (step: DemoStep) => void;
   /** Navigate to next step */
   nextStep: () => void
   /** Navigate to previous step */
@@ -320,6 +330,38 @@ export function useDemoTour() {
       return { ...prev, interactionStep: step };
     });
   }, [logDemoAction]);
+
+  const handleInteractiveStepAction = useCallback((step: DemoStep) => {
+    const userType = !user ? 'demo_mode' : 'authenticated_user';
+    logDemoAction('HANDLE_INTERACTIVE_STEP', { step, userType });
+
+    switch (step) {
+      case 1:
+        if (userType === 'demo_mode') {
+          logDemoAction('INTERACTIVE_STEP_1_DEMO');
+          setInteractionStep('openWritingGoalsModal');
+          hideDemoModal();
+        } else {
+          logDemoAction('INTERACTIVE_STEP_1_AUTH');
+          setInteractionStep('highlightWritingGoals');
+          hideDemoModal();
+        }
+        break;
+      case 2:
+        if (userType === 'demo_mode') {
+          logDemoAction('INTERACTIVE_STEP_2_DEMO');
+          setInteractionStep('pasteContent');
+          hideDemoModal();
+        } else {
+          logDemoAction('INTERACTIVE_STEP_2_AUTH');
+          setInteractionStep('highlightEditor');
+          hideDemoModal();
+        }
+        break;
+      default:
+        logDemoAction('INTERACTIVE_STEP_UNKNOWN', { step });
+    }
+  }, [user, logDemoAction, hideDemoModal]);
 
   const nextStep = useCallback(() => {
     setState(prev => {
@@ -620,6 +662,7 @@ export function useDemoTour() {
     hideDemoModal,
     showDemoModal,
     setInteractionStep,
+    handleInteractiveStepAction,
     nextStep,
     previousStep,
     goToStep,
