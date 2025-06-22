@@ -315,6 +315,93 @@ interface DemoProgress {
 **Linting Status**: ✅ No blocking linting errors, only minor warnings
 **Commit Status**: ✅ Changes committed to `demo-modal` branch successfully
 
+### 🚨 **Critical Bug Fix - Demo Redirect Issue** ✅
+
+**Problem Identified**: The "Try Demo - No Account Required" button was redirecting users back to the sign-in page instead of allowing demo access, breaking the core demo functionality.
+
+**Root Cause**: Authentication check in `app/(main)/page.tsx` was redirecting unauthenticated users **before** demo logic could execute:
+```typescript
+// PROBLEMATIC CODE (FIXED):
+if (!loading && !user) {
+  router.push('/sign-in')  // ← Redirected ALL unauthenticated users
+}
+```
+
+**Solution Implemented**:
+
+**1. Modified Authentication Logic** (`app/(main)/page.tsx`):
+```typescript
+// FIXED CODE:
+if (!loading && !user && searchParams.get('demo') !== 'true') {
+  console.log('🔒 No user found and not in demo mode - redirecting to sign-in')
+  router.push('/sign-in')
+}
+```
+
+**2. Enhanced Demo Mode Detection**:
+```typescript
+// Allow demo mode for unauthenticated users
+const isDemoMode = searchParams.get('demo') === 'true'
+
+if (!user && !isDemoMode) {
+  console.log('🔒 No user and not in demo mode - showing nothing while redirect happens')
+  return null
+}
+
+if (!user && isDemoMode) {
+  console.log('🎯 Demo mode for unauthenticated user - showing DocumentContainer')
+}
+```
+
+**3. Improved Demo Trigger Logic**:
+- Enhanced logging to show authentication status during demo triggers
+- Added proper handling for both authenticated and unauthenticated demo users
+- Consistent 1-second delay for DocumentContainer loading regardless of auth status
+
+**Results After Fix**:
+- ✅ **Demo Button Works**: "Try Demo" button successfully redirects to main app
+- ✅ **No Auth Required**: Unauthenticated users can access demo mode
+- ✅ **Proper Console Logs**: Clear visibility into demo state transitions
+- ✅ **User Testing Confirmed**: Manual testing shows successful demo access
+
+**Console Log Examples After Fix**:
+```
+🎯 Demo requested via URL parameter - opening demo
+👤 User authenticated: false
+🎯 Demo mode for unauthenticated user - showing DocumentContainer
+🎯 Demo Tour Action: {action: "OPEN_DEMO", currentStep: 1, totalSteps: 7}
+```
+
+**Additional Commit**: `0def8fd` - "Fix demo redirect issue: Allow unauthenticated demo access"
+
+### 🎨 **UI Enhancement - Demo Button Visibility** ✅
+
+**Problem Identified**: The "Try Demo" button had poor visibility in dark mode, appearing whitewashed and hard to see against the dark background.
+
+**Solution Implemented** (`app/sign-in/page.tsx`):
+
+**Before** (Poor Visibility):
+```typescript
+variant="outline"
+className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200"
+```
+
+**After** (High Visibility):
+```typescript
+variant="default"
+className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 border-0 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600"
+```
+
+**Enhancements**:
+- ✅ **Bold Gradient**: Strong blue-to-purple gradient (`-600` instead of `-50`)
+- ✅ **High Contrast**: White text on dark gradient for maximum readability
+- ✅ **Dark Mode Support**: Dedicated dark mode color variants
+- ✅ **Enhanced UX**: Shadow effects, smooth transitions, and hover states
+- ✅ **Professional Styling**: Maintains WordWise AI brand aesthetic
+- ✅ **Accessibility**: High contrast ratios for screen readers and visual accessibility
+
+**Visual Impact**: Button now stands out prominently in both light and dark themes, clearly visible and inviting for users to try the demo.
+
 ---
 
 ## Phase 2: Demo Modal Core UI
