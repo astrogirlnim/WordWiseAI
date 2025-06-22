@@ -34,11 +34,11 @@ export function DemoTriggerButton({
   showTooltip = true,
   className = ''
 }: DemoTriggerButtonProps) {
-  const demoTour = useDemoTourContext()
+  const { actions } = useDemoTourContext()
 
   const handleStartDemo = () => {
     console.log('🎯 [DemoTriggerButton] Manual demo start triggered')
-    demoTour.startDemo()
+    actions.startDemo()
   }
 
   const buttonContent = (

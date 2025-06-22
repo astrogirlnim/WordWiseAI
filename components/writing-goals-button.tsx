@@ -33,7 +33,6 @@ export function WritingGoalsButton({
       size="sm"
       onClick={onClick}
       className={cn("flex max-w-[200px] items-center gap-2", className)}
-      data-writing-goals-button
     >
       <Target className="h-4 w-4" />
       <div className="flex min-w-0 flex-col items-start">

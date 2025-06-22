@@ -79,142 +79,48 @@ interface DemoStepConfig {
  * Each component provides rich educational content with visuals
  */
 const StepContent = {
-  Step1: () => {
-    const { user } = useAuth()
-    const demoTour = useDemoTourContext()
-    const [isLoading, setIsLoading] = useState(false)
-
-    const userType = !user && window.location.search.includes('demo=true')
-      ? 'demo_mode'
-      : 'authenticated_user';
-
-    console.log('🎯 [Demo Step 1] Rendering with user type:', userType);
-
-    const handleSetWritingGoals = () => {
-      console.log('🎯 [Demo Step 1] Set Writing Goals action triggered for user type:', userType);
-      
-      if (userType === 'demo_mode') {
-        // Demo mode: Open actual Writing Goals modal with sample data
-        setIsLoading(true)
-        console.log('🎯 [Demo Step 1] Demo mode - opening Writing Goals modal with sample data')
-        
-        setTimeout(() => {
-          console.log('🎯 [Demo Step 1] Demo mode - triggering writing goals modal')
-          setIsLoading(false)
-          // Trigger the writing goals modal to open in demo mode
-          demoTour.setInteractionStep('openWritingGoalsModal')
-          demoTour.hideDemoModal()
-        }, 1500)
-      } else {
-        // Authenticated user: Highlight the Writing Goals button
-        setIsLoading(true)
-        console.log('🎯 [Demo Step 1] Authenticated user - highlighting Writing Goals button')
-        
-        setTimeout(() => {
-          setIsLoading(false)
-          demoTour.setInteractionStep('highlightWritingGoals')
-          demoTour.hideDemoModal()
-        }, 1000)
-      }
-    }
-
-
-
-    return (
-      <div className="space-y-4">
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
-          <div className="flex items-start gap-3">
-            <Target className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <div>
-              <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">
-                Welcome to WordWise AI!
-              </h4>
-              <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-200">
-                This tour will guide you through creating a document and setting writing goals.
-              </p>
-            </div>
+  Step1: () => (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+        <div className="flex items-start gap-3">
+          <Target className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div>
+            <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">
+              Welcome to WordWise AI!
+            </h4>
+            <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-200">
+              Let&apos;s start by creating your first document and setting writing goals. This helps our AI understand your target audience and objectives.
+            </p>
           </div>
-        </div>
-
-        {/* User Type Specific Instructions */}
-        {userType === 'demo_mode' ? (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
-            <div className="flex items-start gap-3">
-              <Play className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-              <div>
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  Demo Mode Active
-                </p>
-                <p className="mt-1 text-xs text-blue-700 dark:text-blue-200">
-                  We&apos;ll create a sample document with pre-filled writing goals to show you how everything works.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
-            <div className="flex items-start gap-3">
-              <Eye className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-              <div>
-                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  Guided Tour
-                </p>
-                <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
-                  We&apos;ll highlight parts of the UI to show you how everything works without changing your data.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="space-y-3">
-          <h5 className="font-medium">What you&apos;ll learn:</h5>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {userType === 'demo_mode' 
-                ? 'How to create documents with sample data' 
-                : 'How to navigate to the writing goals feature'}
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {userType === 'demo_mode' 
-                ? 'See pre-filled writing goals with example content' 
-                : 'How to set writing goals for your documents'}
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {userType === 'demo_mode' 
-                ? 'Experience the complete document creation flow' 
-                : 'Understanding the writing goals interface'}
-            </li>
-          </ul>
-        </div>
-
-        {/* Action Button */}
-        <div className="space-y-3 pt-4">
-          <Button
-            onClick={handleSetWritingGoals}
-            className="w-full"
-            size="lg"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-transparent border-t-white" />
-                {userType === 'demo_mode' ? 'Creating Sample Document...' : 'Highlighting UI...'}
-              </>
-            ) : (
-              <>
-                <Target className="mr-2 h-4 w-4" />
-                Set Writing Goals
-              </>
-            )}
-          </Button>
         </div>
       </div>
-    );
-  },
+      
+      <div className="space-y-3">
+        <h5 className="font-medium">What you&apos;ll learn:</h5>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+            How to create documents with targeted writing goals
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Setting audience demographics and tone preferences
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Configuring AI assistance for your specific use case
+          </li>
+        </ul>
+      </div>
+
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/20">
+        <p className="text-xs text-blue-700 dark:text-blue-200">
+          <Sparkles className="mr-1 inline h-3 w-3" />
+          Pro tip: Clear writing goals result in 40% more targeted AI suggestions
+        </p>
+      </div>
+    </div>
+  ),
 
   Step2: () => (
     <div className="space-y-4">
@@ -678,11 +584,12 @@ function StepIndicator({
   onStepClick,
   className 
 }: StepIndicatorProps) {
-  const steps = Array.from({ length: totalSteps }, (_, i) => (i + 1) as DemoStep)
+  console.log('[DemoModal] StepIndicator rendering:', { currentStep, totalSteps, completedSteps })
 
   return (
     <div className={cn("flex items-center justify-center space-x-2", className)}>
-      {steps.map((stepNumber) => {
+      {Array.from({ length: totalSteps }, (_, index) => {
+        const stepNumber = (index + 1) as DemoStep
         const isCompleted = completedSteps.includes(stepNumber)
         const isCurrent = stepNumber === currentStep
         const isPast = stepNumber < currentStep
@@ -704,7 +611,7 @@ function StepIndicator({
                 "cursor-not-allowed": !onStepClick
               }
             )}
-            aria-label={`Step ${stepNumber}: ${DEMO_STEPS[stepNumber - 1].title}`}
+            aria-label={`Step ${stepNumber}: ${DEMO_STEPS[index].title}`}
             aria-current={isCurrent ? 'step' : undefined}
           >
             {isCompleted && !isCurrent ? (
@@ -723,28 +630,28 @@ function StepIndicator({
  * Main Demo Modal Component
  */
 export function DemoModal() {
-  const demoTour = useDemoTourContext()
+  const { state, actions, shouldShowDemo } = useDemoTourContext()
   const { user } = useAuth()
   const router = useRouter()
   const [isAnimating, setIsAnimating] = useState(false)
 
   console.log('[DemoModal] Rendering with state:', {
-    isOpen: demoTour.isOpen,
-    currentStep: demoTour.currentStep,
-    isCompleted: demoTour.isCompleted,
-    completedSteps: demoTour.completedSteps
+    isOpen: state.isOpen,
+    currentStep: state.currentStep,
+    isCompleted: state.isCompleted,
+    completedSteps: state.completedSteps
   })
 
   // Additional debugging for modal visibility
   useEffect(() => {
     console.log('🎯 [DemoModal] State changed:', {
-      isOpen: demoTour.isOpen,
-      currentStep: demoTour.currentStep,
-      isCompleted: demoTour.isCompleted,
-      canGoBack: demoTour.canGoBack,
-      canGoForward: demoTour.canGoForward
+      isOpen: state.isOpen,
+      currentStep: state.currentStep,
+      isCompleted: state.isCompleted,
+      canGoBack: state.canGoBack,
+      canGoForward: state.canGoForward
     })
-  }, [demoTour.isOpen, demoTour.currentStep, demoTour.isCompleted])
+  }, [state.isOpen, state.currentStep, state.isCompleted])
 
   // Handle demo trigger from URL parameters and auto-trigger for new users
   useEffect(() => {
@@ -753,28 +660,28 @@ export function DemoModal() {
       const demoParam = urlParams.get('demo')
       
       // Priority 1: URL parameter demo request - always start fresh
-      if (demoParam === 'true' && !demoTour.isOpen) {
+      if (demoParam === 'true' && !state.isOpen) {
         console.log('🎯 [DemoModal] URL demo parameter detected - starting demo fresh')
         setTimeout(() => {
-          demoTour.startDemo()
+          actions.startDemo()
         }, 500)
         return
       }
       
       // Priority 2: Auto-trigger for new users (only if authenticated and not completed)
-      if (user && !demoTour.isOpen && !demoTour.isCompleted) {
+      if (user && !state.isOpen && !state.isCompleted) {
         try {
           console.log('🔍 [DemoModal] Checking if new user should see demo...', {
             userId: user.uid,
-            isOpen: demoTour.isOpen,
-            isCompleted: demoTour.isCompleted
+            isOpen: state.isOpen,
+            isCompleted: state.isCompleted
           })
-          const shouldShow = await demoTour.shouldShowDemo()
+          const shouldShow = await shouldShowDemo()
           
           if (shouldShow) {
             console.log('🎯 [DemoModal] New user detected - starting demo fresh from step 1')
             setTimeout(() => {
-              demoTour.startDemo()
+              actions.startDemo()
             }, 1000) // Slightly longer delay for new users to let page load
           } else {
             console.log('📝 [DemoModal] User has already seen demo - not triggering')
@@ -786,11 +693,11 @@ export function DemoModal() {
     }
     
     checkAndTriggerDemo()
-  }, [user, demoTour.isOpen, demoTour.isCompleted, demoTour.shouldShowDemo]) // Removed actions dependency to prevent multiple calls
+  }, [user, state.isOpen, state.isCompleted, shouldShowDemo]) // Removed actions dependency to prevent multiple calls
 
   // Current step data
-  const currentStepData = DEMO_STEPS.find(step => step.id === demoTour.currentStep) || DEMO_STEPS[0]
-  const progressPercentage = ((demoTour.currentStep - 1) / (demoTour.totalSteps - 1)) * 100
+  const currentStepData = DEMO_STEPS.find(step => step.id === state.currentStep) || DEMO_STEPS[0]
+  const progressPercentage = ((state.currentStep - 1) / (state.totalSteps - 1)) * 100
 
   /**
    * Handle step navigation with animation prevention
@@ -811,11 +718,11 @@ export function DemoModal() {
    * Handle manual step jumping from step indicator
    */
   const handleStepJump = (targetStep: DemoStep) => {
-    if (isAnimating || targetStep === demoTour.currentStep) return
+    if (isAnimating || targetStep === state.currentStep) return
     
     console.log('[DemoModal] Jumping to step:', targetStep)
     setIsAnimating(true)
-    demoTour.goToStep(targetStep)
+    actions.goToStep(targetStep)
     
     setTimeout(() => {
       setIsAnimating(false)
@@ -827,7 +734,7 @@ export function DemoModal() {
    */
   const handleComplete = () => {
     console.log('[DemoModal] Completing demo')
-    demoTour.completDemo()
+    actions.completDemo()
     clearDemoUrlParameter()
   }
 
@@ -836,7 +743,7 @@ export function DemoModal() {
    */
   const handleSkipDemo = () => {
     console.log('[DemoModal] Skipping demo')
-    demoTour.skipDemo()
+    actions.skipDemo()
     clearDemoUrlParameter()
     
     // Redirect based on authentication status
@@ -863,7 +770,7 @@ export function DemoModal() {
    * Handle keyboard navigation
    */
   useEffect(() => {
-    if (!demoTour.isOpen) return
+    if (!state.isOpen) return
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // Prevent navigation during animations
@@ -871,15 +778,15 @@ export function DemoModal() {
 
       switch (event.key) {
         case 'ArrowLeft':
-          if (demoTour.canGoBack) {
+          if (state.canGoBack) {
             event.preventDefault()
-            handleStepNavigation(demoTour.previousStep)
+            handleStepNavigation(actions.previousStep)
           }
           break
         case 'ArrowRight':
-          if (demoTour.canGoForward) {
+          if (state.canGoForward) {
             event.preventDefault()
-            handleStepNavigation(demoTour.nextStep)
+            handleStepNavigation(actions.nextStep)
           }
           break
         case 'Escape':
@@ -891,14 +798,14 @@ export function DemoModal() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [demoTour.isOpen, demoTour.canGoBack, demoTour.canGoForward, isAnimating, demoTour, handleStepNavigation])
+  }, [state.isOpen, state.canGoBack, state.canGoForward, isAnimating, actions, handleStepNavigation])
 
-  if (!demoTour.isOpen) {
+  if (!state.isOpen) {
     return null
   }
 
   return (
-    <Dialog open={demoTour.isOpen} onOpenChange={(open) => !open && handleSkipDemo()}>
+    <Dialog open={state.isOpen} onOpenChange={(open) => !open && handleSkipDemo()}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0"
         aria-describedby="demo-modal-description"
@@ -922,7 +829,7 @@ export function DemoModal() {
             
             <Badge variant="secondary" className="flex items-center gap-1">
               <span className="text-xs font-medium">
-                Step {demoTour.currentStep} of {demoTour.totalSteps}
+                Step {state.currentStep} of {state.totalSteps}
               </span>
             </Badge>
           </div>
@@ -937,9 +844,9 @@ export function DemoModal() {
             
             {/* Step indicator dots */}
             <StepIndicator
-              currentStep={demoTour.currentStep}
-              totalSteps={demoTour.totalSteps}
-              completedSteps={demoTour.completedSteps}
+              currentStep={state.currentStep}
+              totalSteps={state.totalSteps}
+              completedSteps={state.completedSteps}
               onStepClick={handleStepJump}
               className="pt-1"
             />
@@ -980,8 +887,8 @@ export function DemoModal() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleStepNavigation(demoTour.previousStep)}
-                disabled={!demoTour.canGoBack || isAnimating}
+                onClick={() => handleStepNavigation(actions.previousStep)}
+                disabled={!state.canGoBack || isAnimating}
                 className="flex items-center gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -989,7 +896,7 @@ export function DemoModal() {
               </Button>
 
               {/* Next/Complete button */}
-              {demoTour.currentStep === demoTour.totalSteps ? (
+              {state.currentStep === state.totalSteps ? (
                 <Button
                   size="sm"
                   onClick={handleComplete}
@@ -1002,8 +909,8 @@ export function DemoModal() {
               ) : (
                 <Button
                   size="sm"
-                  onClick={() => handleStepNavigation(demoTour.nextStep)}
-                  disabled={!demoTour.canGoForward || isAnimating}
+                  onClick={() => handleStepNavigation(actions.nextStep)}
+                  disabled={!state.canGoForward || isAnimating}
                   className="flex items-center gap-2"
                 >
                   Next
@@ -1015,7 +922,7 @@ export function DemoModal() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleStepNavigation(demoTour.skipStep)}
+                onClick={() => handleStepNavigation(actions.skipStep)}
                 disabled={isAnimating}
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
               >

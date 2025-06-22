@@ -1,9 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/lib/auth-context'
-import { useDemoTourContext } from '@/lib/demo-tour-context'
-import { DEMO_SAMPLE_DATA } from '@/hooks/use-demo-tour'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -29,7 +26,6 @@ interface WritingGoalsModalProps {
   onClose: () => void
   currentGoals: WritingGoals
   onSave: (goals: WritingGoals, title?: string) => void
-  onSaveDemo?: (goals: WritingGoals, title: string) => void
   showOnNewDocument: boolean
   onShowOnNewDocumentChange: (show: boolean) => void
   isNewDocument?: boolean
@@ -41,14 +37,11 @@ export function WritingGoalsModal({
   onClose,
   currentGoals,
   onSave,
-  onSaveDemo,
   showOnNewDocument,
   onShowOnNewDocumentChange,
   isNewDocument = false,
   initialTitle = 'Untitled Document',
 }: WritingGoalsModalProps) {
-  const { user } = useAuth()
-  const demoTour = useDemoTourContext()
   console.log('[WritingGoalsModal] Rendering modal:', {
     isOpen,
     isNewDocument,
@@ -57,21 +50,6 @@ export function WritingGoalsModal({
 
   const [goals, setGoals] = useState<WritingGoals>(currentGoals)
   const [documentTitle, setDocumentTitle] = useState(initialTitle)
-
-  // Demo mode detection
-  const isDemoMode = !user && window.location.search.includes('demo=true')
-  const isInteractiveDemoStep = isDemoMode && demoTour.currentStep === 1 && (
-    demoTour.interactionStep === 'highlightNewDocument' || 
-    demoTour.interactionStep === 'openWritingGoalsModal'
-  );
-
-  console.log('[WritingGoalsModal] Demo state:', {
-    isDemoMode,
-    isInteractiveDemoStep,
-    userExists: !!user,
-    demoOpen: demoTour.isOpen,
-    currentStep: demoTour.currentStep
-  })
 
   const handleGoalChange = (section: keyof WritingGoals, value: string) => {
     console.log('[WritingGoalsModal] Goal changed:', section, '→', value)
@@ -92,28 +70,14 @@ export function WritingGoalsModal({
       goals,
       title: isNewDocument ? documentTitle : undefined,
       isNewDocument,
-      isInteractiveDemoStep,
     })
     
-    if (isInteractiveDemoStep && onSaveDemo) {
-      console.log('[WritingGoalsModal] Saving DEMO document');
-      onSaveDemo(goals, documentTitle.trim() || 'Untitled Document');
-      // Complete Step 1 and advance to Step 2
-      demoTour.completeStep(1);
-      demoTour.setInteractionStep('idle');
-      setTimeout(() => {
-        demoTour.showDemoModal();
-        demoTour.nextStep();
-      }, 1000);
-      onClose();
+    if (isNewDocument) {
+      onSave(goals, documentTitle.trim() || 'Untitled Document')
     } else {
-      if (isNewDocument) {
-        onSave(goals, documentTitle.trim() || 'Untitled Document')
-      } else {
-        onSave(goals)
-      }
-      onClose()
+      onSave(goals)
     }
+    onClose()
   }
 
   const handleReset = () => {
@@ -133,24 +97,6 @@ export function WritingGoalsModal({
     setDocumentTitle(initialTitle)
   }, [currentGoals, initialTitle])
 
-  // Auto-populate with sample data in demo mode for Step 1
-  useEffect(() => {
-    if (isInteractiveDemoStep && isOpen) {
-      console.log('[WritingGoalsModal] Demo Step 1 detected - auto-populating with sample data')
-      
-      // Set sample writing goals
-      setGoals(DEMO_SAMPLE_DATA.sampleGoals)
-      
-      // Set sample document title
-      setDocumentTitle(DEMO_SAMPLE_DATA.sampleDocumentTitle)
-      
-      console.log('[WritingGoalsModal] Sample data populated:', {
-        sampleGoals: DEMO_SAMPLE_DATA.sampleGoals,
-        sampleTitle: DEMO_SAMPLE_DATA.sampleDocumentTitle
-      })
-    }
-  }, [isInteractiveDemoStep, isOpen])
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
@@ -160,20 +106,12 @@ export function WritingGoalsModal({
               <Target className="h-4 w-4 text-primary" />
             </div>
             {isNewDocument ? 'Create New Document' : 'Set Writing Goals'}
-            {isInteractiveDemoStep && (
-              <Badge variant="secondary" className="ml-2">
-                Demo Mode
-              </Badge>
-            )}
           </DialogTitle>
           <DialogDescription>
-            {isInteractiveDemoStep ? (
-              'This demo shows how to set writing goals with sample data. In real use, customize these settings for your specific needs.'
-            ) : isNewDocument ? (
-              'Set your document title and writing goals to get started with AI-powered assistance.'
-            ) : (
-              'Get tailored writing suggestions based on your marketing goals and target audience.'
-            )}
+            {isNewDocument 
+              ? 'Set your document title and writing goals to get started with AI-powered assistance.'
+              : 'Get tailored writing suggestions based on your marketing goals and target audience.'
+            }
           </DialogDescription>
         </DialogHeader>
 

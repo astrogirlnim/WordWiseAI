@@ -9,7 +9,7 @@ import { NavigationBar } from './navigation-bar'
 import { WritingGoalsModal } from './writing-goals-modal'
 import { useDocuments } from '@/hooks/use-documents'
 import { useToast } from '@/hooks/use-toast'
-import { useDemoTourContext } from '@/lib/demo-tour-context'
+import { useDemoTour } from '@/hooks/use-demo-tour'
 import { defaultWritingGoals } from '@/utils/writing-goals-data'
 import type { WritingGoals } from '@/types/writing-goals'
 import { VersionHistorySidebar } from './version-history-sidebar'
@@ -19,8 +19,6 @@ import { VersionDiffViewer } from './version-diff-viewer'
 import { useDocumentVersions } from '@/hooks/use-document-versions'
 import { AuditService, AuditEvent } from '@/services/audit-service'
 import { DemoModal } from './demo-modal'
-import { UISpotlight } from './ui-spotlight'
-import { DEMO_SAMPLE_DATA } from '@/hooks/use-demo-tour'
 
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
@@ -30,7 +28,7 @@ const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod
 
 export function DocumentContainer() {
   const { user } = useAuth()
-  const demoTour = useDemoTourContext()
+  const { state: demoState } = useDemoTour()
   const {
     // Document lists
     documents,
@@ -42,7 +40,6 @@ export function DocumentContainer() {
     
     // Actions
     createDocument,
-    createDemoDocument,
     updateDocument,
     deleteDocument,
     restoreDocumentVersion,
@@ -76,23 +73,14 @@ export function DocumentContainer() {
   })
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null)
 
-  // Demo spotlight state for Step 1
-  const [demoSpotlightActive, setDemoSpotlightActive] = useState(false)
-  const [demoSpotlightTarget, setDemoSpotlightTarget] = useState<string>('')
-  const [demoSpotlightContent, setDemoSpotlightContent] = useState<{
-    title: string
-    description: string
-    actionText?: string
-  }>({ title: '', description: '' })
-
   console.log('[DocumentContainer] Rendered with:', {
     totalDocs: documents.length,
     ownedDocs: ownedDocuments.length,
     sharedDocs: sharedDocuments.length,
     activeDocumentId,
     user: user?.uid,
-    demoOpen: demoTour.isOpen,
-    demoStep: demoTour.currentStep
+    demoOpen: demoState.isOpen,
+    demoStep: demoState.currentStep
   })
 
   // Set active document when documents load
@@ -158,157 +146,6 @@ export function DocumentContainer() {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isDistractionFree])
-
-  // New interactive demo tour logic
-  useEffect(() => {
-    const { interactionStep, currentStep } = demoTour
-
-    const userType = !user ? 'demo_mode' : 'authenticated_user';
-    
-    // Only run this logic for step 1
-    if (currentStep !== 1 || interactionStep === 'idle') {
-      if (demoSpotlightActive) {
-        setDemoSpotlightActive(false)
-        console.log('🎯 [DocumentContainer] Interaction step changed, hiding spotlight.')
-      }
-      return
-    }
-
-    console.log(`🎯 [DocumentContainer] Handling interaction step: ${interactionStep}`);
-
-    if (interactionStep === 'highlightNewDocument') {
-      const mainButton = document.querySelector('[data-new-document-button-main]')
-      const targetSelector = mainButton ? '[data-new-document-button-main]' : '[data-new-document-button]'
-      
-      console.log(`🎯 [DocumentContainer] Highlighting target: ${targetSelector}`);
-      
-      setDemoSpotlightTarget(targetSelector)
-      setDemoSpotlightContent({
-        title: userType === 'demo_mode' ? 'Start Your Demo Document' : 'Create a New Document',
-        description: 'Click here to begin. You can set specific writing goals for our AI to follow.',
-      })
-      setDemoSpotlightActive(true)
-
-    } else if (interactionStep === 'highlightWritingGoals') {
-      const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
-      const newDocumentButton = document.querySelector('[data-new-document-button]') || document.querySelector('[data-new-document-button-main]')
-      
-      console.log(`🎯 [DocumentContainer] Highlighting Writing Goals - button found:`, !!writingGoalsButton);
-      
-      if (writingGoalsButton) {
-        // User has an active document - highlight the Writing Goals button
-        setDemoSpotlightTarget('[data-writing-goals-button]')
-        setDemoSpotlightContent({
-          title: 'Writing Goals',
-          description: 'Click here to set your writing goals and target audience. This helps our AI provide better suggestions.',
-          actionText: 'Open Writing Goals'
-        })
-        setDemoSpotlightActive(true)
-      } else if (newDocumentButton) {
-        // User has no active document - highlight the New Document button and explain the flow
-        const targetSelector = newDocumentButton.hasAttribute('data-new-document-button-main') 
-          ? '[data-new-document-button-main]' 
-          : '[data-new-document-button]'
-        setDemoSpotlightTarget(targetSelector)
-        setDemoSpotlightContent({
-          title: 'Create Document First',
-          description: 'To set writing goals, you first need to create a document. Click here to create a new document, and you\'ll be able to set writing goals during the creation process.',
-          actionText: 'Create Document'
-        })
-        setDemoSpotlightActive(true)
-      } else {
-        console.warn('🎯 [DocumentContainer] Neither Writing Goals button nor New Document button found')
-        // Show a general informational spotlight
-        setDemoSpotlightTarget('')
-        setDemoSpotlightContent({
-          title: 'Writing Goals',
-          description: 'Writing goals help our AI provide better suggestions. You can access them after creating your first document. For now, let\'s continue with the tour.',
-          actionText: 'Continue Tour'
-        })
-        setDemoSpotlightActive(true)
-      }
-
-    } else if (interactionStep === 'openWritingGoalsModal') {
-      console.log('🎯 [DocumentContainer] Opening Writing Goals modal in demo mode')
-      // Open the writing goals modal in demo mode
-      setIsGoalsModalOpen(true)
-      setIsCreatingNewDocument(true)
-      
-    } else if (interactionStep === 'showCreatedDocument') {
-      console.log('🎯 [DocumentContainer] Showing "Continue Tour" spotlight');
-      setDemoSpotlightTarget('') // No specific element target, will show as a modal
-      setDemoSpotlightContent({
-        title: 'Document Created!',
-        description: "Excellent! We've created a sample document for you. When you're ready, let's continue the tour to see what's next.",
-        actionText: 'Continue Tour'
-      })
-      setDemoSpotlightActive(true)
-    }
-  }, [demoTour.interactionStep, demoTour.currentStep, demoSpotlightActive, user])
-
-  // Handle demo spotlight actions
-  const handleDemoSpotlightAction = useCallback(() => {
-    const { interactionStep } = demoTour;
-    console.log(`🎯 [DocumentContainer] Spotlight action for step: ${interactionStep}`);
-
-    if (interactionStep === 'showCreatedDocument') {
-        setDemoSpotlightActive(false);
-        demoTour.setInteractionStep('idle');
-        demoTour.showDemoModal();
-        demoTour.nextStep();
-    } else if (interactionStep === 'highlightWritingGoals') {
-        console.log('🎯 [DocumentContainer] User clicked spotlight action for Writing Goals')
-        setDemoSpotlightActive(false);
-        
-        // Check if we're highlighting the Writing Goals button or New Document button
-        const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
-        
-        if (writingGoalsButton) {
-          // User has an active document - open Writing Goals modal
-          console.log('🎯 [DocumentContainer] Opening Writing Goals modal for existing document')
-          setIsGoalsModalOpen(true);
-          
-          // Complete step after modal opens
-          setTimeout(() => {
-            demoTour.completeStep(1);
-            demoTour.setInteractionStep('idle');
-            demoTour.showDemoModal();
-            demoTour.nextStep();
-          }, 1500);
-        } else {
-          // User has no active document - start document creation flow
-          console.log('🎯 [DocumentContainer] Starting new document creation flow via spotlight')
-          
-          // Trigger new document creation by setting state and opening goals modal
-          if (user?.uid) {
-            console.log('🎯 [DocumentContainer] Setting up new document creation state')
-            setIsCreatingNewDocument(true)
-            setNewDocumentTitle('Untitled Document')
-            setIsGoalsModalOpen(true)
-          } else {
-            console.warn('🎯 [DocumentContainer] No user available for new document creation')
-          }
-          
-          // For new document creation, complete the step after modal opens
-          setTimeout(() => {
-            console.log('🎯 [DocumentContainer] Completing demo step after new document flow started')
-            demoTour.completeStep(1);
-            demoTour.setInteractionStep('idle');
-            demoTour.showDemoModal();
-            demoTour.nextStep();
-          }, 1000);
-        }
-    }
-    // For 'highlightNewDocument', no action is needed here, as the user clicks the actual button.
-    // The spotlight will be dismissed by the main useEffect when interactionStep changes.
-  }, [demoTour, setIsGoalsModalOpen, setIsCreatingNewDocument, setNewDocumentTitle, user?.uid])
-
-  const handleDemoSpotlightDismiss = useCallback(() => {
-    console.log('🎯 [DocumentContainer] Demo spotlight dismissed by user')
-    // Optionally handle dismiss, e.g. for authenticated user flow
-    // For now, just close the spotlight. The tour will be paused.
-    setDemoSpotlightActive(false)
-  }, [])
 
   const handleDocumentSelect = useCallback(
     (documentId: string) => {
@@ -632,18 +469,6 @@ export function DocumentContainer() {
     isOwner: activeDocument?.ownerId === user?.uid
   })
 
-  const handleCreateDemoDocument = useCallback((goals: WritingGoals, title: string) => {
-    console.log('🎯 [DocumentContainer] Creating demo document with title:', title);
-    const newDocId = createDemoDocument(
-        title,
-        DEMO_SAMPLE_DATA.sampleDocument,
-    );
-    if (newDocId) {
-        setActiveDocumentId(newDocId);
-        console.log('🎯 [DocumentContainer] Demo document created and set as active:', newDocId);
-    }
-  }, [createDemoDocument, setActiveDocumentId]);
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -715,7 +540,6 @@ export function DocumentContainer() {
                 <button
                   onClick={handleNewDocument}
                   className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
-                  data-new-document-button-main
                 >
                   New Document
                 </button>
@@ -771,7 +595,6 @@ export function DocumentContainer() {
           }
         }}
         onSave={handleSaveWritingGoals}
-        onSaveDemo={handleCreateDemoDocument}
         showOnNewDocument={showGoalsOnNewDocument}
         onShowOnNewDocumentChange={setShowGoalsOnNewDocument}
         isNewDocument={isCreatingNewDocument}
@@ -780,17 +603,6 @@ export function DocumentContainer() {
 
       {/* Demo Modal */}
       <DemoModal />
-
-      {/* UI Spotlight for Demo Step 1 */}
-      <UISpotlight
-        isActive={demoSpotlightActive}
-        targetSelector={demoSpotlightTarget}
-        title={demoSpotlightContent.title}
-        description={demoSpotlightContent.description}
-        actionText={demoSpotlightContent.actionText}
-        onAction={handleDemoSpotlightAction}
-        onDismiss={handleDemoSpotlightDismiss}
-      />
     </div>
   )
 }

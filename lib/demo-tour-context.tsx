@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, ReactNode } from 'react'
-import { useDemoTour } from '@/hooks/use-demo-tour'
+import { useDemoTour, type DemoTourState, type DemoTourActions } from '@/hooks/use-demo-tour'
 
 /**
  * Demo Tour Context Provider
@@ -10,7 +10,9 @@ import { useDemoTour } from '@/hooks/use-demo-tour'
  * This prevents multiple hook instances that can cause conflicting state updates.
  */
 
-type DemoTourContextType = ReturnType<typeof useDemoTour> & {
+interface DemoTourContextType {
+  state: DemoTourState
+  actions: DemoTourActions
   shouldShowDemo: () => Promise<boolean>
 }
 
@@ -28,21 +30,9 @@ export function DemoTourProvider({ children }: DemoTourProviderProps) {
   console.log('🔧 [DemoTourProvider] Provider instantiated')
   
   const demoTour = useDemoTour()
-  
-  // Add shouldShowDemo function
-  const shouldShowDemo = async (): Promise<boolean> => {
-    // For now, return false - this can be implemented later
-    // This function should check if a user should see the demo
-    return false
-  }
-
-  const contextValue = {
-    ...demoTour,
-    shouldShowDemo
-  }
 
   return (
-    <DemoTourContext.Provider value={contextValue}>
+    <DemoTourContext.Provider value={demoTour}>
       {children}
     </DemoTourContext.Provider>
   )
@@ -60,9 +50,9 @@ export function useDemoTourContext() {
   }
   
   console.log('🔧 [useDemoTourContext] Context accessed, state:', {
-    isOpen: context.isOpen,
-    currentStep: context.currentStep,
-    isCompleted: context.isCompleted
+    isOpen: context.state.isOpen,
+    currentStep: context.state.currentStep,
+    isCompleted: context.state.isCompleted
   })
   
   return context
