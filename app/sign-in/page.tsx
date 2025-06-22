@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -68,6 +68,24 @@ export default function LandingPage() {
       password: '',
     },
   })
+
+  // Sticky footer scroll handler
+  useEffect(() => {
+    const handleScroll = () => {
+      const stickyBar = document.getElementById('sticky-cta-bar')
+      if (stickyBar) {
+        // Show sticky bar after scrolling 50% of viewport height
+        if (window.scrollY > window.innerHeight * 0.5) {
+          stickyBar.style.transform = 'translateY(0)'
+        } else {
+          stickyBar.style.transform = 'translateY(100%)'
+        }
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const handleSubmit = async (values: z.infer<typeof signInSchema>) => {
     console.log('🔑 Sign-in form submitted:', { email: values.email })
@@ -236,61 +254,108 @@ export default function LandingPage() {
       <main>
         {/* Hero Section */}
         <section className="relative overflow-hidden py-20 lg:py-32">
+          {/* Animated gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-retro-primary/5 via-transparent to-retro-sunset/5" />
+          <div className="absolute inset-0 opacity-10">
+            <div className="h-full w-full bg-gradient-to-r from-retro-primary/20 via-retro-secondary/20 to-retro-sunset/20 animate-pulse" />
+          </div>
+          
+          {/* Funnel pattern overlay */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="h-full w-full" style={{
+              backgroundImage: `radial-gradient(circle at 25% 25%, hsl(var(--retro-primary)) 2px, transparent 2px),
+                               radial-gradient(circle at 75% 75%, hsl(var(--retro-sunset)) 1px, transparent 1px)`,
+              backgroundSize: '60px 60px, 40px 40px'
+            }} />
+          </div>
+          
           <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-4xl text-center">
-                              <Badge variant="outline" className="mb-6 border-retro-primary/20 text-retro-primary">
-                  <Sparkles className="mr-1 h-3 w-3" />
-                  AI Writing Assistant for Sales Funnel Documentation
-                </Badge>
-              
-              <h1 className="mb-6 text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-                Transform Your Sales Funnels with{' '}
-                <span className="bg-gradient-to-r from-retro-primary to-retro-sunset bg-clip-text text-transparent">
-                  AI-Powered Copy
-                </span>
-              </h1>
-              
-                              <p className="mb-8 text-xl text-muted-foreground sm:text-2xl lg:max-w-3xl lg:mx-auto">
-                  The AI writing assistant built specifically for sales funnel documentation. 
-                  Create high-converting sales pages, landing pages, and email sequences with 
-                  intelligent suggestions and real-time collaboration.
-                </p>
+            <div className="mx-auto max-w-4xl text-center lg:max-w-5xl">
+              <div className="lg:grid lg:grid-cols-12 lg:gap-8 lg:items-center">
+                <div className="lg:col-span-7 lg:text-left">
+                  <Badge variant="outline" className="mb-6 border-retro-primary/20 text-retro-primary lg:justify-start">
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    AI Writing Assistant for Sales Funnel Documentation
+                  </Badge>
+                  
+                  <h1 className="mb-6 text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl xl:text-7xl">
+                    Transform Your Sales Funnels with{' '}
+                    <span className="bg-gradient-to-r from-retro-primary to-retro-sunset bg-clip-text text-transparent">
+                      AI-Powered Copy
+                    </span>
+                  </h1>
+                  
+                  <p className="mb-8 text-lg text-muted-foreground sm:text-xl lg:max-w-2xl">
+                    The AI writing assistant built specifically for sales funnel documentation. 
+                    Create high-converting sales pages, landing pages, and email sequences with 
+                    intelligent suggestions and real-time collaboration.
+                  </p>
 
-              <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-                <Link href="/sign-up">
-                                      <Button 
+                  <div className="flex flex-col gap-4 sm:flex-row lg:justify-start">
+                    <Link href="/sign-up">
+                      <Button 
+                        size="lg" 
+                        className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90 text-white font-semibold px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                      >
+                        Get Started Free
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Button>
+                    </Link>
+                    
+                    <Button 
                       size="lg" 
-                      className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90 text-white font-semibold px-8 py-6 text-lg"
+                      variant="outline"
+                      onClick={handleTryDemo}
+                      className="px-8 py-6 text-lg border-retro-primary/30 hover:border-retro-primary/60 hover:bg-retro-primary/5"
                     >
-                      Get Started Free
-                      <ArrowRight className="ml-2 h-5 w-5" />
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Try Demo
                     </Button>
-                </Link>
-                
-                <Button 
-                  size="lg" 
-                  variant="outline"
-                  onClick={handleTryDemo}
-                  className="px-8 py-6 text-lg border-retro-primary/20 hover:border-retro-primary/40"
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Try Demo - No Account Required
-                </Button>
-              </div>
+                  </div>
 
-              <div className="mt-12 flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  No credit card required
+                  <div className="mt-8 text-center lg:text-left">
+                    <p className="text-xs text-muted-foreground mb-4">No credit card required • Free to use</p>
+                    <div className="flex flex-wrap justify-center lg:justify-start gap-6 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        Real-time collaboration
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        AI-powered suggestions
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        Grammar checking
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Real-time collaboration
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Unlimited AI suggestions
+                
+                {/* Product Preview */}
+                <div className="lg:col-span-5 mt-12 lg:mt-0">
+                  <div className="relative">
+                    <div className="rounded-xl bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm border border-border/50 p-6 shadow-2xl">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                          Writing assistant active
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-4 text-sm">
+                          <p className="mb-2">Transform your sales approach with our revolutionary platform that increases conversion rates...</p>
+                          <div className="flex items-center gap-2 text-retro-primary">
+                            <Sparkles className="h-3 w-3" />
+                            <span className="text-xs">AI suggests: Add urgency with limited-time offer</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-8 bg-retro-primary/20 rounded px-3 flex items-center text-xs">Grammar ✓</div>
+                          <div className="h-8 bg-retro-secondary/20 rounded px-3 flex items-center text-xs">Tone ✓</div>
+                          <div className="h-8 bg-retro-sunset/20 rounded px-3 flex items-center text-xs">Clarity ✓</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -312,10 +377,11 @@ export default function LandingPage() {
 
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {/* Conversion-Focused AI */}
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+              <Card className="relative overflow-hidden bg-background/30 backdrop-blur-xl border border-retro-primary/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-primary/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-retro-primary/10 p-2">
+                    <div className="rounded-lg bg-retro-primary/20 p-2 shadow-lg" style={{ boxShadow: '0 0 20px rgba(255, 64, 129, 0.3)' }}>
                       <Target className="h-6 w-6 text-retro-primary" />
                     </div>
                     <CardTitle className="text-lg">Conversion-Focused AI</CardTitle>
@@ -343,10 +409,11 @@ export default function LandingPage() {
               </Card>
 
               {/* Funnel Stage Awareness */}
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+              <Card className="relative overflow-hidden bg-background/30 backdrop-blur-xl border border-retro-secondary/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-secondary/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-retro-secondary/10 p-2">
+                    <div className="rounded-lg bg-retro-secondary/20 p-2 shadow-lg" style={{ boxShadow: '0 0 20px rgba(138, 43, 226, 0.3)' }}>
                       <TrendingUp className="h-6 w-6 text-retro-secondary" />
                     </div>
                     <CardTitle className="text-lg">Funnel Stage Awareness</CardTitle>
@@ -374,10 +441,11 @@ export default function LandingPage() {
               </Card>
 
               {/* Real-Time Collaboration */}
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+              <Card className="relative overflow-hidden bg-background/30 backdrop-blur-xl border border-retro-cyan/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-cyan/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-retro-cyan/10 p-2">
+                    <div className="rounded-lg bg-retro-cyan/20 p-2 shadow-lg" style={{ boxShadow: '0 0 20px rgba(34, 211, 238, 0.3)' }}>
                       <Users className="h-6 w-6 text-retro-cyan" />
                     </div>
                     <CardTitle className="text-lg">Real-Time Collaboration</CardTitle>
@@ -405,10 +473,11 @@ export default function LandingPage() {
               </Card>
 
               {/* A/B Testing Suggestions */}
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+              <Card className="relative overflow-hidden bg-background/30 backdrop-blur-xl border border-retro-sunset/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-sunset/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-retro-sunset/10 p-2">
+                    <div className="rounded-lg bg-retro-sunset/20 p-2 shadow-lg" style={{ boxShadow: '0 0 20px rgba(251, 146, 60, 0.3)' }}>
                       <BarChart3 className="h-6 w-6 text-retro-sunset" />
                     </div>
                     <CardTitle className="text-lg">A/B Testing Ready</CardTitle>
@@ -436,10 +505,11 @@ export default function LandingPage() {
               </Card>
 
               {/* Brand Voice Alignment */}
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+              <Card className="relative overflow-hidden bg-background/30 backdrop-blur-xl border border-retro-accent/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-accent/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-retro-accent/10 p-2">
+                    <div className="rounded-lg bg-retro-accent/20 p-2 shadow-lg" style={{ boxShadow: '0 0 20px rgba(168, 85, 247, 0.3)' }}>
                       <MessageSquare className="h-6 w-6 text-retro-accent" />
                     </div>
                     <CardTitle className="text-lg">Brand Voice Alignment</CardTitle>
@@ -467,10 +537,11 @@ export default function LandingPage() {
               </Card>
 
               {/* Grammar & Style */}
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+              <Card className="relative overflow-hidden bg-background/30 backdrop-blur-xl border border-green-500/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-green-500/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-green-500/10 p-2">
+                    <div className="rounded-lg bg-green-500/20 p-2 shadow-lg" style={{ boxShadow: '0 0 20px rgba(34, 197, 94, 0.3)' }}>
                       <PenTool className="h-6 w-6 text-green-500" />
                     </div>
                     <CardTitle className="text-lg">Advanced Grammar & Style</CardTitle>
@@ -501,8 +572,11 @@ export default function LandingPage() {
         </section>
 
         {/* Target Audience Section */}
-        <section className="py-20 lg:py-32 bg-muted/30">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <section className="py-20 lg:py-32 relative">
+          {/* Gradient background wash */}
+          <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
+          
+          <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center mb-16">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
                 Perfect for Sales Professionals
@@ -513,37 +587,49 @@ export default function LandingPage() {
             </div>
 
             <div className="grid gap-8 sm:grid-cols-3">
-              <div className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-primary/10">
+              <div className="text-center p-6 rounded-xl bg-gradient-to-br from-background/60 to-background/30 backdrop-blur-sm border border-border/30">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-primary/20 shadow-lg" 
+                  style={{ boxShadow: '0 0 20px rgba(255, 64, 129, 0.2)' }}>
                   <Megaphone className="h-8 w-8 text-retro-primary" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">Sales Managers</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-4">
                   Create compelling sales documentation and funnel content with AI assistance. 
                   Collaborate with your team on consistent messaging and effective sales copy.
                 </p>
+                <div className="text-sm text-retro-primary font-medium">
+                  ↑ 50% faster content creation
+                </div>
               </div>
 
-              <div className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-secondary/10">
+              <div className="text-center p-6 rounded-xl bg-gradient-to-br from-background/60 to-background/30 backdrop-blur-sm border border-border/30">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-secondary/20 shadow-lg" 
+                  style={{ boxShadow: '0 0 20px rgba(138, 43, 226, 0.2)' }}>
                   <PenTool className="h-8 w-8 text-retro-secondary" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">Sales Copywriters</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-4">
                   Write compelling sales pages, email sequences, and funnel content with AI-powered suggestions. 
                   Get real-time grammar checking and style improvements for professional sales copy.
                 </p>
+                <div className="text-sm text-retro-secondary font-medium">
+                  ↑ 70% writing productivity
+                </div>
               </div>
 
-              <div className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-cyan/10">
+              <div className="text-center p-6 rounded-xl bg-gradient-to-br from-background/60 to-background/30 backdrop-blur-sm border border-border/30">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-cyan/20 shadow-lg" 
+                  style={{ boxShadow: '0 0 20px rgba(34, 211, 238, 0.2)' }}>
                   <TrendingUp className="h-8 w-8 text-retro-cyan" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">Sales Teams</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-4">
                   Collaborate on sales funnel documentation with real-time editing and version control. 
                   Create consistent, professional sales materials with team input and AI assistance.
                 </p>
+                <div className="text-sm text-retro-cyan font-medium">
+                  ↑ 40% team collaboration
+                </div>
               </div>
             </div>
           </div>
@@ -562,32 +648,44 @@ export default function LandingPage() {
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-                <Globe className="mb-3 h-8 w-8 text-retro-primary" />
+              <div className="rounded-lg bg-background/30 backdrop-blur-xl border border-retro-primary/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-primary/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
+                <div className="mb-3 p-2 rounded-lg bg-retro-primary/20 w-fit" style={{ boxShadow: '0 0 15px rgba(255, 64, 129, 0.2)' }}>
+                  <Globe className="h-8 w-8 text-retro-primary" />
+                </div>
                 <h3 className="mb-2 font-semibold">Landing Pages</h3>
                 <p className="text-sm text-muted-foreground">
                   Lead magnets, product sales, webinar registration pages
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-                <BookOpen className="mb-3 h-8 w-8 text-retro-secondary" />
+              <div className="rounded-lg bg-background/30 backdrop-blur-xl border border-retro-secondary/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-secondary/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
+                <div className="mb-3 p-2 rounded-lg bg-retro-secondary/20 w-fit" style={{ boxShadow: '0 0 15px rgba(138, 43, 226, 0.2)' }}>
+                  <BookOpen className="h-8 w-8 text-retro-secondary" />
+                </div>
                 <h3 className="mb-2 font-semibold">Sales Pages</h3>
                 <p className="text-sm text-muted-foreground">
                   Long-form sales letters, product descriptions, checkout pages
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-                <MessageSquare className="mb-3 h-8 w-8 text-retro-cyan" />
+              <div className="rounded-lg bg-background/30 backdrop-blur-xl border border-retro-cyan/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-cyan/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
+                <div className="mb-3 p-2 rounded-lg bg-retro-cyan/20 w-fit" style={{ boxShadow: '0 0 15px rgba(34, 211, 238, 0.2)' }}>
+                  <MessageSquare className="h-8 w-8 text-retro-cyan" />
+                </div>
                 <h3 className="mb-2 font-semibold">Email Sequences</h3>
                 <p className="text-sm text-muted-foreground">
                   Welcome series, nurture campaigns, sales sequences
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-                <Zap className="mb-3 h-8 w-8 text-retro-sunset" />
+              <div className="rounded-lg bg-background/30 backdrop-blur-xl border border-retro-sunset/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-retro-sunset/40" 
+                style={{ background: 'rgba(20, 20, 20, 0.3)' }}>
+                <div className="mb-3 p-2 rounded-lg bg-retro-sunset/20 w-fit" style={{ boxShadow: '0 0 15px rgba(251, 146, 60, 0.2)' }}>
+                  <Zap className="h-8 w-8 text-retro-sunset" />
+                </div>
                 <h3 className="mb-2 font-semibold">Ad Copy</h3>
                 <p className="text-sm text-muted-foreground">
                   Facebook/Google ads, social media copy, PPC campaigns
@@ -705,6 +803,39 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Sticky Footer CTA Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-r from-retro-primary to-retro-sunset p-4 shadow-2xl transform translate-y-full transition-transform duration-300 ease-in-out backdrop-blur-xl" 
+        id="sticky-cta-bar">
+        <div className="mx-auto max-w-4xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-white animate-pulse" />
+            <div className="text-white">
+              <p className="font-semibold">Ready to transform your sales copy?</p>
+              <p className="text-xs opacity-90">Join and start writing better sales content today</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleTryDemo}
+              variant="outline" 
+              size="sm"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:border-white/50"
+            >
+              Try Demo
+            </Button>
+            <Link href="/sign-up">
+              <Button 
+                size="sm"
+                className="bg-white text-retro-primary hover:bg-white/90 font-semibold"
+              >
+                Get Started Free
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
