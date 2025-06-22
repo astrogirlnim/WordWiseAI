@@ -47,9 +47,7 @@ import {
   MessageSquare,
   Globe,
   Megaphone,
-  BookOpen,
-  Star,
-  Quote
+  BookOpen
 } from 'lucide-react'
 
 const signInSchema = z.object({
@@ -228,7 +226,7 @@ export default function LandingPage() {
 
             <Link href="/sign-up">
               <Button className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90">
-                Get Started Free
+                Sign Up Free
               </Button>
             </Link>
           </div>
@@ -241,10 +239,10 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-retro-primary/5 via-transparent to-retro-sunset/5" />
           <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-4xl text-center">
-              <Badge variant="outline" className="mb-6 border-retro-primary/20 text-retro-primary">
-                <Sparkles className="mr-1 h-3 w-3" />
-                AI Trading Assistant for Marketing Professionals
-              </Badge>
+                              <Badge variant="outline" className="mb-6 border-retro-primary/20 text-retro-primary">
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  AI Writing Assistant for Sales Funnel Documentation
+                </Badge>
               
               <h1 className="mb-6 text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
                 Transform Your Sales Funnels with{' '}
@@ -253,21 +251,21 @@ export default function LandingPage() {
                 </span>
               </h1>
               
-              <p className="mb-8 text-xl text-muted-foreground sm:text-2xl lg:max-w-3xl lg:mx-auto">
-                The only writing assistant built specifically for marketing professionals. 
-                Get conversion-focused suggestions, psychological triggers, and funnel optimization 
-                powered by advanced AI.
-              </p>
+                              <p className="mb-8 text-xl text-muted-foreground sm:text-2xl lg:max-w-3xl lg:mx-auto">
+                  The AI writing assistant built specifically for sales funnel documentation. 
+                  Create high-converting sales pages, landing pages, and email sequences with 
+                  intelligent suggestions and real-time collaboration.
+                </p>
 
               <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
                 <Link href="/sign-up">
-                  <Button 
-                    size="lg" 
-                    className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90 text-white font-semibold px-8 py-6 text-lg"
-                  >
-                    Start Writing Better Copy
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
+                                      <Button 
+                      size="lg" 
+                      className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90 text-white font-semibold px-8 py-6 text-lg"
+                    >
+                      Get Started Free
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
                 </Link>
                 
                 <Button 
@@ -304,11 +302,11 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center mb-16">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-                Built for Marketing Professionals
+                Built for Sales Funnel Documentation
               </h2>
               <p className="text-xl text-muted-foreground">
-                Every feature is designed to help you create high-converting sales funnels, 
-                landing pages, and marketing copy that drives results.
+                Every feature is designed to help you create compelling sales funnel content, 
+                from landing pages to email sequences, with AI-powered writing assistance.
               </p>
             </div>
 
@@ -507,10 +505,10 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center mb-16">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-                Perfect for Marketing Teams
+                Perfect for Sales Professionals
               </h2>
               <p className="text-xl text-muted-foreground">
-                Whether you&apos;re a solo marketer or part of a large team, WordWise AI adapts to your workflow.
+                Whether you&apos;re creating individual sales documents or collaborating on team campaigns, WordWise AI streamlines your writing process.
               </p>
             </div>
 
@@ -519,10 +517,10 @@ export default function LandingPage() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-primary/10">
                   <Megaphone className="h-8 w-8 text-retro-primary" />
                 </div>
-                <h3 className="mb-2 text-xl font-semibold">Marketing Managers</h3>
+                <h3 className="mb-2 text-xl font-semibold">Sales Managers</h3>
                 <p className="text-muted-foreground">
-                  Create and optimize landing pages with conversion-focused AI suggestions. 
-                  Manage team guidelines and ensure brand consistency across all campaigns.
+                  Create compelling sales documentation and funnel content with AI assistance. 
+                  Collaborate with your team on consistent messaging and effective sales copy.
                 </p>
               </div>
 
@@ -530,10 +528,10 @@ export default function LandingPage() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-secondary/10">
                   <PenTool className="h-8 w-8 text-retro-secondary" />
                 </div>
-                <h3 className="mb-2 text-xl font-semibold">Copywriters</h3>
+                <h3 className="mb-2 text-xl font-semibold">Sales Copywriters</h3>
                 <p className="text-muted-foreground">
-                  Write sales pages, email sequences, and ad copy with real-time conversion optimization. 
-                  Get psychological trigger suggestions and objection handling tips.
+                  Write compelling sales pages, email sequences, and funnel content with AI-powered suggestions. 
+                  Get real-time grammar checking and style improvements for professional sales copy.
                 </p>
               </div>
 
@@ -541,10 +539,10 @@ export default function LandingPage() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-retro-cyan/10">
                   <TrendingUp className="h-8 w-8 text-retro-cyan" />
                 </div>
-                <h3 className="mb-2 text-xl font-semibold">Growth Hackers</h3>
+                <h3 className="mb-2 text-xl font-semibold">Sales Teams</h3>
                 <p className="text-muted-foreground">
-                  A/B test different copy variations and analyze performance metrics. 
-                  Get data-driven suggestions for funnel optimization and conversion improvement.
+                  Collaborate on sales funnel documentation with real-time editing and version control. 
+                  Create consistent, professional sales materials with team input and AI assistance.
                 </p>
               </div>
             </div>
@@ -556,10 +554,10 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center mb-16">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-                Every Type of Marketing Content
+                Every Type of Sales Funnel Content
               </h2>
               <p className="text-xl text-muted-foreground">
-                From landing pages to email sequences, WordWise AI helps you create content that converts.
+                From landing pages to email sequences, WordWise AI helps you create professional sales documentation.
               </p>
             </div>
 
@@ -599,97 +597,17 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Testimonials Section */}
-        <section className="py-20 lg:py-32 bg-muted/30">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-3xl text-center mb-16">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-                Trusted by Marketing Professionals
-              </h2>
-              <p className="text-xl text-muted-foreground">
-                Join thousands of marketers who are already creating better converting copy with WordWise AI.
-              </p>
-            </div>
 
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <div className="mb-4 flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-retro-primary text-retro-primary" />
-                    ))}
-                  </div>
-                  <Quote className="mb-3 h-6 w-6 text-muted-foreground" />
-                  <p className="mb-4 text-muted-foreground">
-                    &quot;WordWise AI completely transformed how we approach funnel copywriting. 
-                    The conversion-focused suggestions helped us increase our landing page conversions significantly.&quot;
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-retro-primary to-retro-sunset" />
-                    <div>
-                      <p className="font-semibold">Sarah Chen</p>
-                      <p className="text-sm text-muted-foreground">Marketing Manager</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <div className="mb-4 flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-retro-primary text-retro-primary" />
-                    ))}
-                  </div>
-                  <Quote className="mb-3 h-6 w-6 text-muted-foreground" />
-                  <p className="mb-4 text-muted-foreground">
-                    &quot;The psychological trigger detection is incredible. It catches things I would never 
-                    think of and suggests improvements that actually work in real campaigns.&quot;
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-retro-secondary to-retro-accent" />
-                    <div>
-                      <p className="font-semibold">Marcus Rodriguez</p>
-                      <p className="text-sm text-muted-foreground">Senior Copywriter</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <div className="mb-4 flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-retro-primary text-retro-primary" />
-                    ))}
-                  </div>
-                  <Quote className="mb-3 h-6 w-6 text-muted-foreground" />
-                  <p className="mb-4 text-muted-foreground">
-                    &quot;Finally, a writing tool that understands marketing! The funnel stage awareness 
-                    means I get relevant suggestions whether I&apos;m writing awareness content or bottom-funnel copy.&quot;
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-retro-cyan to-retro-primary" />
-                    <div>
-                      <p className="font-semibold">Jessica Kim</p>
-                      <p className="text-sm text-muted-foreground">Growth Hacker</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
 
         {/* CTA Section */}
         <section className="py-20 lg:py-32">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-                Ready to Transform Your Marketing Copy?
+                Ready to Improve Your Sales Funnel Documentation?
               </h2>
               <p className="text-xl text-muted-foreground mb-8">
-                Join thousands of marketing professionals who are already creating better converting copy with WordWise AI.
+                Start creating professional sales content with AI-powered writing assistance and real-time collaboration.
               </p>
 
               <div className="flex flex-col gap-4 sm:flex-row sm:justify-center mb-8">
@@ -698,7 +616,7 @@ export default function LandingPage() {
                     size="lg" 
                     className="bg-gradient-to-r from-retro-primary to-retro-sunset hover:from-retro-primary/90 hover:to-retro-sunset/90 text-white font-semibold px-8 py-6 text-lg"
                   >
-                    Start Your Free Trial
+                    Get Started Free
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
@@ -714,20 +632,20 @@ export default function LandingPage() {
                 </Button>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-green-500" />
-                  Enterprise security
+                              <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-green-500" />
+                    Secure authentication
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-green-500" />
+                    Quick setup process
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    Free to use
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-green-500" />
-                  Setup in under 2 minutes
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Cancel anytime
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -748,7 +666,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">
-                AI-powered writing assistant built specifically for marketing professionals and sales funnel optimization.
+                AI-powered writing assistant for sales funnel documentation with real-time collaboration and grammar checking.
               </p>
             </div>
 
