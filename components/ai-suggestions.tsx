@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Check, X, Lightbulb, Target, MessageSquare, Megaphone, List } from 'lucide-react'
+import { Check, X, Megaphone, Loader2 } from 'lucide-react'
 import type { FunnelSuggestion } from '@/types/ai-features'
 
 interface AISuggestionsProps {
   funnelSuggestions: FunnelSuggestion[]
-  onApply: (suggestionId: string, type: 'funnel') => void
-  onDismiss: (suggestionId: string, type: 'funnel') => void
+  onApply: (suggestionId: string) => void
+  onDismiss: (suggestionId: string) => void
   loading?: boolean
 }
 
@@ -90,11 +90,11 @@ export function AISuggestions({
                       <div className="whitespace-pre-line">{suggestion.suggestedText}</div>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => onApply(suggestion.id, 'funnel')} className="flex-1">
+                      <Button size="sm" onClick={() => onApply(suggestion.id)} className="flex-1">
                         <Check className="mr-1 h-3 w-3" />
                         Apply
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => onDismiss(suggestion.id, 'funnel')}>
+                      <Button size="sm" variant="outline" onClick={() => onDismiss(suggestion.id)}>
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
