@@ -32,6 +32,7 @@ interface UseAISuggestionsReturn {
   batchDismissSuggestions: (suggestionIds: string[]) => Promise<void>
   reloadSuggestions: () => void
   refreshSuggestions: () => void
+  refreshFunnelSuggestions: () => void
   generateFunnelSuggestions: (goals: WritingGoals, content: string, documentTitle?: string) => Promise<void>
   suggestionCount: number
 }
@@ -428,6 +429,63 @@ export function useAISuggestions({
     debouncedGenerateFunnelSuggestions(goals, content, documentTitle);
   }, [debouncedGenerateFunnelSuggestions])
 
+  /**
+   * Refresh funnel suggestions by clearing existing ones and regenerating new ones
+   */
+  const refreshFunnelSuggestionsWithClear = useCallback(async () => {
+    console.log('[useAISuggestions] Funnel Refresh: Requested for document:', documentId)
+
+    if (!documentId || !user?.uid) {
+      console.log('[useAISuggestions] Funnel Refresh: Cannot refresh - missing requirements')
+      toast({
+        title: 'Error',
+        description: 'Missing document or user information.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    console.log('[useAISuggestions] Funnel Refresh: Starting funnel suggestion refresh process')
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Clear existing funnel suggestions only
+      console.log('[useAISuggestions] Funnel Refresh: Clearing existing funnel suggestions')
+      await SuggestionService.clearExistingSuggestions(documentId, user.uid, 'funnel')
+
+      // Wait a moment for the clear operation to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Regenerate funnel suggestions using current writing goals and content
+      if (typeof window !== 'undefined') {
+        // Try to get writing goals and document title from global state if needed
+        // For now, we assume the sidebar will pass them as props
+      }
+      // We'll need to expose a way to pass writingGoals, currentContent, and documentTitle
+      // For now, just log a warning if not available
+      console.log('[useAISuggestions] Funnel Refresh: You must call this with writingGoals, currentContent, and documentTitle from the sidebar.')
+      // This function will be called from the sidebar with those arguments
+      // So we do not call generateFunnelSuggestions here directly
+      toast({
+        title: 'Funnel Suggestions Cleared',
+        description: 'Existing funnel suggestions have been cleared. Please regenerate new ones.',
+      })
+      console.log('[useAISuggestions] Funnel Refresh: Funnel suggestions cleared. Ready to regenerate.')
+    } catch (error) {
+      console.error('[useAISuggestions] Funnel Refresh: Error refreshing funnel suggestions:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to refresh funnel suggestions: ${errorMessage}`)
+      toast({
+        title: 'Error Refreshing Funnel Suggestions',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [documentId, user?.uid, toast])
+
   const totalSuggestionsCount = suggestions.length
   const loadingStyleSuggestions = loading
   const loadingFunnelSuggestions = loading
@@ -481,6 +539,7 @@ export function useAISuggestions({
     batchDismissSuggestions,
     reloadSuggestions,
     refreshSuggestions,
+    refreshFunnelSuggestions: refreshFunnelSuggestionsWithClear,
     generateFunnelSuggestions,
     suggestionCount: suggestions.length
   }

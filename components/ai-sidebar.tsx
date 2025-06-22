@@ -54,7 +54,8 @@ export function AISidebar({
     generateFunnelSuggestions,
     applySuggestion,
     dismissSuggestion,
-    refreshSuggestions
+    refreshSuggestions,
+    refreshFunnelSuggestions
   } = useAISuggestions({ 
     documentId: documentId || null,
     currentContent // Phase 1: Pass current content for refresh functionality
@@ -95,14 +96,21 @@ export function AISidebar({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
-              console.log('[AISidebar] Phase 1: Refresh button clicked', {
+            onClick={async () => {
+              console.log('[AISidebar] Funnel Refresh: Refresh button clicked', {
                 documentId,
                 hasCurrentContent: !!currentContent,
                 currentContentLength: currentContent.length,
+                writingGoals,
+                documentTitle,
                 isLoading
               })
-              refreshSuggestions()
+              await refreshFunnelSuggestions()
+              if (writingGoals) {
+                await generateFunnelSuggestions(writingGoals, currentContent, documentTitle)
+              } else {
+                console.warn('[AISidebar] Funnel Refresh: No writing goals provided, skipping funnel generation')
+              }
             }}
             disabled={isLoading}
           >
