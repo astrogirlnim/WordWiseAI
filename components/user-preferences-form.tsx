@@ -299,36 +299,97 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
         <CardContent className="space-y-4">
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
-            ${isDragActive ? 'border-primary bg-primary/10' : 'border-border'}`}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200
+            ${isDragActive ? 'border-primary bg-primary/10 scale-105' : 'border-border hover:border-primary/50 hover:bg-primary/5'}`}
           >
             <input {...getInputProps()} />
+            <UploadCloud className={`mx-auto h-12 w-12 mb-4 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
             {isDragActive ? (
-              <p>Drop the file here ...</p>
+              <p className="text-primary font-medium">Drop the file here ...</p>
             ) : (
-              <p>Drag &apos;n&apos; drop a JSON file here, or click to select</p>
+              <div>
+                <p className="text-lg font-medium mb-2">Drag &apos;n&apos; drop a JSON file here, or click to select</p>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Trigger the hidden file input
+                    const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+                    input?.click();
+                  }}
+                >
+                  <FileIcon className="h-4 w-4 mr-2" />
+                  Choose File
+                </Button>
+              </div>
             )}
-            <p className="text-sm text-muted-foreground mt-2">JSON format only, up to 5MB</p>
+            <p className="text-sm text-muted-foreground mt-3">JSON format only, up to 5MB</p>
             <p className="text-xs text-muted-foreground mt-1">
               Format: [{`{"term": "...", "definition": "..."}`}, ...] or {`{"term1": "definition1", ...}`}
             </p>
           </div>
           {glossaryFile && (
-            <div className="mt-4 flex items-center justify-between p-2 border rounded-lg">
+            <div className="mt-4 flex items-center justify-between p-3 border rounded-lg bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
               <div className="flex items-center gap-2">
-                <FileIcon className="h-5 w-5" />
-                <span>{glossaryFile.name}</span>
+                <FileIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <div>
+                  <span className="font-medium">{glossaryFile.name}</span>
+                  <p className="text-xs text-muted-foreground">
+                    {(glossaryFile.size / 1024).toFixed(1)} KB • Ready to upload
+                  </p>
+                </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setGlossaryFile(null)}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  console.log('[UserPreferencesForm] User cancelled file selection');
+                  setGlossaryFile(null);
+                  setUploadError(null);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
           )}
-          {uploadError && <p className="text-sm text-red-600 mt-2">{uploadError}</p>}
+          
+          {uploadError && (
+            <div className="mt-4 p-3 border rounded-lg bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-900 dark:text-red-100">Upload Failed</p>
+                  <p className="text-sm text-red-700 dark:text-red-300 mt-1">{uploadError}</p>
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                    Try refreshing the page and uploading again. If the issue persists, contact support.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {glossaryFile && (
-            <div className="flex justify-end">
-              <Button onClick={handleGlossaryUpload} disabled={uploading}>
-                {uploading ? "Uploading..." : "Upload Glossary"}
+            <div className="flex justify-end mt-4">
+              <Button 
+                onClick={handleGlossaryUpload} 
+                disabled={uploading}
+                className="min-w-[140px]"
+              >
+                {uploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="h-4 w-4 mr-2" />
+                    Upload Glossary
+                  </>
+                )}
               </Button>
             </div>
           )}

@@ -402,7 +402,9 @@ class GlossaryServiceImpl {
           category: term.category || null,
           examples: term.examples || null,
           synonyms: term.synonyms || null,
-          createdAt: serverTimestamp()
+          userId, // Add userId for Firestore rules compliance
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
       });
       
@@ -412,7 +414,10 @@ class GlossaryServiceImpl {
     } catch (error) {
       console.error(`[GlossaryService] Firestore storage error:`, error);
       if (error instanceof FirestoreError) {
-        throw new Error(`Database storage failed: ${error.message}`);
+        if (error.code === 'permission-denied') {
+          throw new Error('Permission denied: Please ensure you are properly authenticated and try again.');
+        }
+        throw new Error(`Database storage failed: ${error.message} (Code: ${error.code})`);
       }
       throw new Error('Failed to store glossary in database');
     }
