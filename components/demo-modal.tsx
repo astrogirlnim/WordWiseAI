@@ -29,7 +29,14 @@ import {
   History,
   Settings,
   Share2,
-  Sparkles
+  FolderOpen,
+  Sparkles,
+  Crown,
+  Users,
+  Eye,
+  MessageSquare,
+  Edit,
+  FileText
 } from 'lucide-react'
 import { useDemoTour, type DemoStep } from '@/hooks/use-demo-tour'
 import { cn } from '@/lib/utils'
@@ -37,14 +44,15 @@ import { cn } from '@/lib/utils'
 /**
  * Demo Modal Component
  * 
- * Provides a comprehensive 7-step guided tour through WordWise AI features:
+ * Provides a comprehensive 8-step guided tour through WordWise AI features:
  * 1. Document Creation & Goal Setting
  * 2. Writing/Copy-Paste Markdown (Sales Funnel)  
  * 3. Grammar Suggestions & Markdown Preview
  * 4. AI Funnel Suggestions
  * 5. Version Control History
  * 6. Settings & Glossary Upload
- * 7. Document Sharing
+ * 7. Document Management
+ * 8. Document Sharing
  * 
  * Features:
  * - Responsive design with mobile-first approach
@@ -350,6 +358,89 @@ const StepContent = {
 
   Step7: () => (
     <div className="space-y-4">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/20">
+        <div className="flex items-start gap-3">
+          <FolderOpen className="mt-0.5 h-5 w-5 flex-shrink-0 text-slate-600 dark:text-slate-400" />
+          <div>
+            <h4 className="font-semibold text-slate-900 dark:text-slate-100">
+              Document Management
+            </h4>
+            <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+              Organize and manage multiple documents with our powerful document dropdown. See owned documents, shared documents, and collaboration status at a glance.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h5 className="font-medium">Management features:</h5>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-center gap-2">
+            <Crown className="h-3 w-3 text-yellow-500" />
+            <span className="text-xs">Owned documents with full control</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <Users className="h-3 w-3 text-blue-500" />
+            <span className="text-xs">Shared documents with role indicators</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <Eye className="h-3 w-3 text-gray-500" />
+            <span className="text-xs">Permission levels: viewer, commenter, editor</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <FileText className="h-3 w-3 text-green-500" />
+            <span className="text-xs">Document metadata and status tracking</span>
+          </li>
+        </ul>
+      </div>
+
+      <div className="space-y-2">
+        <h5 className="font-medium text-sm">Sample Document Library:</h5>
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center justify-between p-2 rounded border bg-background">
+            <div className="flex items-center gap-2">
+              <Crown className="h-3 w-3 text-yellow-500" />
+              <span className="font-medium">Sales Funnel Strategy</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Badge variant="default" className="text-xs">owner</Badge>
+              <Badge variant="outline" className="text-xs">final</Badge>
+            </div>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded border bg-background">
+            <div className="flex items-center gap-2">
+              <Edit className="h-3 w-3 text-blue-500" />
+              <span className="font-medium">Marketing Campaign Draft</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Badge variant="secondary" className="text-xs">editor</Badge>
+              <Badge variant="secondary" className="text-xs">draft</Badge>
+            </div>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded border bg-background">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-3 w-3 text-green-500" />
+              <span className="font-medium">Content Guidelines</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Badge variant="secondary" className="text-xs">commenter</Badge>
+              <Badge variant="default" className="text-xs">review</Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-950/20">
+        <p className="text-xs text-purple-700 dark:text-purple-200">
+          <FolderOpen className="mr-1 inline h-3 w-3" />
+          Click the document dropdown in the navigation to explore your document library
+        </p>
+      </div>
+    </div>
+  ),
+
+  Step8: () => (
+    <div className="space-y-4">
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
         <div className="flex items-start gap-3">
           <Share2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
@@ -456,10 +547,19 @@ const DEMO_STEPS: DemoStepConfig[] = [
   },
   {
     id: 7,
+    title: "Document Management",
+    description: "Organize and manage your documents",
+    icon: FolderOpen,
+    content: <StepContent.Step7 />,
+    actionText: "Explore Documents",
+    completionText: "Documents explored!"
+  },
+  {
+    id: 8,
     title: "Document Sharing",
     description: "Collaborate with your team",
     icon: Share2,
-    content: <StepContent.Step7 />,
+    content: <StepContent.Step8 />,
     actionText: "Share Document",
     completionText: "Document shared!"
   }

@@ -23,7 +23,7 @@ import { userService } from '@/services/user-service'
 import type { DemoProgress } from '@/types/user'
 
 /** Current step in the demo tour (1-7) */
-export type DemoStep = 1 | 2 | 3 | 4 | 5 | 6 | 7
+export type DemoStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 /**
  * Demo tour state interface for complete state management
@@ -31,10 +31,10 @@ export type DemoStep = 1 | 2 | 3 | 4 | 5 | 6 | 7
 export interface DemoTourState {
   /** Whether the demo modal is currently open */
   isOpen: boolean
-  /** Current step in the demo (1-7) */
+  /** Current step in the demo (1-8) */
   currentStep: DemoStep
   /** Total number of steps in the demo */
-  totalSteps: 7
+  totalSteps: 8
   /** Whether demo has been completed */
   isCompleted: boolean
   /** Whether user can navigate backward */
@@ -135,7 +135,7 @@ export function useDemoTour() {
   const [state, setState] = useState<DemoTourState>({
     isOpen: false,
     currentStep: 1,
-    totalSteps: 7,
+    totalSteps: 8,
     isCompleted: false,
     canGoBack: false,
     canGoForward: true,
@@ -193,7 +193,7 @@ export function useDemoTour() {
           isCompleted: demoProgress.isCompleted,
           completedSteps: demoProgress.completedSteps,
           totalTimeSpent: demoProgress.totalTimeSpent,
-          currentStep: Math.min(demoProgress.lastStepReached + 1, 7) as DemoStep,
+          currentStep: Math.min(demoProgress.lastStepReached + 1, 8) as DemoStep,
           canGoBack: demoProgress.lastStepReached > 1,
           canGoForward: !demoProgress.isCompleted
         }))
@@ -513,7 +513,7 @@ export function useDemoTour() {
       setState({
         isOpen: false,
         currentStep: 1,
-        totalSteps: 7,
+        totalSteps: 8,
         isCompleted: false,
         canGoBack: false,
         canGoForward: true,
