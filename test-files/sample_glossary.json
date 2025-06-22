@@ -1,0 +1,122 @@
+[
+  {
+    "term": "A/B Test",
+    "definition": "Experiment where traffic is split between two variants to measure performance differences."
+  },
+  {
+    "term": "Ad Fatigue",
+    "definition": "Decline in campaign performance due to audience overexposure to creative."
+  },
+  {
+    "term": "Average Order Value (AOV)",
+    "definition": "Average revenue generated per transaction."
+  },
+  {
+    "term": "Call to Action (CTA)",
+    "definition": "Prompt that encourages the user to take a specific action."
+  },
+  {
+    "term": "Click Through Rate (CTR)",
+    "definition": "Percentage of impressions that result in a click."
+  },
+  {
+    "term": "Cost per Acquisition (CPA)",
+    "definition": "Average advertising cost to acquire one paying customer."
+  },
+  {
+    "term": "Cost per Lead (CPL)",
+    "definition": "Average cost incurred to generate a lead."
+  },
+  {
+    "term": "Customer Acquisition Cost (CAC)",
+    "definition": "Total cost of acquiring a new customer across all channels."
+  },
+  {
+    "term": "Customer Lifetime Value (CLV)",
+    "definition": "Total net revenue expected from a customer over their relationship with the brand."
+  },
+  {
+    "term": "Drip Campaign",
+    "definition": "Automated series of messages sent over time to nurture prospects."
+  },
+  {
+    "term": "Front End Offer",
+    "definition": "Initial low ticket offer used to acquire customers."
+  },
+  {
+    "term": "Funnel",
+    "definition": "Series of steps guiding prospects toward a conversion."
+  },
+  {
+    "term": "Hook",
+    "definition": "Attention grabbing element that piques prospect interest."
+  },
+  {
+    "term": "Landing Page",
+    "definition": "Standalone page designed to capture leads or drive conversions."
+  },
+  {
+    "term": "Lead Magnet",
+    "definition": "Free resource offered in exchange for contact information."
+  },
+  {
+    "term": "Marketing Qualified Lead (MQL)",
+    "definition": "Lead more likely to become a customer based on engagement metrics."
+  },
+  {
+    "term": "Micro Commit",
+    "definition": "Small, low friction action that builds momentum toward purchase."
+  },
+  {
+    "term": "One Time Offer (OTO)",
+    "definition": "Limited time upsell presented immediately after initial purchase."
+  },
+  {
+    "term": "Order Bump",
+    "definition": "Small add on offer presented at checkout to increase average order value."
+  },
+  {
+    "term": "Personalization",
+    "definition": "Tailoring content or offers to individual user characteristics."
+  },
+  {
+    "term": "Retargeting",
+    "definition": "Serving ads to users who previously interacted with brand assets."
+  },
+  {
+    "term": "Sales Qualified Lead (SQL)",
+    "definition": "Lead vetted as ready for direct sales engagement."
+  },
+  {
+    "term": "Scarcity",
+    "definition": "Persuasion tactic emphasizing limited availability to increase demand."
+  },
+  {
+    "term": "Segmentation",
+    "definition": "Grouping contacts based on shared characteristics for targeted messaging."
+  },
+  {
+    "term": "Tripwire",
+    "definition": "Low priced offer intended to convert leads into buyers quickly."
+  },
+  {
+    "term": "Upsell",
+    "definition": "Offer that encourages customers to purchase a higher value product."
+  },
+  {
+    "term": "Downsell",
+    "definition": "Lower priced alternative offered when a customer declines an upsell."
+  },
+  {
+    "term": "Cart Abandonment",
+    "definition": "When a user adds items to cart but exits before completing a purchase."
+  },
+  {
+    "term": "Value Ladder",
+    "definition": "Progressive sequence of offers increasing in price and value."
+  },
+  {
+    "term": "Conversion Rate",
+    "definition": "Percentage of visitors who complete the desired action."
+  }
+]

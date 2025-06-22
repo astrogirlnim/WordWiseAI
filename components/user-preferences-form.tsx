@@ -15,6 +15,7 @@ import { userService } from "@/services/user-service"
 import { getStorage, ref, uploadBytes } from "firebase/storage"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { GlossaryService } from "@/services/glossary-service"
 
 interface UserPreferencesFormProps {
   onSave?: (profile: UserProfile) => void
@@ -45,7 +46,6 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'text/csv': ['.csv'],
       'application/json': ['.json'],
     },
     maxFiles: 1,
@@ -58,15 +58,45 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
     setUploading(true)
     setUploadError(null)
     try {
-      const storage = getStorage()
-      const storageRef = ref(storage, `glossaries/${user.uid}/${glossaryFile.name}`)
-      await uploadBytes(storageRef, glossaryFile)
-      // The backend function will process this file.
-      // We can optionally update the user profile to link to the new glossary
-      setGlossaryFile(null)
+      console.log("[UserPreferencesForm] Starting glossary upload process...");
+      
+      // Use the glossary service to upload and process the file
+      const result = await GlossaryService.uploadAndProcessGlossary(
+        user.uid,
+        glossaryFile,
+        glossaryFile.name.replace(/\.[^/.]+$/, '') // Remove file extension for name
+      );
+      
+      console.log("[UserPreferencesForm] Glossary uploaded successfully", result);
+      
+      // Update the user profile with the glossary ID
+      if (profile) {
+        const updatedProfile = {
+          ...profile,
+          brandVoiceGlossaryId: result.glossaryId
+        };
+        setProfile(updatedProfile);
+        
+        // Save the updated profile
+        await userService.updateUserProfile(user.uid, updatedProfile);
+        console.log("[UserPreferencesForm] User profile updated with glossary ID");
+      }
+      
+      toast({
+        title: "Glossary Uploaded",
+        description: `Successfully imported ${result.termsCount} terms from your glossary.`,
+      });
+      
+      setGlossaryFile(null);
     } catch (error) {
-      console.error("Error uploading glossary:", error)
-      setUploadError("Failed to upload file.")
+      console.error("[UserPreferencesForm] Error uploading glossary:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload file.";
+      setUploadError(errorMessage);
+      toast({
+        title: "Upload Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setUploading(false)
     }
@@ -264,7 +294,7 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
             <UploadCloud className="h-5 w-5" />
             Glossary & Brand Voice
           </CardTitle>
-          <CardDescription>Upload a CSV or JSON file with your brand&apos;s terminology.</CardDescription>
+          <CardDescription>Upload a JSON file with your brand&apos;s terminology.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div
@@ -276,9 +306,12 @@ export function UserPreferencesForm({ onSave }: UserPreferencesFormProps) {
             {isDragActive ? (
               <p>Drop the file here ...</p>
             ) : (
-              <p>Drag &apos;n&apos; drop a file here, or click to select a file</p>
+              <p>Drag &apos;n&apos; drop a JSON file here, or click to select</p>
             )}
-            <p className="text-sm text-muted-foreground mt-2">CSV or JSON, up to 5MB</p>
+            <p className="text-sm text-muted-foreground mt-2">JSON format only, up to 5MB</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Format: [{`{"term": "...", "definition": "..."}`}, ...] or {`{"term1": "definition1", ...}`}
+            </p>
           </div>
           {glossaryFile && (
             <div className="mt-4 flex items-center justify-between p-2 border rounded-lg">
