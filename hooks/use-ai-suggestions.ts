@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { SuggestionService } from '@/services/suggestion-service'
 import { AIService } from '@/services/ai-service'
-import type { AISuggestion, FunnelSuggestion, SuggestionPositioning } from '@/types/ai-features'
+import type { AISuggestion, SuggestionPositioning } from '@/types/ai-features'
 import type { WritingGoals } from '@/types/writing-goals'
 import { useToast } from './use-toast'
 import { debounce } from 'lodash'
@@ -13,14 +13,14 @@ const AI_SUGGESTIONS_DEBOUNCE = 1000; // ms - Phase 2: 1 second debounce
 interface UseAISuggestionsOptions {
   documentId: string | null
   autoSubscribe?: boolean
-  contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
+  contentCoordinatorRef?: React.RefObject<{ getState: () => { isUserTyping: boolean; isProcessingUpdate: boolean; queueLength: number; lastUserInputTime: number; timeSinceLastInput: number } } | null> // Phase 2: Add coordinator reference with proper typing
   currentContent?: string // Phase 1: Add current content for refresh functionality
 }
 
 interface UseAISuggestionsReturn {
   suggestions: AISuggestion[]
   styleSuggestions: AISuggestion[]
-  funnelSuggestions: FunnelSuggestion[]
+  funnelSuggestions: AISuggestion[]
   totalSuggestionsCount: number
   loading: boolean
   loadingStyleSuggestions: boolean
@@ -133,9 +133,9 @@ export function useAISuggestions({
 
   /**
    * Apply a suggestion to the document
-   * Updated to handle both AISuggestion and FunnelSuggestion types
+   * Updated to handle AISuggestion with optional positioning data
    */
-  const applySuggestion = useCallback(async (suggestion: any) => {
+  const applySuggestion = useCallback(async (suggestion: AISuggestion) => {
     console.log('[useAISuggestions] applySuggestion called', suggestion);
     
     // Prevent duplicate applications
@@ -524,27 +524,8 @@ export function useAISuggestions({
       console.log('[useAISuggestions] Found suggestion in funnel suggestions array:', funnelSuggestion.type);
       console.log('[useAISuggestions] Funnel suggestion has positioning:', !!funnelSuggestion.positioning);
       
-      // Convert FunnelSuggestion to compatible format with positioning data
-      const suggestionWithPositioning = {
-        id: funnelSuggestion.id,
-        documentId: funnelSuggestion.documentId,
-        userId: funnelSuggestion.userId,
-        type: funnelSuggestion.type,
-        title: funnelSuggestion.title,
-        description: funnelSuggestion.description,
-        originalText: funnelSuggestion.originalText,
-        suggestedText: funnelSuggestion.suggestedText,
-        position: funnelSuggestion.position,
-        confidence: funnelSuggestion.confidence,
-        status: funnelSuggestion.status,
-        createdAt: funnelSuggestion.createdAt,
-        appliedAt: funnelSuggestion.appliedAt,
-        // CRITICAL: Preserve positioning data
-        positioning: funnelSuggestion.positioning
-      } as any; // Use any to bypass TypeScript for now
-      
-      console.log('[useAISuggestions] Applying funnel suggestion with positioning data:', suggestionWithPositioning.positioning);
-      await applySuggestion(suggestionWithPositioning);
+      console.log('[useAISuggestions] Applying funnel suggestion with positioning data:', funnelSuggestion.positioning);
+      await applySuggestion(funnelSuggestion);
       return;
     }
     
@@ -565,7 +546,7 @@ export function useAISuggestions({
   return {
     suggestions,
     styleSuggestions,
-    funnelSuggestions: funnelSuggestions as FunnelSuggestion[],
+    funnelSuggestions: funnelSuggestions as AISuggestion[],
     totalSuggestionsCount,
     loading,
     loadingStyleSuggestions,

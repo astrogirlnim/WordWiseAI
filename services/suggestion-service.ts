@@ -280,6 +280,10 @@ export class SuggestionService {
         const suggestions: AISuggestion[] = []
         snapshot.forEach((doc) => {
           const data = doc.data()
+          console.log('[SuggestionService] Raw Firestore data for funnel suggestion:', doc.id, data)
+          console.log('[SuggestionService] Has positioning in Firestore data:', !!data.positioning)
+          console.log('[SuggestionService] Positioning data from Firestore:', data.positioning)
+          
           const suggestion: AISuggestion = {
             id: doc.id,
             documentId: data.documentId || documentId,
@@ -293,8 +297,13 @@ export class SuggestionService {
             confidence: data.confidence || 90,
             status: data.status || 'pending',
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
-            appliedAt: data.appliedAt instanceof Timestamp ? data.appliedAt.toMillis() : undefined
+            appliedAt: data.appliedAt instanceof Timestamp ? data.appliedAt.toMillis() : undefined,
+            // 🔥 CRITICAL FIX: Preserve positioning data from Firestore
+            ...(data.positioning && { positioning: data.positioning })
           }
+          
+          console.log('[SuggestionService] Created suggestion object with positioning:', !!suggestion.positioning)
+          console.log('[SuggestionService] Final suggestion positioning:', suggestion.positioning)
           suggestions.push(suggestion)
         })
         console.log('[SuggestionService] Processed funnel suggestions:', suggestions.length)

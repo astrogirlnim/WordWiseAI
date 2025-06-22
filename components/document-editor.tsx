@@ -410,6 +410,9 @@ export function DocumentEditor({
     }
     
     console.log('[DocumentEditor] handleApplyAISuggestion called', suggestion);
+    console.log('[DocumentEditor] Suggestion keys:', Object.keys(suggestion || {}));
+    console.log('[DocumentEditor] Has positioning in suggestion:', !!suggestion?.positioning);
+    console.log('[DocumentEditor] Positioning details:', suggestion?.positioning);
     
     // Prevent repeated application by checking if already applied
     if (suggestion.status === 'applied') {
@@ -440,104 +443,81 @@ export function DocumentEditor({
       const isFunnelSuggestion = funnelTypes.includes(suggestionType);
       
       if (!originalText || originalText.trim() === '' || isFunnelSuggestion) {
-        // Funnel suggestion: use intelligent positioning
-        console.log('[DocumentEditor] Processing funnel suggestion with intelligent positioning');
+        // Funnel suggestion: use intelligent character-based positioning
+        console.log('[DocumentEditor] Processing funnel suggestion with character-based positioning');
         
-        // Check if suggestion has new positioning data
-        const positioning = (suggestion as any).positioning;
-        if (positioning && isFunnelSuggestion) {
-          console.log('[DocumentEditor] Using intelligent positioning:', positioning);
+        // Check if suggestion has new positioning data with character indices
+        const positioning = suggestion.positioning;
+        if (positioning && isFunnelSuggestion && typeof positioning.startIndex === 'number') {
+          console.log('[DocumentEditor] Using character-based positioning:', positioning);
           
-          const { strategy, location, targetText, insertionPoint, preserveExisting } = positioning;
+          const { strategy, startIndex, endIndex } = positioning;
+          const currentText = editor.getText();
+          const contentLength = currentText.length;
+          
+          console.log(`[DocumentEditor] Document length: ${contentLength}, startIndex: ${startIndex}, endIndex: ${endIndex}`);
           
           switch (strategy) {
             case 'replace':
-              if (targetText && fullContentHtml.includes(targetText)) {
-                console.log('[DocumentEditor] Replacing target text:', targetText.substring(0, 100));
-                updatedContent = fullContentHtml.replace(targetText, suggestedText);
+              if (startIndex >= 0 && endIndex > startIndex && endIndex <= contentLength) {
+                console.log(`[DocumentEditor] Replacing text from ${startIndex} to ${endIndex}`);
+                console.log(`[DocumentEditor] Text being replaced: "${currentText.substring(startIndex, endIndex)}"`);
+                
+                // Use TipTap's character-based positioning (1-based)
+                editor.chain().focus()
+                  .setTextSelection({ from: startIndex + 1, to: endIndex + 1 })
+                  .insertContent(formatSuggestionText(suggestionType, suggestedText))
+                  .run();
                 textReplaced = true;
               } else {
-                console.log('[DocumentEditor] Target text not found, falling back to insert strategy');
-                updatedContent = applyInsertStrategy(location, suggestedText, fullContentHtml, suggestionType);
+                console.warn(`[DocumentEditor] Invalid replace indices: ${startIndex}-${endIndex}, content length: ${contentLength}`);
+                // Fallback to append
+                const formattedText = formatSuggestionText(suggestionType, suggestedText);
+                editor.chain().focus()
+                  .setTextSelection(contentLength + 1)
+                  .insertContent(`\n\n${formattedText}`)
+                  .run();
                 textReplaced = true;
               }
-              break;
-              
-            case 'append':
-              console.log('[DocumentEditor] Appending content at:', location);
-              if (location === 'document-end') {
-                updatedContent = fullContentHtml + `\n\n${formatSuggestionText(suggestionType, suggestedText)}`;
-              } else {
-                updatedContent = applyInsertStrategy(location, suggestedText, fullContentHtml, suggestionType);
-              }
-              textReplaced = true;
               break;
               
             case 'insert':
+              const insertPos = startIndex === -1 ? contentLength : Math.max(0, Math.min(startIndex, contentLength));
+              console.log(`[DocumentEditor] Inserting at character position: ${insertPos}`);
+              
+              const formattedInsertText = formatSuggestionText(suggestionType, suggestedText);
+              // Add spacing based on position
+              const insertContent = insertPos === 0 ? 
+                `${formattedInsertText}\n\n` : 
+                insertPos === contentLength ? 
+                  `\n\n${formattedInsertText}` : 
+                  `\n\n${formattedInsertText}\n\n`;
+              
+              editor.chain().focus()
+                .setTextSelection(insertPos + 1)
+                .insertContent(insertContent)
+                .run();
+              textReplaced = true;
+              break;
+              
+            case 'append':
             default:
-              console.log('[DocumentEditor] Inserting content at:', location);
-              updatedContent = applyInsertStrategy(location, suggestedText, fullContentHtml, suggestionType);
+              console.log('[DocumentEditor] Appending to document end');
+              const formattedAppendText = formatSuggestionText(suggestionType, suggestedText);
+              editor.chain().focus()
+                .setTextSelection(contentLength + 1)
+                .insertContent(`\n\n${formattedAppendText}`)
+                .run();
               textReplaced = true;
               break;
           }
         } else {
           // Fallback to legacy positioning logic for backward compatibility
-          console.log('[DocumentEditor] Using legacy funnel suggestion positioning');
+          console.log('[DocumentEditor] Using legacy funnel suggestion positioning (no character indices)');
           textReplaced = insertFunnelSuggestionContentLegacy(suggestionType, suggestedText, fullContentHtml);
         }
         
-        // Helper function to apply insert strategy based on location
-        function applyInsertStrategy(location: string, text: string, content: string, type: string): string {
-          const formattedText = formatSuggestionText(type, text);
-          
-          switch (location) {
-            case 'document-start':
-              return formattedText + '\n\n' + content;
-              
-            case 'after-existing-headline':
-            case 'after-headline':
-              const headlineMatch = content.match(/^#{1,6}\s+.+?\n+/m);
-              if (headlineMatch) {
-                const insertPos = headlineMatch.index! + headlineMatch[0].length;
-                return content.slice(0, insertPos) + formattedText + '\n\n' + content.slice(insertPos);
-              }
-              // Fallback to document start if no headline found
-              return formattedText + '\n\n' + content;
-              
-            case 'after-headlines':
-              const allHeadlines = content.match(/^#{1,6}\s+.+?\n+/gm);
-              if (allHeadlines && allHeadlines.length > 0) {
-                const lastHeadline = allHeadlines[allHeadlines.length - 1];
-                const lastHeadlineIndex = content.lastIndexOf(lastHeadline);
-                const insertPos = lastHeadlineIndex + lastHeadline.length;
-                return content.slice(0, insertPos) + formattedText + '\n\n' + content.slice(insertPos);
-              }
-              // Fallback to after first paragraph if no headlines
-              const firstParagraphEnd = content.indexOf('\n\n');
-              if (firstParagraphEnd > 0) {
-                return content.slice(0, firstParagraphEnd) + '\n\n' + formattedText + content.slice(firstParagraphEnd);
-              }
-              return formattedText + '\n\n' + content;
-              
-            case 'before-main-content':
-              // Insert after any headlines but before the main content
-              const headerEndMatch = content.match(/^#{1,6}\s+.+?\n+/gm);
-              if (headerEndMatch && headerEndMatch.length > 0) {
-                const lastHeader = headerEndMatch[headerEndMatch.length - 1];
-                const lastHeaderIndex = content.lastIndexOf(lastHeader);
-                const insertPos = lastHeaderIndex + lastHeader.length;
-                return content.slice(0, insertPos) + formattedText + '\n\n' + content.slice(insertPos);
-              }
-              return formattedText + '\n\n' + content;
-              
-            case 'document-end':
-              return content + '\n\n' + formattedText;
-              
-            default:
-              console.warn('[DocumentEditor] Unknown location:', location, 'falling back to document-end');
-              return content + '\n\n' + formattedText;
-          }
-        }
+
         
         // Helper function to format suggestion text based on type
         function formatSuggestionText(type: string, text: string): string {
@@ -723,6 +703,13 @@ export function DocumentEditor({
 
     const handleAISuggestionApplyEvent = (event: CustomEvent) => {
       console.log('[DocumentEditor] Received AI_SUGGESTION_APPLY event:', event.detail);
+      console.log('[DocumentEditor] Event detail keys:', Object.keys(event.detail || {}));
+      const eventSuggestion = event.detail as AISuggestion;
+      console.log('[DocumentEditor] Has positioning data:', !!eventSuggestion?.positioning);
+      console.log('[DocumentEditor] Positioning data:', eventSuggestion?.positioning);
+      console.log('[DocumentEditor] Suggestion type:', eventSuggestion?.type);
+      console.log('[DocumentEditor] Suggestion ID:', eventSuggestion?.id);
+      
       const suggestion = event.detail as AISuggestion
       if (suggestion) {
         handleApplyAISuggestion(suggestion)
