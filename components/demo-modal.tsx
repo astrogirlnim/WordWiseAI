@@ -212,19 +212,14 @@ const StepContent = {
     }, [userType, user, demoTour.interactionStep])
 
     useEffect(() => {
-      // Listen for content added signal for demo mode
-      if (demoTour.interactionStep === 'showContentAdded') {
-        console.log('🎯 [Demo Step 2] Content added signal received - completing step')
+      // Listen for demo completion signal - only advance when user interacts with markdown preview
+      if (demoTour.interactionStep === 'showContentAdded' && demoTour.currentStep === 2) {
+        console.log('🎯 [Demo Step 2] Demo interaction completed - step will advance after markdown preview')
         setIsLoading(false);
         setIsComplete(true);
-        setTimeout(() => {
-          console.log('🎯 [Demo Step 2] Auto-advancing to Step 3')
-          demoTour.completeStep(2);
-          demoTour.nextStep();
-          demoTour.setInteractionStep('idle');
-        }, 2000);
+        // Note: Do NOT auto-advance here - wait for user to interact with markdown preview
       }
-    }, [demoTour.interactionStep, demoTour]);
+    }, [demoTour.interactionStep, demoTour.currentStep, demoTour]);
 
     const handleAction = () => {
       console.log('🎯 [Demo Step 2] Start Writing action triggered for user type:', userType)
@@ -270,7 +265,7 @@ const StepContent = {
                   Demo Mode Active
                 </p>
                 <p className="mt-1 text-xs text-blue-700 dark:text-blue-200">
-                  We&apos;ll simulate adding a sample sales funnel document into the editor for you.
+                  We&apos;ll add sample content to the editor, then show you the markdown preview feature.
                 </p>
               </div>
             </div>
@@ -284,7 +279,7 @@ const StepContent = {
                   Guided Tour
                 </p>
                 <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
-                  We&apos;ll highlight the editor area to show you where to start writing.
+                  We&apos;ll highlight the editor area and show you the markdown preview features.
                 </p>
               </div>
             </div>

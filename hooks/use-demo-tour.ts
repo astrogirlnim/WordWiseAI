@@ -34,6 +34,7 @@ export type DemoInteractionStep =
   | 'openWritingGoalsModal'
   | 'highlightEditor'
   | 'pasteContent'
+  | 'highlightMarkdownPreview'
   | 'showContentAdded';
 
 /**

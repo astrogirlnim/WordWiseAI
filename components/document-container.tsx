@@ -247,13 +247,32 @@ export function DocumentContainer() {
         updateContentSafely.page(DEMO_SAMPLE_DATA.sampleDocument, 'demo-tour-step-2')
           .then(() => {
             console.log('🎯 [DocumentContainer] Sample content pasted successfully');
-            demoTour.setInteractionStep('showContentAdded');
-            demoTour.showDemoModal();
+            // After pasting content, highlight the markdown preview button
+            setTimeout(() => {
+              console.log('🎯 [DocumentContainer] Transitioning to markdown preview highlight');
+              demoTour.setInteractionStep('highlightMarkdownPreview');
+            }, 1000); // Give a moment for content to be visible
           })
           .catch(error => {
             console.error('🎯 [DocumentContainer] Error pasting sample content:', error);
-            demoTour.showDemoModal(); // Show modal again even if it fails
+            demoTour.showDemoModal(); // Show modal again if it fails
           });
+      } else if (interactionStep === 'highlightMarkdownPreview') {
+        console.log('🎯 [DocumentContainer] Demo mode step 2: highlighting markdown preview button');
+        const markdownPreviewButton = document.querySelector('[data-markdown-preview-button]');
+        if (markdownPreviewButton) {
+          setDemoSpotlightTarget('[data-markdown-preview-button]');
+          setDemoSpotlightContent({
+            title: 'Markdown Preview',
+            description: 'See how your content looks formatted! Click here to toggle between editing and preview modes.',
+            actionText: 'Open Preview'
+          });
+          setDemoSpotlightActive(true);
+        } else {
+          console.warn('🎯 [DocumentContainer] Markdown preview button not found, completing step');
+          demoTour.setInteractionStep('showContentAdded');
+          demoTour.showDemoModal();
+        }
       } else if (interactionStep === 'highlightEditor') {
         console.log('🎯 [DocumentContainer] Auth user step 2: highlighting editor');
         const editorArea = document.querySelector('[data-editor-area]');
@@ -316,6 +335,16 @@ export function DocumentContainer() {
         console.log('🎯 [DocumentContainer] Completing demo step 2 after editor highlight');
         demoTour.completeStep(2);
         demoTour.nextStep();
+      } else if (interactionStep === 'highlightMarkdownPreview') {
+        console.log('🎯 [DocumentContainer] User interacted with markdown preview - completing step 2');
+        // Set the demo as completed and advance to step 3
+        demoTour.setInteractionStep('showContentAdded');
+        demoTour.showDemoModal();
+        setTimeout(() => {
+          console.log('🎯 [DocumentContainer] Auto-advancing to Step 3 after markdown preview');
+          demoTour.completeStep(2);
+          demoTour.nextStep();
+        }, 1500);
       }
     }
   }, [demoTour, user?.uid])
