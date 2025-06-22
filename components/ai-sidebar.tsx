@@ -54,7 +54,6 @@ export function AISidebar({
     generateFunnelSuggestions,
     applySuggestion,
     dismissSuggestion,
-    refreshSuggestions,
     refreshFunnelSuggestions
   } = useAISuggestions({ 
     documentId: documentId || null,
@@ -141,7 +140,6 @@ export function AISidebar({
           {/* Suggestions Tab */}
           <TabsContent value="suggestions" className="flex-1 mt-0">
             <AISuggestions
-              styleSuggestions={styleSuggestions}
               funnelSuggestions={funnelSuggestions}
               onApply={applySuggestion}
               onDismiss={dismissSuggestion}
