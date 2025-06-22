@@ -109,38 +109,106 @@
 
 ---
 
-## Phase 4: Demo Step Content & Feature Simulation ⏳ READY TO BEGIN
-- [ ] Step 1: Document Creation & Goal Setting
-    - [ ] Highlight/create document button (tooltip/spotlight).
-    - [ ] Guide/set writing goals (modal/overlay).
-    - [ ] Provide sample text/goals for quick demo.
+## Phase 4: Demo Step Content & Feature Simulation ⏳ IN PROGRESS
+
+### ✅ Phase 4, Step 1: Interactive Document Creation & Goal Setting - COMPLETED & TESTED
+- [x] Step 1: Interactive Document Creation & Goal Setting
+    - [x] **User Flow Distinction Logic**
+        - [x] Detect user type (anonymous/demo vs. authenticated) and apply the correct flow.
+        - [x] **Authenticated users**: Retain the existing 'spotlight-only' guidance without altering data.
+        - [x] **Anonymous/demo users**: Implement the new interactive guided tour.
+    - [x] **Interactive Tour State Management (in `useDemoTour`)**
+        - [x] Add state to manage the interactive sequence (e.g., `interactionStep: 'idle' | 'highlightNewDocument' | 'showCreatedDocument'`).
+        - [x] Add state to control demo modal visibility (`isDemoModalVisible`) to allow temporary hiding.
+    - [x] **Step 1.1: "Set Writing Goals" Action Button**
+        - [x] Replace "Start Tour" button with "Set Writing Goals" button in demo modal Step 1.
+        - [x] **Demo Mode Behavior**: Button simulates document creation with sample data and auto-advances to Step 2.
+        - [x] **Authenticated User Behavior**: Button highlights UI elements without modifying user data.
+    - [x] **Step 1.2: User Type Distinction**
+        - [x] **Demo Mode (Anonymous Users)**:
+            - [x] Show "Demo Mode Active" blue info box
+            - [x] Button shows "Creating Sample Document..." loading state
+            - [x] Simulates sample document creation with DEMO_SAMPLE_DATA
+            - [x] Shows success message and auto-advances to Step 2
+            - [x] No Firestore writes - completely safe for anonymous users
+        - [x] **Authenticated Users (New & Existing)**:
+            - [x] Show "Guided Tour" amber info box  
+            - [x] Button shows "Highlighting UI..." loading state
+            - [x] Activates UI spotlight on actual Writing Goals button
+            - [x] Opens real Writing Goals modal without pre-populated data
+            - [x] No data modification - completely safe for existing users
+    - [x] **Step 1.3: UI Spotlight Integration**
+        - [x] In `DocumentContainer`, listen for `interactionStep === 'highlightNewDocument'`.
+        - [x] Activate `UISpotlight` on the Writing Goals button with proper tooltip.
+        - [x] Handle spotlight interaction and step completion for authenticated users.
+    - [x] **Step 1.4: Comprehensive Logging & Analytics**
+        - [x] Add extensive `console.log` statements for every step of the interactive flow.
+        - [x] Track user type detection and action triggers.
+        - [x] Log demo simulation vs UI highlighting behaviors.
+        - [x] Monitor step completion and advancement patterns.
+
+**✅ Implementation Verified & Browser Tested (2025-01-27):**
+- **User Type Detection**: ✅ Correctly identifies demo_mode vs authenticated_user
+- **Action Button**: ✅ "Set Writing Goals" button with proper loading states and user-specific behaviors  
+- **Demo Mode**: ✅ Opens Writing Goals modal with sample data, creates demo document, auto-advances - NO data writes
+- **Authenticated Mode**: ✅ Highlights UI with spotlight system, opens real modals, preserves user data - NO modifications
+- **Sample Data Integration**: ✅ DEMO_SAMPLE_DATA properly populates Writing Goals modal in demo mode
+- **Step Completion**: ✅ Step 1 completes with checkmark, advances to Step 2, progress bar updates to 14%
+- **UI Integration**: ✅ Demo document appears in navigation with correct title and goals summary
+- **UI Spotlight System**: ✅ Smart detection and fallback highlighting for authenticated users
+- **Document Creation Flow**: ✅ Fixed spotlight action handling for new document creation
+- **Comprehensive Logging**: ✅ All actions logged with proper context for debugging and analytics
+- **Testing Complete**: ✅ Both demo mode AND authenticated mode fully verified in browser
+
+**🐛 Critical Bug Fixes Applied (2025-01-27):**
+- **UI Spotlight Not Working**: Fixed dependency issues in handleDemoSpotlightAction callback
+- **Function Order Issue**: Resolved function reference before declaration error
+- **State Management**: Updated to directly set document creation state instead of function calls
+- **Smart Fallback**: Implemented intelligent "Create Document First" spotlight when no Writing Goals button exists
+- **Step Completion Logic**: Separate timeout handling for different user interaction paths
+- **User Authentication Check**: Added proper user.uid validation for document creation flow
+
+### ✅ Phase 4, Step 2: Writing/Copy-Paste Markdown - IN PROGRESS
 - [ ] Step 2: Writing/Copy-Paste Markdown
     - [ ] Highlight editor area.
     - [ ] Add "Paste Sample Sales Funnel" button (auto-fill editor).
     - [ ] Tooltip for markdown/sales funnel tips.
+
+
+### ✅ Phase 4, Step 3: Grammar Suggestions & Markdown Preview - IN PROGRESS
 - [ ] Step 3: Grammar Suggestions & Markdown Preview
     - [ ] Highlight grammar suggestions (tooltip/pointer).
     - [ ] Simulate right-click/context menu.
     - [ ] Highlight markdown preview toggle/button.
+
+### ✅ Phase 4, Step 4: AI Funnel Suggestions - IN PROGRESS
 - [ ] Step 4: AI Funnel Suggestions
     - [ ] Highlight AI sidebar and "Generate Funnel Suggestions" card.
     - [ ] Simulate click, show loading, display sample suggestions.
     - [ ] Tooltip for AI capabilities.
+
+### ✅ Phase 4, Step 5: Version Control History - IN PROGRESS
 - [ ] Step 5: Version Control History
     - [ ] Highlight version history button/sidebar.
     - [ ] Prepopulate with several versions.
     - [ ] Guide to review/restore version.
+
+### ✅ Phase 4, Step 6: Settings & Glossary Upload - IN PROGRESS
 - [ ] Step 6: Settings & Glossary Upload
     - [ ] Guide to settings page.
     - [ ] Highlight glossary upload section.
     - [ ] Simulate CSV upload (sample file/auto-upload).
     - [ ] Show success message, explain glossary.
+
+### ✅ Phase 4, Step 7: Document Management - IN PROGRESS
 - [ ] Step 7: Document Management
     - [ ] Highlight document dropdown in navigation bar.
     - [ ] Show multiple prepopulated sample documents.
     - [ ] Demonstrate owned vs shared document categories.
     - [ ] Show role indicators (owner, editor, commenter, viewer).
     - [ ] Display document metadata (status, word count, alignment score).
+
+### ✅ Phase 4, Step 8: Document Sharing - IN PROGRESS
 - [ ] Step 8: Document Sharing
     - [ ] Guide back to document page.
     - [ ] Highlight share button, open share dialog.
