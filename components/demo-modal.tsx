@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 import { 
   Dialog, 
   DialogContent, 
@@ -528,6 +530,8 @@ function StepIndicator({
  */
 export function DemoModal() {
   const { state, actions } = useDemoTour()
+  const { user } = useAuth()
+  const router = useRouter()
   const [isAnimating, setIsAnimating] = useState(false)
 
   console.log('[DemoModal] Rendering with state:', {
@@ -542,18 +546,18 @@ export function DemoModal() {
     console.log('🎯 [DemoModal] State changed - isOpen:', state.isOpen, 'currentStep:', state.currentStep)
   }, [state.isOpen, state.currentStep])
 
-  // Handle demo trigger from URL parameters
+  // Handle demo trigger from URL parameters (only once on mount)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const demoParam = urlParams.get('demo')
     
-    if (demoParam === 'true' && !state.isOpen) {
+    if (demoParam === 'true' && !state.isOpen && !state.isCompleted) {
       console.log('🎯 [DemoModal] URL demo parameter detected - opening demo')
       setTimeout(() => {
         actions.openDemo()
       }, 500)
     }
-  }, [state.isOpen, actions])
+  }, []) // Empty dependency array - only run once on mount
 
   // Current step data
   const currentStepData = DEMO_STEPS.find(step => step.id === state.currentStep) || DEMO_STEPS[0]
@@ -595,6 +599,35 @@ export function DemoModal() {
   const handleComplete = () => {
     console.log('[DemoModal] Completing demo')
     actions.completDemo()
+    clearDemoUrlParameter()
+  }
+
+  /**
+   * Handle demo skip with proper redirects
+   */
+  const handleSkipDemo = () => {
+    console.log('[DemoModal] Skipping demo')
+    actions.skipDemo()
+    clearDemoUrlParameter()
+    
+    // Redirect based on authentication status
+    if (!user) {
+      console.log('[DemoModal] Unauthenticated user - redirecting to sign-in')
+      router.push('/sign-in')
+    } else {
+      console.log('[DemoModal] Authenticated user - staying on main page')
+      // Stay on current page, modal will close
+    }
+  }
+
+  /**
+   * Clear demo URL parameter to prevent re-opening
+   */
+  const clearDemoUrlParameter = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('demo')
+    window.history.replaceState({}, '', url.pathname + url.search)
+    console.log('[DemoModal] Cleared demo URL parameter')
   }
 
   /**
@@ -622,7 +655,7 @@ export function DemoModal() {
           break
         case 'Escape':
           event.preventDefault()
-          actions.skipDemo()
+          handleSkipDemo()
           break
       }
     }
@@ -636,7 +669,7 @@ export function DemoModal() {
   }
 
   return (
-    <Dialog open={state.isOpen} onOpenChange={(open) => !open && actions.closeDemo()}>
+    <Dialog open={state.isOpen} onOpenChange={(open) => !open && handleSkipDemo()}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0"
         aria-describedby="demo-modal-description"
@@ -705,7 +738,7 @@ export function DemoModal() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => actions.skipDemo()}
+              onClick={handleSkipDemo}
               className="text-muted-foreground hover:text-foreground"
             >
               <X className="mr-2 h-4 w-4" />
