@@ -652,16 +652,16 @@ export function DemoModal() {
       const urlParams = new URLSearchParams(window.location.search)
       const demoParam = urlParams.get('demo')
       
-      // Priority 1: URL parameter demo request
+      // Priority 1: URL parameter demo request - always start fresh
       if (demoParam === 'true' && !state.isOpen && !state.isCompleted) {
-        console.log('🎯 [DemoModal] URL demo parameter detected - opening demo')
+        console.log('🎯 [DemoModal] URL demo parameter detected - starting demo fresh')
         setTimeout(() => {
-          actions.openDemo()
+          actions.startDemo()
         }, 500)
         return
       }
       
-      // Priority 2: Auto-trigger for new users (only if authenticated)
+      // Priority 2: Auto-trigger for new users (only if authenticated) - always start fresh
       if (user && !state.isOpen && !state.isCompleted) {
         try {
           console.log('🔍 [DemoModal] Checking if new user should see demo...', {
@@ -672,9 +672,9 @@ export function DemoModal() {
           const shouldShow = await shouldShowDemo()
           
           if (shouldShow) {
-            console.log('🎯 [DemoModal] New user detected - auto-triggering demo')
+            console.log('🎯 [DemoModal] New user detected - starting demo fresh from step 1')
             setTimeout(() => {
-              actions.openDemo()
+              actions.startDemo()
             }, 1000) // Slightly longer delay for new users to let page load
           } else {
             console.log('📝 [DemoModal] User has already seen demo - not triggering')
