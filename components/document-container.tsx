@@ -191,10 +191,12 @@ export function DocumentContainer() {
 
     } else if (interactionStep === 'highlightWritingGoals') {
       const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
+      const newDocumentButton = document.querySelector('[data-new-document-button]') || document.querySelector('[data-new-document-button-main]')
       
-      console.log(`🎯 [DocumentContainer] Highlighting Writing Goals button`);
+      console.log(`🎯 [DocumentContainer] Highlighting Writing Goals - button found:`, !!writingGoalsButton);
       
       if (writingGoalsButton) {
+        // User has an active document - highlight the Writing Goals button
         setDemoSpotlightTarget('[data-writing-goals-button]')
         setDemoSpotlightContent({
           title: 'Writing Goals',
@@ -202,11 +204,28 @@ export function DocumentContainer() {
           actionText: 'Open Writing Goals'
         })
         setDemoSpotlightActive(true)
+      } else if (newDocumentButton) {
+        // User has no active document - highlight the New Document button and explain the flow
+        const targetSelector = newDocumentButton.hasAttribute('data-new-document-button-main') 
+          ? '[data-new-document-button-main]' 
+          : '[data-new-document-button]'
+        setDemoSpotlightTarget(targetSelector)
+        setDemoSpotlightContent({
+          title: 'Create Document First',
+          description: 'To set writing goals, you first need to create a document. Click here to create a new document, and you\'ll be able to set writing goals during the creation process.',
+          actionText: 'Create Document'
+        })
+        setDemoSpotlightActive(true)
       } else {
-        console.warn('🎯 [DocumentContainer] Writing Goals button not found')
-        // Fallback to completing the step
-        demoTour.completeStep(1)
-        demoTour.nextStep()
+        console.warn('🎯 [DocumentContainer] Neither Writing Goals button nor New Document button found')
+        // Show a general informational spotlight
+        setDemoSpotlightTarget('')
+        setDemoSpotlightContent({
+          title: 'Writing Goals',
+          description: 'Writing goals help our AI provide better suggestions. You can access them after creating your first document. For now, let\'s continue with the tour.',
+          actionText: 'Continue Tour'
+        })
+        setDemoSpotlightActive(true)
       }
 
     } else if (interactionStep === 'openWritingGoalsModal') {
@@ -240,18 +259,49 @@ export function DocumentContainer() {
     } else if (interactionStep === 'highlightWritingGoals') {
         console.log('🎯 [DocumentContainer] User clicked spotlight action for Writing Goals')
         setDemoSpotlightActive(false);
-        setIsGoalsModalOpen(true);
-        // Complete step after user interaction
-        setTimeout(() => {
-          demoTour.completeStep(1);
-          demoTour.setInteractionStep('idle');
-          demoTour.showDemoModal();
-          demoTour.nextStep();
-        }, 2000);
+        
+        // Check if we're highlighting the Writing Goals button or New Document button
+        const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
+        
+        if (writingGoalsButton) {
+          // User has an active document - open Writing Goals modal
+          console.log('🎯 [DocumentContainer] Opening Writing Goals modal for existing document')
+          setIsGoalsModalOpen(true);
+          
+          // Complete step after modal opens
+          setTimeout(() => {
+            demoTour.completeStep(1);
+            demoTour.setInteractionStep('idle');
+            demoTour.showDemoModal();
+            demoTour.nextStep();
+          }, 1500);
+        } else {
+          // User has no active document - start document creation flow
+          console.log('🎯 [DocumentContainer] Starting new document creation flow via spotlight')
+          
+          // Trigger new document creation by setting state and opening goals modal
+          if (user?.uid) {
+            console.log('🎯 [DocumentContainer] Setting up new document creation state')
+            setIsCreatingNewDocument(true)
+            setNewDocumentTitle('Untitled Document')
+            setIsGoalsModalOpen(true)
+          } else {
+            console.warn('🎯 [DocumentContainer] No user available for new document creation')
+          }
+          
+          // For new document creation, complete the step after modal opens
+          setTimeout(() => {
+            console.log('🎯 [DocumentContainer] Completing demo step after new document flow started')
+            demoTour.completeStep(1);
+            demoTour.setInteractionStep('idle');
+            demoTour.showDemoModal();
+            demoTour.nextStep();
+          }, 1000);
+        }
     }
     // For 'highlightNewDocument', no action is needed here, as the user clicks the actual button.
     // The spotlight will be dismissed by the main useEffect when interactionStep changes.
-  }, [demoTour])
+  }, [demoTour, setIsGoalsModalOpen, setIsCreatingNewDocument, setNewDocumentTitle, user?.uid])
 
   const handleDemoSpotlightDismiss = useCallback(() => {
     console.log('🎯 [DocumentContainer] Demo spotlight dismissed by user')
