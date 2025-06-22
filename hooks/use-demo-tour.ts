@@ -586,7 +586,6 @@ export function useDemoTour() {
         newSkippedSteps.push(prev.currentStep)
       }
       logDemoAction('SKIP_STEP', { step: prev.currentStep, skipped: newSkippedSteps })
-      
       if (prev.currentStep >= prev.totalSteps) {
         // If on the last step, skipping completes the demo
         const isDemoNowCompleted = true
@@ -597,13 +596,37 @@ export function useDemoTour() {
         })
         return { ...prev, isOpen: false, isDemoModalVisible: false, isCompleted: isDemoNowCompleted, skippedSteps: newSkippedSteps }
       }
-      
       // Otherwise, just go to the next step
-      nextStep()
-      // The state update will be handled by nextStep, but we need to pass the skipped steps
-      return { ...prev, skippedSteps: newSkippedSteps }
+      // Instead of calling nextStep() (which uses stale state), increment currentStep here
+      const timeNow = Date.now()
+      const stepDuration = (timeNow - prev.stepStartTime) / 1000
+      const newTotalTimeSpent = prev.totalTimeSpent + stepDuration
+      const newStep = (prev.currentStep + 1) as DemoStep
+      const newCompletedSteps = [...prev.completedSteps]
+      if (!newCompletedSteps.includes(prev.currentStep)) {
+        newCompletedSteps.push(prev.currentStep)
+      }
+      logDemoAction('SKIP_STEP_ADVANCE', { from: prev.currentStep, to: newStep, skipped: newSkippedSteps })
+      saveDemoProgress({
+        lastStepReached: newStep,
+        completedSteps: newCompletedSteps,
+        skipCount: newSkippedSteps.length,
+        totalTimeSpent: newTotalTimeSpent
+      })
+      return {
+        ...prev,
+        currentStep: newStep,
+        canGoBack: true,
+        canGoForward: newStep < prev.totalSteps,
+        completedSteps: newCompletedSteps,
+        skippedSteps: newSkippedSteps,
+        stepStartTime: timeNow,
+        totalTimeSpent: newTotalTimeSpent,
+        interactionStep: 'idle' as DemoInteractionStep,
+        isDemoModalVisible: true,
+      }
     })
-  }, [nextStep, logDemoAction, saveDemoProgress])
+  }, [logDemoAction, saveDemoProgress])
 
   const skipDemo = useCallback(() => {
     setState(prev => {
