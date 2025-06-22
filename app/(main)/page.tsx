@@ -22,11 +22,13 @@ function MainContent() {
     setIsClient(true)
   }, [])
 
+  // Handle authentication redirects (but allow demo mode for unauthenticated users)
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && searchParams.get('demo') !== 'true') {
+      console.log('🔒 No user found and not in demo mode - redirecting to sign-in')
       router.push('/sign-in')
     }
-  }, [user, loading, router])
+  }, [user, loading, router, searchParams])
 
   /**
    * Auto-trigger demo for first-time users or when demo=true in URL
@@ -43,7 +45,11 @@ function MainContent() {
         const demoParam = searchParams.get('demo')
         if (demoParam === 'true') {
           console.log('🎯 Demo requested via URL parameter - opening demo')
-          demoActions.openDemo()
+          console.log('👤 User authenticated:', !!user)
+          // Small delay to ensure DocumentContainer is fully loaded
+          setTimeout(() => {
+            demoActions.openDemo()
+          }, 1000)
           setHasCheckedDemo(true)
           return
         }
@@ -54,12 +60,15 @@ function MainContent() {
           console.log('📊 Should show demo for authenticated user:', shouldShow)
           
           if (shouldShow) {
-            console.log('🚀 Auto-triggering demo for first-time user')
+            console.log('🚀 Auto-triggering demo for first-time authenticated user')
             // Small delay to ensure DocumentContainer is fully loaded
             setTimeout(() => {
               demoActions.openDemo()
             }, 1000)
           }
+          setHasCheckedDemo(true)
+        } else {
+          // For unauthenticated users, just mark as checked to avoid loops
           setHasCheckedDemo(true)
         }
       } catch (error) {
@@ -79,8 +88,16 @@ function MainContent() {
     )
   }
 
-  if (!user) {
+  // Allow demo mode for unauthenticated users
+  const isDemoMode = searchParams.get('demo') === 'true'
+  
+  if (!user && !isDemoMode) {
+    console.log('🔒 No user and not in demo mode - showing nothing while redirect happens')
     return null
+  }
+
+  if (!user && isDemoMode) {
+    console.log('🎯 Demo mode for unauthenticated user - showing DocumentContainer')
   }
 
   return <DocumentContainer />

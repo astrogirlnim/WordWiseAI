@@ -163,8 +163,8 @@ export default function SignInPage() {
               </div>
             </div>
             <Button
-              variant="outline"
-              className="w-full mb-4 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:from-blue-100 hover:to-purple-100"
+              variant="default"
+              className="w-full mb-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 border-0 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600"
               onClick={handleTryDemo}
             >
               🚀 Try Demo - No Account Required
