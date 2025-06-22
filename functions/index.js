@@ -107,6 +107,13 @@ exports.generateSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (reque
 });
 
 exports.generateStyleSuggestions = onCall({secrets: ["OPENAI_API_KEY"]}, async (request) => {
+  // BEGIN: Deep Auth and Payload Logging
+  logger.log("[generateStyleSuggestions] --- TOP OF FUNCTION ---");
+  logger.log("[generateStyleSuggestions] Full request.auth:", { auth: request.auth });
+  logger.log("[generateStyleSuggestions] request.auth.uid:", { uid: request.auth?.uid });
+  logger.log("[generateStyleSuggestions] request.auth.token:", { token: request.auth?.token });
+  logger.log("[generateStyleSuggestions] request.data:", { data: request.data });
+  // END: Deep Auth and Payload Logging
   try {
     const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
     logger.log("[generateStyleSuggestions] Function called", {uid: request.auth?.uid, data: request.data});
