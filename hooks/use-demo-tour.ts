@@ -2,7 +2,7 @@
  * Demo Tour State Management Hook
  * 
  * Manages the complete demo onboarding flow with:
- * - 7-step guided tour through WordWise AI features
+ * - 7-step guided tour through FunnelFluent AI features
  * - Persistent state management via Firebase and localStorage
  * - Comprehensive logging for analytics and debugging
  * - Accessibility and mobile-responsive support

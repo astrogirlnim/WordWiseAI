@@ -1,7 +1,7 @@
 # Demo Modal Exit & Redirect Logic
 
 ## Overview
-This document describes the logic and user experience for exiting the WordWise AI demo modal, including all cases where the user skips, completes, or closes the demo. It covers both authenticated and unauthenticated user flows.
+This document describes the logic and user experience for exiting the FunnelFluent AI demo modal, including all cases where the user skips, completes, or closes the demo. It covers both authenticated and unauthenticated user flows.
 
 ---
 

@@ -1,7 +1,7 @@
 # Demo Modal User Flows - Testing Guide
 
 ## Overview
-This document outlines the testing procedures for the simplified demo modal functionality. The demo modal provides a guided tour of WordWise AI features through a dedicated demo page accessible to all users.
+This document outlines the testing procedures for the simplified demo modal functionality. The demo modal provides a guided tour of FunnelFluent AI features through a dedicated demo page accessible to all users.
 
 ## ✅ Testing Status: SIMPLIFIED SINGLE-FLOW IMPLEMENTATION
 **Test Date**: 2025-01-28  
