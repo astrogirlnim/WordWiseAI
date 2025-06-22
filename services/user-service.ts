@@ -30,6 +30,14 @@ export const userService = {
             preferredTone: 'professional',
             showAdvancedSuggestions: true,
           },
+          demoProgress: {
+            hasSeenDemo: false,
+            completedSteps: [],
+            lastStepReached: 1,
+            skipCount: 0,
+            isCompleted: false,
+            totalTimeSpent: 0
+          }
         }
         await setDoc(userDocRef, {
           ...defaultProfile,

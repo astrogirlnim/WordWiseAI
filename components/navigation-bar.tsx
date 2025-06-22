@@ -12,6 +12,7 @@ import type { WritingGoals } from '@/types/writing-goals'
 import { ThemeToggle } from './theme-toggle'
 import { DistractionFreeToggle } from './distraction-free-toggle'
 import { EnhancedDocumentList } from './enhanced-document-list'
+import { DemoTriggerButton } from './demo-trigger-button'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -184,6 +185,14 @@ export function NavigationBar({
             </>
           )}
 
+          {/* Demo Trigger Button - For existing users */}
+          <DemoTriggerButton 
+            variant="outline" 
+            size="sm" 
+            showTooltip={true}
+            className="hidden md:flex"
+          />
+
           {/* Theme Toggle */}
           <ThemeToggle />
 
@@ -220,6 +229,13 @@ export function NavigationBar({
                   showCollaboratorCount={false}
                 />
               )}
+              
+              <DemoTriggerButton 
+                variant="ghost" 
+                size="sm" 
+                showTooltip={false}
+                className="md:hidden"
+              />
               
               <AISidebarToggle
                 isOpen={isAISidebarOpen}
