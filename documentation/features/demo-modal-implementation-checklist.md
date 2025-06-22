@@ -595,12 +595,63 @@ className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0"
 
 **Result**: Demo modal now opens correctly when accessing `/?demo=true`
 
+### 🚨 **CRITICAL BUG FIX - Skip Demo Re-opening Issue** ✅ RESOLVED
+
+**Problem Identified**: When clicking "Skip Demo" button, the modal would close and then immediately re-open, creating a frustrating user experience.
+
+**Root Cause**: The URL parameter detection logic was running on every state change:
+```typescript
+// PROBLEMATIC CODE:
+useEffect(() => {
+  if (demoParam === 'true' && !state.isOpen) {
+    actions.openDemo() // ← Re-opened after skip
+  }
+}, [state.isOpen, actions]) // ← Triggered on every state change
+```
+
+**Solution Implemented**:
+1. **Fixed useEffect dependencies** to only run once on mount:
+```typescript
+useEffect(() => {
+  if (demoParam === 'true' && !state.isOpen && !state.isCompleted) {
+    actions.openDemo()
+  }
+}, []) // ← Empty dependency array - only run once
+```
+
+2. **Added proper skip demo handler** with URL parameter clearing:
+```typescript
+const handleSkipDemo = () => {
+  actions.skipDemo()
+  clearDemoUrlParameter()
+  
+  // Redirect based on authentication status
+  if (!user) {
+    router.push('/sign-in')
+  }
+}
+```
+
+3. **Enhanced redirect logic** for better user experience:
+- **Unauthenticated users**: Redirect to sign-in page
+- **Authenticated users**: Stay on main page with modal closed
+
+**Files Modified**:
+- `components/demo-modal.tsx`: Fixed useEffect, added skip handler with redirects
+
+**Results After Fix**:
+- ✅ **Skip Demo Works**: Button closes modal and redirects appropriately
+- ✅ **No Re-opening**: Modal stays closed after skip
+- ✅ **URL Parameter Cleared**: `?demo=true` removed from URL
+- ✅ **Proper Redirects**: Unauthenticated users go to sign-in page
+
 **Console Log Evidence**:
 ```
-🎯 [DemoModal] URL demo parameter detected - opening demo
-🎯 Demo Tour Action: {action: OPEN_DEMO, currentStep: 1, totalSteps: 7}
-🎯 [DemoModal] State changed - isOpen: true currentStep: 1
-[DemoModal] Rendering with state: {isOpen: true, ...}
+[DemoModal] Skipping demo
+🎯 Demo Tour Action: {action: SKIP_DEMO, currentStep: 1, totalSteps: 7}
+[DemoModal] Cleared demo URL parameter
+[DemoModal] Unauthenticated user - redirecting to sign-in
+🎯 [DemoModal] State changed - isOpen: false currentStep: 1
 ```
 
 ### 🚀 **Ready for Phase 3**

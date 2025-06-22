@@ -529,7 +529,7 @@ function StepIndicator({
  * Main Demo Modal Component
  */
 export function DemoModal() {
-  const { state, actions } = useDemoTour()
+  const { state, actions, shouldShowDemo } = useDemoTour()
   const { user } = useAuth()
   const router = useRouter()
   const [isAnimating, setIsAnimating] = useState(false)
@@ -546,18 +546,43 @@ export function DemoModal() {
     console.log('🎯 [DemoModal] State changed - isOpen:', state.isOpen, 'currentStep:', state.currentStep)
   }, [state.isOpen, state.currentStep])
 
-  // Handle demo trigger from URL parameters (only once on mount)
+  // Handle demo trigger from URL parameters and auto-trigger for new users
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const demoParam = urlParams.get('demo')
-    
-    if (demoParam === 'true' && !state.isOpen && !state.isCompleted) {
-      console.log('🎯 [DemoModal] URL demo parameter detected - opening demo')
-      setTimeout(() => {
-        actions.openDemo()
-      }, 500)
+    const checkAndTriggerDemo = async () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const demoParam = urlParams.get('demo')
+      
+      // Priority 1: URL parameter demo request
+      if (demoParam === 'true' && !state.isOpen && !state.isCompleted) {
+        console.log('🎯 [DemoModal] URL demo parameter detected - opening demo')
+        setTimeout(() => {
+          actions.openDemo()
+        }, 500)
+        return
+      }
+      
+      // Priority 2: Auto-trigger for new users (only if authenticated)
+      if (user && !state.isOpen && !state.isCompleted) {
+        try {
+          console.log('🔍 [DemoModal] Checking if new user should see demo...')
+                     const shouldShow = await shouldShowDemo()
+          
+          if (shouldShow) {
+            console.log('🎯 [DemoModal] New user detected - auto-triggering demo')
+            setTimeout(() => {
+              actions.openDemo()
+            }, 1000) // Slightly longer delay for new users to let page load
+          } else {
+            console.log('📝 [DemoModal] User has already seen demo - not triggering')
+          }
+        } catch (error) {
+          console.error('❌ [DemoModal] Error checking demo status:', error)
+        }
+      }
     }
-  }, []) // Empty dependency array - only run once on mount
+    
+    checkAndTriggerDemo()
+     }, [user, state.isOpen, state.isCompleted, actions, shouldShowDemo]) // Depend on user auth state
 
   // Current step data
   const currentStepData = DEMO_STEPS.find(step => step.id === state.currentStep) || DEMO_STEPS[0]
