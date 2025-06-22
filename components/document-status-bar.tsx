@@ -2,8 +2,9 @@
 
 import type { AutoSaveStatus } from '@/types/document'
 import { formatLastSaved } from '@/utils/document-utils'
-import { Loader2, Check, AlertCircle } from 'lucide-react'
+import { Loader2, Check, AlertCircle, Undo2 } from 'lucide-react'
 import { Timestamp } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
 import {
   Pagination,
   PaginationContent,
@@ -29,6 +30,31 @@ export function DocumentStatusBar({
   totalPages,
   onPageChange,
 }: DocumentStatusBarProps) {
+  // **UNDO INDICATOR: Track available grammar undo actions**
+  const [undoCount, setUndoCount] = useState(0);
+
+  // Poll for undo stack changes
+  useEffect(() => {
+    const checkUndoStack = async () => {
+      try {
+        const { getUndoStackSize } = await import('@/utils/harper-wrapper');
+        const currentUndoCount = getUndoStackSize();
+        setUndoCount(currentUndoCount);
+      } catch {
+        // Silently fail if harper-wrapper not available
+        setUndoCount(0);
+      }
+    };
+
+    // Check immediately
+    checkUndoStack();
+
+    // Poll every 2 seconds for undo stack changes
+    const interval = setInterval(checkUndoStack, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const getSaveStatusIcon = () => {
     switch (saveStatus.status) {
       case 'saving':
@@ -110,6 +136,13 @@ export function DocumentStatusBar({
       )}
 
       <div className="flex items-center gap-4">
+        {/* **UNDO INDICATOR: Show when grammar suggestions can be undone** */}
+        {undoCount > 0 && (
+          <div className="flex items-center gap-1 text-blue-600 hover:text-blue-700 transition-colors" title={`${undoCount} grammar suggestions can be undone with Ctrl+Z`}>
+            <Undo2 className="h-3 w-3" />
+            <span className="text-xs">Ctrl+Z ({undoCount})</span>
+          </div>
+        )}
         <span>{wordCount} words</span>
         <span>{characterCount} characters</span>
       </div>

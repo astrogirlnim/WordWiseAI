@@ -176,6 +176,9 @@ importers:
       firebase-functions:
         specifier: ^6.3.2
         version: 6.3.2(firebase-admin@13.4.0)
+      harper.js:
+        specifier: ^0.44.0
+        version: 0.44.0
       input-otp:
         specifier: 1.4.1
         version: 1.4.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -3471,6 +3474,9 @@ packages:
   gtoken@7.1.0:
     resolution: {integrity: sha512-pCcEwRi+TKpMlxAQObHDQ56KawURgyAf6jtIY046fJ5tIv3zDe/LEIubckAO8fj6JnAxLdmWkUfNyulQ2iKdEw==}
     engines: {node: '>=14.0.0'}
+
+  harper.js@0.44.0:
+    resolution: {integrity: sha512-1b2RY0YOQRAwIXZrVNbYtqN0aXYBRukPbgT9iUmERWUwycXXqUxbrsFdY5ChLZIIY8F/SN7LNT1fTCDRjOWf9A==}
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -8989,6 +8995,8 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+
+  harper.js@0.44.0: {}
 
   has-bigints@1.1.0: {}
 

@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { AIService } from '@/services/ai-service';
 import type { GrammarError } from '@/types/grammar';
-import { TextChunker, type TextChunk } from '@/utils/text-chunker';
 import { debounce } from 'lodash';
+import { 
+  checkGrammarWithHarper, 
+  applySuggestionWithHarper, 
+  preWarmHarper, 
+  getHarperStatus 
+} from '@/utils/harper-wrapper';
 
-const DEBOUNCE_DELAY = 2000; // ms - Phase 2: 2 seconds debounce
+const DEBOUNCE_DELAY = 2000; // ms - 2 seconds debounce for real-time checking
 const MIN_TEXT_LENGTH = 10;
-const THROTTLE_INTERVAL = 2000; // 30 req/min -> 1 req every 2s
-const MAX_CONCURRENT_CHUNKS = 2; // Lowered for backend safety
-const CHUNK_THRESHOLD = 5000; // Increased to match new chunk size
 
 /**
- * Progress state for multi-chunk processing
+ * Progress state for processing feedback
  */
 interface ChunkProgress {
   totalChunks: number;
@@ -21,386 +22,245 @@ interface ChunkProgress {
 }
 
 /**
- * Enhanced grammar checker hook with pagination-scoped processing
- * Phase 2: Respects EditorContentCoordinator typing lock and implements proper debouncing
+ * Enhanced grammar checker hook - Phase 3: Harper.js Integration
+ * 
+ * PHASE 3 STATUS: Harper.js is now fully integrated for local grammar checking.
+ * This hook provides real-time grammar, spelling, and style checking using
+ * Harper.js WebAssembly module for privacy-first, offline grammar checking.
+ * 
+ * Features:
+ * - Local grammar checking with Harper.js (no network requests)
+ * - Sub-100ms performance for responsive real-time checking
+ * - Support for grammar, spelling, style, clarity, and punctuation errors
+ * - Debounced checking to prevent excessive processing
+ * - Compatible with existing TipTap decorations and UI
+ * - Pre-warming support for reduced first-use latency
  */
 export function useGrammarChecker(
   documentId: string, 
   plainText: string,
   visibleRange?: { start: number; end: number },
-  contentCoordinatorRef?: React.RefObject<any> // Phase 2: Add coordinator reference
+  contentCoordinatorRef?: React.RefObject<any>
 ) {
   const [errors, setErrors] = useState<GrammarError[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [chunkProgress, setChunkProgress] = useState<ChunkProgress>({
-    totalChunks: 0,
+    totalChunks: 1,
     completedChunks: 0,
     processingChunks: 0,
     isProcessing: false
   });
-  const lastRequestTime = useRef<number>(0);
-  const textChunker = useRef(new TextChunker());
-  const abortController = useRef<AbortController | null>(null);
-  const activeProcessingSession = useRef<string | null>(null); // Phase 6.1: Track active session
 
-  console.log(`[useGrammarChecker] Hook initialized for document ${documentId}`);
+  // Track initialization state
+  const [isHarperReady, setIsHarperReady] = useState(false);
+  const initializationAttempted = useRef(false);
 
+  console.log(`[useGrammarChecker] Phase 5: Harper.js integration active for document ${documentId}`);
+
+  // Pre-warm Harper.js on first load
+  useEffect(() => {
+    console.log('[useGrammarChecker] Phase 5: Pre-warming useEffect triggered');
+    console.log('[useGrammarChecker] Phase 5: Window available:', typeof window !== 'undefined');
+    console.log('[useGrammarChecker] Phase 5: Initialization attempted:', initializationAttempted.current);
+    
+    // Ensure we're in the browser
+    if (typeof window === 'undefined') {
+      console.warn('[useGrammarChecker] Phase 5: Skipping Harper.js pre-warm - server side');
+      return;
+    }
+    
+    if (!initializationAttempted.current) {
+      initializationAttempted.current = true;
+      console.log('[useGrammarChecker] Phase 5: Pre-warming Harper.js...');
+      
+      preWarmHarper()
+        .then((success) => {
+          console.log(`[useGrammarChecker] Phase 5: Harper.js pre-warm ${success ? 'successful' : 'failed'}`);
+          setIsHarperReady(success);
+          
+          // If failed, try once more after a short delay
+          if (!success) {
+            console.log('[useGrammarChecker] Phase 5: Retrying Harper.js initialization in 1 second...');
+            setTimeout(() => {
+              preWarmHarper()
+                .then((retrySuccess) => {
+                  console.log(`[useGrammarChecker] Phase 5: Harper.js retry ${retrySuccess ? 'successful' : 'failed'}`);
+                  setIsHarperReady(retrySuccess);
+                })
+                .catch((retryError) => {
+                  console.error('[useGrammarChecker] Phase 5: Harper.js retry error:', retryError);
+                  setIsHarperReady(false);
+                });
+            }, 1000);
+          }
+        })
+        .catch((error) => {
+          console.error('[useGrammarChecker] Phase 5: Harper.js pre-warm error:', error);
+          setIsHarperReady(false);
+        });
+    } else {
+      console.log('[useGrammarChecker] Phase 5: Harper.js initialization already attempted');
+    }
+  }, []);
+
+  /**
+   * Remove error from local state
+   */
   const removeError = useCallback((errorId: string) => {
-    console.log(`[useGrammarChecker] Removing error ${errorId}`);
+    console.log(`[useGrammarChecker] Phase 5: Removing grammar error ${errorId}`);
     setErrors(prevErrors => prevErrors.filter(error => error.id !== errorId));
   }, []);
 
+  /**
+   * Ignore error (same as remove for now, but could be extended for user preferences)
+   */
   const ignoreError = useCallback((errorId: string) => {
-    // For now, ignoring is the same as removing.
-    // This could be extended to add to a persistent ignore list.
-    console.log(`[useGrammarChecker] Ignoring error ${errorId}`);
+    console.log(`[useGrammarChecker] Phase 5: Ignoring grammar error ${errorId}`);
     removeError(errorId);
   }, [removeError]);
 
   /**
-   * Phase 6.1: Extract visible page text only
+   * Core grammar checking function using Harper.js
    */
-  const getVisiblePageText = useCallback((fullText: string, range?: { start: number; end: number }): string => {
-    if (!range) {
-      console.log(`[useGrammarChecker] No visible range provided, using full text (${fullText.length} chars)`);
-      return fullText;
-    }
-    
-    const visibleText = fullText.substring(range.start, range.end);
-    console.log(`[useGrammarChecker] Extracted visible page text: ${visibleText.length} chars from range ${range.start}-${range.end}`);
-    return visibleText;
-  }, []);
-
-  /**
-   * Processes a single chunk with error handling and position mapping
-   */
-  const processChunk = useCallback(async (chunk: TextChunk, documentId: string, sessionId: string): Promise<GrammarError[]> => {
-    console.log(`[useGrammarChecker] Processing chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} (${chunk.text.length} chars) for session ${sessionId}`);
-    
-    // Phase 6.1: Check if this session is still active
-    if (activeProcessingSession.current !== sessionId) {
-      console.log(`[useGrammarChecker] Session ${sessionId} cancelled, skipping chunk ${chunk.chunkIndex + 1}`);
-      return [];
-    }
+  const performGrammarCheck = useCallback(async (textToCheck: string): Promise<GrammarError[]> => {
+    console.log(`[useGrammarChecker] Phase 5: Performing Harper.js grammar check on ${textToCheck.length} characters`);
+    console.log(`[useGrammarChecker] Phase 5: Text sent to Harper.js (first 200 chars):`, textToCheck.substring(0, 200));
     
     try {
-      const chunkErrors = await AIService.checkGrammarChunk(documentId, chunk);
-      
-      // Phase 6.1: Check again after async operation
-      if (activeProcessingSession.current !== sessionId) {
-        console.log(`[useGrammarChecker] Session ${sessionId} cancelled after API call, discarding chunk ${chunk.chunkIndex + 1} results`);
-        return [];
-      }
-      
-      // Map chunk errors to original document positions
-      const mappedErrors = chunkErrors.map(error => {
-        const originalPosition = textChunker.current.mapErrorToOriginalPosition(
-          { start: error.start, end: error.end },
-          chunk
-        );
-        
-        console.log(`[useGrammarChecker] Mapped error from chunk position ${error.start}-${error.end} to document position ${originalPosition.start}-${originalPosition.end}`);
-        
-        return {
-          ...error,
-          start: originalPosition.start,
-          end: originalPosition.end,
-          shownAt: Date.now()
-        };
+      setIsChecking(true);
+      setChunkProgress({
+        totalChunks: 1,
+        completedChunks: 0,
+        processingChunks: 1,
+        isProcessing: true
       });
 
-      console.log(`[useGrammarChecker] Chunk ${chunk.chunkIndex + 1} completed with ${mappedErrors.length} errors for session ${sessionId}`);
-      return mappedErrors;
-    } catch (error) {
-      console.error(`[useGrammarChecker] Error processing chunk ${chunk.chunkIndex + 1} for session ${sessionId}:`, error);
-      return [];
-    }
-  }, []);
-
-  /**
-   * Processes chunks in parallel with concurrency control
-   * Phase 6.1: Added session tracking for cancellation
-   */
-  const processChunksInParallel = useCallback(async (chunks: TextChunk[], documentId: string, sessionId: string): Promise<GrammarError[]> => {
-    console.log(`[useGrammarChecker] Starting parallel processing of ${chunks.length} chunks (max ${MAX_CONCURRENT_CHUNKS} concurrent) for session ${sessionId}`);
-    
-    const allErrors: GrammarError[] = [];
-    const processingQueue = [...chunks];
-    const activePromises: Promise<void>[] = [];
-
-    // Update progress state
-    setChunkProgress({
-      totalChunks: chunks.length,
-      completedChunks: 0,
-      processingChunks: 0,
-      isProcessing: true
-    });
-
-    /**
-     * Processes the next chunk in the queue
-     */
-    const processNext = async (): Promise<void> => {
-      if (processingQueue.length === 0) return;
+      const startTime = performance.now();
       
-      // Phase 6.1: Check if session is still active
-      if (activeProcessingSession.current !== sessionId) {
-        console.log(`[useGrammarChecker] Session ${sessionId} cancelled, stopping processNext`);
-        return;
-      }
+      // Use Harper.js to check grammar
+      const grammarErrors = await checkGrammarWithHarper(textToCheck, {
+        language: 'plaintext',
+        minTextLength: MIN_TEXT_LENGTH
+      });
+
+      const duration = Math.round(performance.now() - startTime);
       
-      const chunk = processingQueue.shift()!;
+      console.log(`[useGrammarChecker] Phase 5: \u2705 Harper.js check completed in ${duration}ms - Found ${grammarErrors.length} errors`);
+      console.log(`[useGrammarChecker] Phase 5: Errors returned from Harper.js:`, grammarErrors);
       
-      // Update processing count
-      setChunkProgress(prev => ({
-        ...prev,
-        processingChunks: prev.processingChunks + 1
-      }));
-
-      try {
-        const chunkErrors = await processChunk(chunk, documentId, sessionId);
-        
-        // Phase 6.1: Only add errors if session is still active
-        if (activeProcessingSession.current === sessionId) {
-          allErrors.push(...chunkErrors);
-
-          // Update streaming errors as chunks complete
-          setErrors(prevErrors => {
-            const combinedErrors = [...prevErrors, ...chunkErrors];
-            const deduplicatedErrors = textChunker.current.deduplicateOverlapErrors(
-              combinedErrors.map(e => ({ start: e.start, end: e.end, error: e.error, id: e.id }))
-            );
-            // Map back to GrammarError objects
-            const finalErrors = deduplicatedErrors.map(dedupError => {
-              const originalError = combinedErrors.find(e => e.id === dedupError.id);
-              return (originalError as GrammarError) || ({ ...dedupError, suggestions: [], explanation: '', type: 'grammar', severity: 'medium' } as GrammarError);
-            });
-            console.log(`[useGrammarChecker] Updated errors after chunk ${chunk.chunkIndex + 1} (session ${sessionId}): ${finalErrors.length} total errors`);
-            return finalErrors;
-          });
-        }
-
-      } catch (error) {
-        console.error(`[useGrammarChecker] Error in processNext for chunk ${chunk.chunkIndex + 1} (session ${sessionId}):`, error);
-      } finally {
-        // Update progress
-        setChunkProgress(prev => ({
-          ...prev,
-          completedChunks: prev.completedChunks + 1,
-          processingChunks: prev.processingChunks - 1
-        }));
-      }
-    };
-
-    // Start initial concurrent requests
-    for (let i = 0; i < Math.min(MAX_CONCURRENT_CHUNKS, chunks.length); i++) {
-        const promise = processNext();
-        if (promise) {
-            activePromises.push(promise);
-        }
-    }
-
-    // Process remaining chunks as others complete
-    while (activePromises.length > 0 && activeProcessingSession.current === sessionId) {
-      await Promise.race(activePromises);
+      // Log error breakdown by type
+      const errorTypes = grammarErrors.reduce((acc, error) => {
+        acc[error.type] = (acc[error.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
       
-      // Remove completed promises and start new ones
-      const completedIndex = activePromises.findIndex(p => 
-        p.then !== undefined // Simple check for completed promise
-      );
-      
-      if (completedIndex !== -1) {
-        activePromises.splice(completedIndex, 1);
-      }
-      
-      // Add new chunk if available
-      if (processingQueue.length > 0) {
-        activePromises.push(processNext());
-      }
-    }
+      console.log(`[useGrammarChecker] Phase 5: Error breakdown:`, errorTypes);
 
-    // Wait for all remaining promises if session is still active
-    if (activeProcessingSession.current === sessionId) {
-      await Promise.all(activePromises);
-    }
-
-    console.log(`[useGrammarChecker] Parallel processing completed for session ${sessionId}. Total errors: ${allErrors.length}`);
-    
-    // Final deduplication across all chunks
-    const deduplicatedSimpleErrors = textChunker.current.deduplicateOverlapErrors(
-      allErrors.map(e => ({ start: e.start, end: e.end, error: e.error, id: e.id }))
-    );
-    // Map back to GrammarError objects
-    const finalErrors = deduplicatedSimpleErrors.map(dedupError => {
-      const originalError = allErrors.find(e => e.id === dedupError.id);
-      return (originalError as GrammarError) || ({ ...dedupError, suggestions: [], explanation: '', type: 'grammar', severity: 'medium' } as GrammarError);
-    });
-    console.log(`[useGrammarChecker] Final deduplication resulted in ${finalErrors.length} errors for session ${sessionId}`);
-
-    // Update progress to completed
-    setChunkProgress(prev => ({
-      ...prev,
-      isProcessing: false
-    }));
-
-    return finalErrors;
-  }, [processChunk]);
-
-  /**
-   * Check if user is currently typing using EditorContentCoordinator
-   * Phase 2: Respect typing lock to prevent interference with user input
-   */
-  const isUserTyping = useCallback((): boolean => {
-    if (!contentCoordinatorRef?.current) {
-      console.log('[useGrammarChecker] Phase 2: No coordinator available, assuming not typing');
-      return false;
-    }
-    
-    const state = contentCoordinatorRef.current.getState();
-    const typing = state.isUserTyping || state.isProcessingUpdate;
-    
-    if (typing) {
-      console.log('[useGrammarChecker] Phase 2: User is typing or processing update, skipping grammar check');
-    }
-    
-    return typing;
-  }, [contentCoordinatorRef]);
-
-  /**
-   * Main grammar checking function with pagination-scoped processing
-   * Phase 2: Enhanced with typing lock detection and proper debouncing
-   */
-  const checkGrammar = useMemo(() => debounce(async (currentText: string) => {
-    console.log(`[useGrammarChecker] Phase 2: Starting grammar check for text length: ${currentText.length}`);
-    
-    // Phase 2: Check if user is currently typing - if so, skip this check
-    if (isUserTyping()) {
-      console.log('[useGrammarChecker] Phase 2: User is typing, skipping grammar check');
-      return;
-    }
-    
-    // Phase 6.1: Extract only visible page text
-    const visiblePageText = getVisiblePageText(currentText, visibleRange);
-    
-    if (visiblePageText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Visible page text too short, clearing errors');
-      setErrors([]);
       setChunkProgress({
-        totalChunks: 0,
+        totalChunks: 1,
+        completedChunks: 1,
+        processingChunks: 0,
+        isProcessing: false
+      });
+
+      return grammarErrors;
+      
+    } catch (error) {
+      console.error('[useGrammarChecker] Phase 5: \u274c Harper.js grammar check failed:', error);
+      
+      setChunkProgress({
+        totalChunks: 1,
         completedChunks: 0,
         processingChunks: 0,
         isProcessing: false
       });
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastRequestTime.current < THROTTLE_INTERVAL) {
-      console.log('[useGrammarChecker] Request throttled');
-      return;
-    }
-
-    // Phase 6.1: Cancel any ongoing processing session
-    const sessionId = `${documentId}-${Date.now()}`;
-    console.log(`[useGrammarChecker] Starting new processing session: ${sessionId}`);
-    activeProcessingSession.current = sessionId;
-    
-    // Cancel any ongoing requests
-    if (abortController.current) {
-      console.log('[useGrammarChecker] Cancelling previous request');
-      abortController.current.abort();
-    }
-    abortController.current = new AbortController();
-
-    setIsChecking(true);
-    lastRequestTime.current = now;
-    
-    try {
-      if (visiblePageText.length <= CHUNK_THRESHOLD) {
-        console.log(`[useGrammarChecker] Visible page text length (${visiblePageText.length}) below chunk threshold, using single request`);
-        const grammarErrors = await AIService.checkGrammar(documentId, visiblePageText);
-        
-        // Phase 6.1: Check if session is still active before setting errors
-        if (activeProcessingSession.current === sessionId) {
-          // BUGFIX: Don't adjust error positions here - they should be relative to visible page text
-          // The DocumentEditor will handle converting them to page-relative positions
-          const errorsWithTimestamp = grammarErrors.map(error => {
-            console.log(`[useGrammarChecker] BUGFIX: Error ${error.id} at positions ${error.start}-${error.end} (relative to visible page text)`);
-            return {
-              ...error,
-              // Add visible range offset to convert to full document positions
-              start: error.start + (visibleRange?.start || 0),
-              end: error.end + (visibleRange?.start || 0),
-              shownAt: Date.now()
-            };
-          });
-          
-          setErrors(errorsWithTimestamp);
-          setChunkProgress({
-            totalChunks: 1,
-            completedChunks: 1,
-            processingChunks: 0,
-            isProcessing: false
-          });
-          console.log(`[useGrammarChecker] Single request completed for session ${sessionId} with ${errorsWithTimestamp.length} errors`);
-          console.log('[useGrammarChecker] BUGFIX: Error positions after adjustment:', errorsWithTimestamp.map(e => `${e.id}: ${e.start}-${e.end}`));
-        } else {
-          console.log(`[useGrammarChecker] Single request completed but session ${sessionId} was cancelled, discarding results`);
-        }
-      } else {
-        // Phase 6.1: Chunk only the visible page text
-        console.log(`[useGrammarChecker] Visible page text length (${visiblePageText.length}) above chunk threshold, chunking visible page only`);
-        const visibleChunks = textChunker.current.chunkText(visiblePageText);
-        
-        // BUGFIX: Don't adjust chunk positions here - let the TextChunker handle position mapping correctly
-        console.log(`[useGrammarChecker] Created ${visibleChunks.length} chunks for visible page (session ${sessionId})`);
-        
-        const allErrors = await processChunksInParallel(visibleChunks, documentId, sessionId);
-        
-        // Phase 6.1: Only set errors if session is still active
-        if (activeProcessingSession.current === sessionId) {
-          // BUGFIX: Adjust chunk-based errors to full document positions
-          const adjustedErrors = allErrors.map(error => ({
-            ...error,
-            start: error.start + (visibleRange?.start || 0),
-            end: error.end + (visibleRange?.start || 0),
-          }));
-          
-          setErrors(adjustedErrors);
-          console.log(`[useGrammarChecker] Chunked processing completed for session ${sessionId} with ${adjustedErrors.length} total errors`);
-          console.log('[useGrammarChecker] BUGFIX: Final error positions:', adjustedErrors.map(e => `${e.id}: ${e.start}-${e.end}`));
-        } else {
-          console.log(`[useGrammarChecker] Chunked processing completed but session ${sessionId} was cancelled, discarding results`);
-        }
-      }
-    } catch (error) {
-      console.error(`[useGrammarChecker] Failed to check grammar for session ${sessionId}:`, error);
-      setChunkProgress(prev => ({
-        ...prev,
-        isProcessing: false
-      }));
+      
+      return [];
     } finally {
       setIsChecking(false);
     }
-  }, DEBOUNCE_DELAY), [documentId, visibleRange, processChunksInParallel, getVisiblePageText, isUserTyping]);
+  }, []);
+
+  // --- FIX: Use useRef for stable debounced function ---
+  const performGrammarCheckRef = useRef(performGrammarCheck);
+  useEffect(() => {
+    performGrammarCheckRef.current = performGrammarCheck;
+  }, [performGrammarCheck]);
+
+  const checkGrammarRef = useRef<((currentText: string) => void) | null>(null);
+  if (!checkGrammarRef.current) {
+    checkGrammarRef.current = debounce(async (currentText: string) => {
+      console.log(`[useGrammarChecker] Phase 5: Debounced grammar check triggered - Text length: ${currentText.length}`);
+      if (currentText.length < MIN_TEXT_LENGTH) {
+        console.log('[useGrammarChecker] Phase 5: Text too short, clearing errors');
+        setErrors([]);
+        setChunkProgress({
+          totalChunks: 0,
+          completedChunks: 0,
+          processingChunks: 0,
+          isProcessing: false
+        });
+        return;
+      }
+      // Check Harper.js status
+      const harperStatus = getHarperStatus();
+      if (!harperStatus.isInitialized && !harperStatus.isInitializing) {
+        console.warn('[useGrammarChecker] Phase 5: Harper.js not initialized, skipping check');
+        return;
+      }
+      const grammarErrors = await performGrammarCheckRef.current(currentText);
+      setErrors(grammarErrors);
+    }, DEBOUNCE_DELAY);
+  }
+
+  // --- FIX: Effect only depends on plainText and isHarperReady ---
+  useEffect(() => {
+    console.log('[useGrammarChecker] Phase 5: Text change effect triggered');
+    console.log('[useGrammarChecker] Phase 5: plainText length:', plainText.length);
+    console.log('[useGrammarChecker] Phase 5: plainText content (first 100 chars):', plainText.substring(0, 100));
+    console.log('[useGrammarChecker] Phase 5: isHarperReady:', isHarperReady);
+    console.log('[useGrammarChecker] Phase 5: MIN_TEXT_LENGTH:', MIN_TEXT_LENGTH);
+    console.log('[useGrammarChecker] Phase 5: checkGrammarRef.current available:', !!checkGrammarRef.current);
+    
+    if (plainText.length >= MIN_TEXT_LENGTH && isHarperReady) {
+      console.log('[useGrammarChecker] Phase 5: ✅ Conditions met, calling debounced grammar check');
+      checkGrammarRef.current && checkGrammarRef.current(plainText);
+    } else {
+      console.log('[useGrammarChecker] Phase 5: ❌ Conditions not met, clearing errors');
+      console.log('[useGrammarChecker] Phase 5: Reason - Text too short:', plainText.length < MIN_TEXT_LENGTH, 'Harper not ready:', !isHarperReady);
+      setErrors([]);
+    }
+  }, [plainText, isHarperReady]);
 
   /**
-   * Triggers an immediate grammar check, bypassing the debounce
-   * Phase 2: Enhanced with typing lock detection
+   * Immediate grammar checking (cancels debounced check)
    */
-  const checkGrammarImmediately = useCallback((currentText: string) => {
-    console.log(`[useGrammarChecker] Phase 2: Attempting immediate grammar check for text length: ${currentText.length}`);
+  const checkGrammarImmediately = useCallback(async (currentText: string) => {
+    console.log(`[useGrammarChecker] Phase 5: Immediate grammar check requested - Text length: ${currentText.length}`);
     
-    // Phase 2: Check if user is currently typing - if so, skip immediate check
-    if (isUserTyping()) {
-      console.log('[useGrammarChecker] Phase 2: User is typing, skipping immediate grammar check');
-      return;
+    if (checkGrammarRef.current && typeof (checkGrammarRef.current as any).cancel === 'function') {
+      (checkGrammarRef.current as any).cancel();
     }
     
-    const visiblePageText = getVisiblePageText(currentText, visibleRange);
-    console.log(`[useGrammarChecker] Phase 2: Starting immediate grammar check for visible page text length: ${visiblePageText.length}`);
+    // Check Harper.js status
+    const harperStatus = getHarperStatus();
+    if (!harperStatus.isInitialized && !harperStatus.isInitializing) {
+      console.warn('[useGrammarChecker] Phase 5: Harper.js not initialized for immediate check');
+      return;
+    }
+
+    const grammarErrors = await performGrammarCheck(currentText);
+    setErrors(grammarErrors);
+  }, [performGrammarCheck]);
+
+  /**
+   * Full document grammar checking
+   */
+  const checkFullDocument = useCallback(async (fullText: string) => {
+    console.log(`[useGrammarChecker] Phase 5: Full document check requested - ${fullText.length} characters`);
     
-    if (visiblePageText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Visible page text too short, clearing errors');
+    if (fullText.length < MIN_TEXT_LENGTH) {
+      console.log('[useGrammarChecker] Phase 5: Full document text too short, clearing errors');
       setErrors([]);
       setChunkProgress({
         totalChunks: 0,
@@ -411,121 +271,52 @@ export function useGrammarChecker(
       return;
     }
 
-    checkGrammar.cancel();
-    checkGrammar(currentText);
-  }, [checkGrammar, getVisiblePageText, visibleRange, isUserTyping]);
-
-  // Phase 6.1: Cancel processing when visible range changes (page change)
-  useEffect(() => {
-    if (activeProcessingSession.current) {
-      console.log(`[useGrammarChecker] Visible range changed, cancelling active session: ${activeProcessingSession.current}`);
-      activeProcessingSession.current = null;
-      setErrors([]); // Clear errors when page changes
+    const harperStatus = getHarperStatus();
+    if (!harperStatus.isInitialized && !harperStatus.isInitializing) {
+      console.warn('[useGrammarChecker] Phase 5: Harper.js not initialized for full document check');
+      return;
     }
+
+    const grammarErrors = await performGrammarCheck(fullText);
+    setErrors(grammarErrors);
+  }, [performGrammarCheck]);
+
+  // Clear errors when visible range changes (page navigation)
+  useEffect(() => {
+    console.log(`[useGrammarChecker] Phase 5: Visible range changed, maintaining existing errors`);
+    // In Phase 5, we keep existing errors across page changes for better UX
+    // The TipTap extension will handle visibility based on the range
   }, [visibleRange]);
-
-  // Effect to automatically check grammar when plainText changes
-  useEffect(() => {
-    const visiblePageText = getVisiblePageText(plainText, visibleRange);
-    if (visiblePageText.length >= MIN_TEXT_LENGTH) {
-      checkGrammar(plainText);
-    } else {
-      setErrors([]);
-    }
-  }, [plainText, checkGrammar, getVisiblePageText, visibleRange]);
 
   // Cleanup function to cancel any pending debounced calls
   useEffect(() => {
     return () => {
-      checkGrammar.cancel();
-      activeProcessingSession.current = null;
-    };
-  }, [checkGrammar]);
-
-  /**
-   * Phase 6.1: Full document check that bypasses pagination
-   * Used for power users who want to check the entire document
-   */
-  const checkFullDocument = useCallback(async (fullText: string) => {
-    console.log(`[useGrammarChecker] Phase 6.1: Starting full document check for ${fullText.length} characters`);
-    
-    if (fullText.length < MIN_TEXT_LENGTH) {
-      console.log('[useGrammarChecker] Phase 6.1: Full document text too short, clearing errors');
-      setErrors([]);
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastRequestTime.current < THROTTLE_INTERVAL) {
-      console.log('[useGrammarChecker] Phase 6.1: Full document check throttled');
-      return;
-    }
-
-    // Phase 6.1: Cancel any ongoing processing session
-    const sessionId = `FULL-DOC-${documentId}-${Date.now()}`;
-    console.log(`[useGrammarChecker] Phase 6.1: Starting full document processing session: ${sessionId}`);
-    activeProcessingSession.current = sessionId;
-    
-    // Cancel any ongoing requests
-    if (abortController.current) {
-      console.log('[useGrammarChecker] Phase 6.1: Cancelling previous request for full document check');
-      abortController.current.abort();
-    }
-    abortController.current = new AbortController();
-
-    setIsChecking(true);
-    lastRequestTime.current = now;
-    
-    try {
-      if (fullText.length <= CHUNK_THRESHOLD) {
-        console.log(`[useGrammarChecker] Phase 6.1: Full document length (${fullText.length}) below chunk threshold, using single request`);
-        const grammarErrors = await AIService.checkGrammar(documentId, fullText);
-        
-        // Phase 6.1: Check if session is still active before setting errors
-        if (activeProcessingSession.current === sessionId) {
-          const errorsWithTimestamp = grammarErrors.map(error => ({
-            ...error,
-            shownAt: Date.now()
-          }));
-          
-          setErrors(errorsWithTimestamp);
-          setChunkProgress({
-            totalChunks: 1,
-            completedChunks: 1,
-            processingChunks: 0,
-            isProcessing: false
-          });
-          console.log(`[useGrammarChecker] Phase 6.1: Full document single request completed for session ${sessionId} with ${errorsWithTimestamp.length} errors`);
-        } else {
-          console.log(`[useGrammarChecker] Phase 6.1: Full document single request completed but session ${sessionId} was cancelled, discarding results`);
-        }
-      } else {
-        // Phase 6.1: Chunk the full document without pagination limits
-        console.log(`[useGrammarChecker] Phase 6.1: Full document length (${fullText.length}) above chunk threshold, chunking entire document`);
-        const allChunks = textChunker.current.chunkText(fullText);
-        
-        console.log(`[useGrammarChecker] Phase 6.1: Created ${allChunks.length} chunks for full document (session ${sessionId})`);
-        
-        const allErrors = await processChunksInParallel(allChunks, documentId, sessionId);
-        
-        // Phase 6.1: Only set errors if session is still active
-        if (activeProcessingSession.current === sessionId) {
-          setErrors(allErrors);
-          console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed for session ${sessionId} with ${allErrors.length} total errors`);
-        } else {
-          console.log(`[useGrammarChecker] Phase 6.1: Full document chunked processing completed but session ${sessionId} was cancelled, discarding results`);
-        }
+      console.log('[useGrammarChecker] Phase 5: Cleaning up debounced grammar checks');
+      if (checkGrammarRef.current && typeof (checkGrammarRef.current as any).cancel === 'function') {
+        (checkGrammarRef.current as any).cancel();
       }
-    } catch (error) {
-      console.error(`[useGrammarChecker] Phase 6.1: Failed to check full document for session ${sessionId}:`, error);
-      setChunkProgress(prev => ({
-        ...prev,
-        isProcessing: false
-      }));
-    } finally {
-      setIsChecking(false);
-    }
-  }, [documentId, processChunksInParallel]);
+    };
+  }, []);
 
-  return { errors, isChecking, chunkProgress, removeError, ignoreError, checkGrammarImmediately, checkFullDocument };
+  // Log current state for debugging
+  useEffect(() => {
+    const harperStatus = getHarperStatus();
+    console.log(`[useGrammarChecker] Phase 5: Current state - Document: ${documentId}, Errors: ${errors.length}, Checking: ${isChecking}, Harper Ready: ${isHarperReady}, Harper Status:`, harperStatus);
+  }, [documentId, errors.length, isChecking, isHarperReady]);
+
+  console.log(`[useGrammarChecker] Phase 5: Returning grammar state - ${errors.length} errors, checking: ${isChecking}, Harper ready: ${isHarperReady}`);
+  
+  return {
+    errors,
+    isChecking,
+    isGrammarCheckReady: isHarperReady,
+    chunkProgress,
+    checkGrammar: checkGrammarRef.current,
+    checkGrammarImmediately,
+    removeError,
+    ignoreError,
+    applySuggestion: applySuggestionWithHarper,
+    checkFullDocument,
+    harperStatus: getHarperStatus(),
+  };
 } 

@@ -57,8 +57,8 @@ export const serverEnv = isServer ? {
   FIREBASE_ADMIN_CLIENT_EMAIL: validateEnvVar('FIREBASE_ADMIN_CLIENT_EMAIL', process.env.FIREBASE_ADMIN_CLIENT_EMAIL),
   FIREBASE_ADMIN_PRIVATE_KEY: validateEnvVar('FIREBASE_ADMIN_PRIVATE_KEY', process.env.FIREBASE_ADMIN_PRIVATE_KEY),
 
-  // OpenAI API Key
-  OPENAI_API_KEY: validateEnvVar('OPENAI_API_KEY', process.env.OPENAI_API_KEY),
+  // OpenAI API Key (Optional since Harper.js migration - only needed for AI suggestions, not grammar checking)
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '', // Optional: for AI suggestions, style suggestions, and funnel generation
 } : {}
 
 // Legacy export for backward compatibility (use clientEnv and serverEnv instead)

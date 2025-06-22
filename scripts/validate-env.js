@@ -24,8 +24,12 @@ const requiredFirebaseVars = [
   'FIREBASE_ADMIN_CLIENT_EMAIL', 
   'FIREBASE_ADMIN_PRIVATE_KEY',
   
-  // Additional required variables
-  'OPENAI_API_KEY'
+  // Additional variables - OpenAI API Key removed from required since Harper.js migration
+];
+
+// Optional variables that enhance functionality but aren't required for core operation
+const optionalVars = [
+  'OPENAI_API_KEY' // Optional since Harper.js migration: for AI suggestions, style suggestions, and funnel generation (not needed for grammar checking)
 ];
 
 // Detect environment mode
