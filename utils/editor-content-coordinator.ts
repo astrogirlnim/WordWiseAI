@@ -303,51 +303,73 @@ export class EditorContentCoordinator {
   private processMarkdownContent(markdownText: string): string {
     console.log('[EditorContentCoordinator] Processing markdown content for proper spacing');
     
-    // Convert markdown to HTML while preserving line breaks and structure
-    const lines = markdownText.split('\n');
-    const htmlLines: string[] = [];
-    let inCodeBlock = false;
+    // Split content into blocks separated by double line breaks (paragraphs)
+    const paragraphBlocks = markdownText.split(/\n\s*\n/);
+    const htmlBlocks: string[] = [];
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+    for (const block of paragraphBlocks) {
+      if (!block.trim()) continue;
       
-      // Handle code blocks
-      if (line.startsWith('```')) {
-        inCodeBlock = !inCodeBlock;
-        htmlLines.push(inCodeBlock ? '<pre><code>' : '</code></pre>');
-        continue;
-      }
+      const lines = block.split('\n');
+      let processedBlock = '';
+      let inCodeBlock = false;
       
-      if (inCodeBlock) {
-        htmlLines.push(line);
-        continue;
-      }
-      
-      // Handle headers
-      if (line.startsWith('# ')) {
-        htmlLines.push(`<h1>${line.substring(2)}</h1>`);
-      } else if (line.startsWith('## ')) {
-        htmlLines.push(`<h2>${line.substring(3)}</h2>`);
-      } else if (line.startsWith('### ')) {
-        htmlLines.push(`<h3>${line.substring(4)}</h3>`);
-      } else if (line.startsWith('#### ')) {
-        htmlLines.push(`<h4>${line.substring(5)}</h4>`);
-      } else if (line.trim() === '') {
-        // Preserve empty lines as paragraph breaks
-        htmlLines.push('<br>');
-      } else {
-        // Regular text - convert bold/italic markdown
-        let processedLine = line
-          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')  // Bold
-          .replace(/\*([^*]+)\*/g, '<em>$1</em>')              // Italic
-          .replace(/`([^`]+)`/g, '<code>$1</code>');           // Inline code
+      for (const line of lines) {
+        const trimmedLine = line.trim();
         
-        htmlLines.push(`<p>${processedLine}</p>`);
+        // Handle code blocks
+        if (trimmedLine.startsWith('```')) {
+          inCodeBlock = !inCodeBlock;
+          processedBlock += inCodeBlock ? '<pre><code>' : '</code></pre>';
+          continue;
+        }
+        
+        if (inCodeBlock) {
+          processedBlock += line + '\n';
+          continue;
+        }
+        
+        // Handle headers (these become their own blocks)
+        if (trimmedLine.startsWith('# ')) {
+          processedBlock = `<h1>${trimmedLine.substring(2)}</h1>`;
+          break;
+        } else if (trimmedLine.startsWith('## ')) {
+          processedBlock = `<h2>${trimmedLine.substring(3)}</h2>`;
+          break;
+        } else if (trimmedLine.startsWith('### ')) {
+          processedBlock = `<h3>${trimmedLine.substring(4)}</h3>`;
+          break;
+        } else if (trimmedLine.startsWith('#### ')) {
+          processedBlock = `<h4>${trimmedLine.substring(5)}</h4>`;
+          break;
+        } else if (trimmedLine) {
+          // Regular text - add to paragraph with line breaks for multi-line paragraphs
+          if (processedBlock && !processedBlock.endsWith('<br>')) {
+            processedBlock += '<br>';
+          }
+          
+          // Process inline markdown formatting
+          const formattedLine = trimmedLine
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')  // Bold
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')              // Italic
+            .replace(/`([^`]+)`/g, '<code>$1</code>');           // Inline code
+          
+          processedBlock += formattedLine;
+        }
+      }
+      
+      // Wrap regular content (non-headers) in paragraph tags
+      if (processedBlock && !processedBlock.startsWith('<h') && !processedBlock.startsWith('<pre>')) {
+        processedBlock = `<p>${processedBlock}</p>`;
+      }
+      
+      if (processedBlock) {
+        htmlBlocks.push(processedBlock);
       }
     }
     
-    const result = htmlLines.join('');
-    console.log('[EditorContentCoordinator] Converted markdown to HTML, first 200 chars:', result.substring(0, 200));
+    const result = htmlBlocks.join('');
+    console.log('[EditorContentCoordinator] Converted markdown to HTML with proper paragraphs, first 300 chars:', result.substring(0, 300));
     
     return result;
   }
