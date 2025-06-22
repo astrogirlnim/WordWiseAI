@@ -85,59 +85,57 @@ const HARPER_ERROR_TYPE_MAP: Record<string, GrammarError['type']> = {
 } as const;
 
 /**
- * Initialize Harper.js WASM module
- * UPGRADED: Using WorkerLinter for non-blocking web performance
+ * Initialize Harper.js WorkerLinter via unpkg CDN
+ * CDN_FIX: Using unpkg CDN for reliable WASM loading and Firebase hosting compatibility
  */
 async function initializeHarper(): Promise<void> {
-  console.log('[HarperWrapper] WORKER_UPGRADE: initializeHarper called');
+  console.log('[HarperWrapper] CDN_FIX: initializeHarper called');
   
   // Ensure this only runs in the browser
   if (typeof window === 'undefined') {
-    console.warn('[HarperWrapper] WORKER_UPGRADE: Attempted to initialize on the server. Skipping.');
+    console.warn('[HarperWrapper] CDN_FIX: Attempted to initialize on the server. Skipping.');
     return;
   }
   
-  console.log('[HarperWrapper] WORKER_UPGRADE: Browser environment confirmed');
+  console.log('[HarperWrapper] CDN_FIX: Browser environment confirmed');
   
   if (isInitialized) {
-    console.log('[HarperWrapper] WORKER_UPGRADE: Already initialized, skipping');
+    console.log('[HarperWrapper] CDN_FIX: Already initialized, skipping');
     return;
   }
   
   if (initializationPromise) {
-    console.log('[HarperWrapper] WORKER_UPGRADE: Initialization already in progress, waiting...');
+    console.log('[HarperWrapper] CDN_FIX: Initialization already in progress, waiting...');
     return initializationPromise;
   }
 
-  console.log('[HarperWrapper] WORKER_UPGRADE: Initializing Harper.js WorkerLinter...');
+  console.log('[HarperWrapper] CDN_FIX: Initializing Harper.js WorkerLinter via unpkg CDN...');
 
   initializationPromise = (async () => {
     try {
-      console.log('[HarperWrapper] WORKER_UPGRADE: Starting dynamic import of harper.js...');
+      console.log('[HarperWrapper] CDN_FIX: Loading Harper.js from unpkg CDN...');
       
-      // Dynamic import to handle WASM loading in Next.js environment
-      const harperModuleImport = await import('harper.js');
-      console.log('[HarperWrapper] WORKER_UPGRADE: Harper.js module imported:', Object.keys(harperModuleImport));
+      // CDN_FIX: Use unpkg CDN for reliable loading (matches Harper.js documentation)
+      const harperCdnUrl = 'https://unpkg.com/harper.js@0.44.0/dist/harper.js';
       
-      const { binary, WorkerLinter, Dialect } = harperModuleImport;
+      // Dynamic import from CDN
+      const harperModuleImport = await import(/* webpackIgnore: true */ harperCdnUrl);
+      console.log('[HarperWrapper] CDN_FIX: Harper.js CDN module imported:', Object.keys(harperModuleImport));
       
-      console.log('[HarperWrapper] WORKER_UPGRADE: Harper.js module loaded successfully');
-      console.log('[HarperWrapper] WORKER_UPGRADE: Available exports:', { 
-        hasBinary: !!binary,
-        hasWorkerLinter: !!WorkerLinter, 
-        hasDialect: !!Dialect 
+      const { WorkerLinter } = harperModuleImport;
+      
+      console.log('[HarperWrapper] CDN_FIX: Harper.js CDN module loaded successfully');
+      console.log('[HarperWrapper] CDN_FIX: Available exports:', { 
+        hasWorkerLinter: !!WorkerLinter
       });
       
-      console.log('[HarperWrapper] WORKER_UPGRADE: Creating WorkerLinter (non-blocking)...');
+      console.log('[HarperWrapper] CDN_FIX: Creating WorkerLinter from CDN (no binary config needed)...');
       
-      // UPGRADE: Use WorkerLinter for better web performance with binary
-      harperLinter = new WorkerLinter({
-        binary: binary,
-        dialect: Dialect.American,
-      });
+      // CDN_FIX: WorkerLinter from CDN doesn't need binary configuration
+      harperLinter = new WorkerLinter();
       
       // Configure Harper.js with optimized settings for our use case
-      console.log('[HarperWrapper] WORKER_UPGRADE: Configuring Harper.js lint rules...');
+      console.log('[HarperWrapper] CDN_FIX: Configuring Harper.js lint rules...');
       await harperLinter.setLintConfig({
         // Enable core grammar checking
         SpellCheck: true,
@@ -154,19 +152,24 @@ async function initializeHarper(): Promise<void> {
         Capitalization: true,
       });
       
-      console.log('[HarperWrapper] WORKER_UPGRADE: Harper.js WorkerLinter created and configured successfully');
-      console.log('[HarperWrapper] WORKER_UPGRADE: Linter type:', typeof harperLinter);
+      console.log('[HarperWrapper] CDN_FIX: Harper.js WorkerLinter created and configured successfully');
+      console.log('[HarperWrapper] CDN_FIX: Linter type:', typeof harperLinter);
+      console.log('[HarperWrapper] CDN_FIX: Testing linter with simple text...');
+      
+      // Test the linter to ensure it's working
+      const testLints = await harperLinter.lint('This is a test sentence.');
+      console.log('[HarperWrapper] CDN_FIX: Test lint results:', testLints.length, 'errors found');
       
       // Store the module reference
-      harperModule = { binary, WorkerLinter, Dialect };
+      harperModule = { WorkerLinter };
       isInitialized = true;
       
-      console.log('[HarperWrapper] WORKER_UPGRADE: ✅ Harper.js WorkerLinter initialization complete');
-      console.log('[HarperWrapper] WORKER_UPGRADE: Final state - isInitialized:', isInitialized, 'hasLinter:', !!harperLinter);
+      console.log('[HarperWrapper] CDN_FIX: ✅ Harper.js WorkerLinter CDN initialization complete');
+      console.log('[HarperWrapper] CDN_FIX: Final state - isInitialized:', isInitialized, 'hasLinter:', !!harperLinter);
       
     } catch (error) {
-      console.error('[HarperWrapper] WORKER_UPGRADE: ❌ Failed to initialize Harper.js:', error);
-      console.error('[HarperWrapper] WORKER_UPGRADE: Error details:', {
+      console.error('[HarperWrapper] CDN_FIX: ❌ Failed to initialize Harper.js from CDN:', error);
+      console.error('[HarperWrapper] CDN_FIX: Error details:', {
         name: error instanceof Error ? error.name : 'Unknown',
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : 'No stack trace'
@@ -196,46 +199,46 @@ function convertHarperLintToGrammarError(lint: any, index: number, originalText:
   detectedHarperCategories.add(lintKind);
   
   // Log the original Harper.js lint_kind for analysis
-  console.log(`[HarperWrapper] FIXED: Raw Harper lint_kind: "${lintKind}"`);
+  console.log(`[HarperWrapper] CDN_FIX: Raw Harper lint_kind: "${lintKind}"`);
   
   // Map Harper.js lint kind to our error type
   const errorType = HARPER_ERROR_TYPE_MAP[lintKind] || 'grammar';
   
   // Log any unmapped categories
   if (!HARPER_ERROR_TYPE_MAP[lintKind]) {
-    console.warn(`[HarperWrapper] FIXED: ⚠️ UNMAPPED Harper lint_kind: "${lintKind}" - defaulting to 'grammar'`);
+    console.warn(`[HarperWrapper] CDN_FIX: ⚠️ UNMAPPED Harper lint_kind: "${lintKind}" - defaulting to 'grammar'`);
   } else {
-    console.log(`[HarperWrapper] FIXED: Mapped "${lintKind}" to "${errorType}".`);
+    console.log(`[HarperWrapper] CDN_FIX: Mapped "${lintKind}" to "${errorType}".`);
   }
   
   // FIXED: Extract error text from original text using span (Harper.js doesn't have get_problem_text())
   const errorText = originalText.substring(span.start, span.end);
   
-  // FIXED: Extract suggestions using correct Harper.js API
+  // CDN_FIX: Extract suggestions using correct Harper.js API
   const suggestions: string[] = [];
-  console.log(`[HarperWrapper] FIXED: Extracting suggestions for lint (count: ${lint.suggestion_count()})`);
+  console.log(`[HarperWrapper] CDN_FIX: Extracting suggestions for lint (count: ${lint.suggestion_count()})`);
   
   for (let i = 0; i < lint.suggestion_count(); i++) {
     try {
       const suggestion = lint.suggestions()[i];
-      console.log(`[HarperWrapper] FIXED: Processing suggestion ${i}:`, {
+      console.log(`[HarperWrapper] CDN_FIX: Processing suggestion ${i}:`, {
         kind: suggestion.kind(),
         isRemove: suggestion.kind() === 1,
         replacementText: suggestion.get_replacement_text()
       });
       
-      // FIXED: Use get_replacement_text() method per Harper.js documentation
+      // CDN_FIX: Use get_replacement_text() method per Harper.js documentation
       const replacementText = suggestion.get_replacement_text();
       if (replacementText && replacementText.trim()) {
         suggestions.push(replacementText);
       }
     } catch (suggestionError) {
-      console.error(`[HarperWrapper] FIXED: Error extracting suggestion ${i}:`, suggestionError);
+      console.error(`[HarperWrapper] CDN_FIX: Error extracting suggestion ${i}:`, suggestionError);
     }
   }
   
-  console.log(`[HarperWrapper] FIXED: Converting Harper lint - Kind: "${lintKind}" → Type: "${errorType}", Span: ${span.start}-${span.end}, Suggestions: ${suggestions.length}`);
-  console.log(`[HarperWrapper] FIXED: Error text: "${errorText}", Suggestions:`, suggestions);
+  console.log(`[HarperWrapper] CDN_FIX: Converting Harper lint - Kind: "${lintKind}" → Type: "${errorType}", Span: ${span.start}-${span.end}, Suggestions: ${suggestions.length}`);
+  console.log(`[HarperWrapper] CDN_FIX: Error text: "${errorText}", Suggestions:`, suggestions);
   
   return {
     id: `harper-${Date.now()}-${index}`, // Generate unique ID
@@ -266,12 +269,12 @@ export async function checkGrammarWithHarper(
 ): Promise<GrammarError[]> {
   const { language = 'plaintext', minTextLength = 10 } = options;
   
-  console.log(`[HarperWrapper] WORKER_UPGRADE: Starting grammar check - Text length: ${text.length}, Language: ${language}`);
-  console.log(`[HarperWrapper] WORKER_UPGRADE: Text content (first 200 chars):`, text.substring(0, 200));
+  console.log(`[HarperWrapper] CDN_FIX: Starting grammar check - Text length: ${text.length}, Language: ${language}`);
+  console.log(`[HarperWrapper] CDN_FIX: Text content (first 200 chars):`, text.substring(0, 200));
   
   // Skip very short text
       if (text.length < minTextLength) {
-      console.log(`[HarperWrapper] WORKER_UPGRADE: Text too short (${text.length} < ${minTextLength}), skipping check.`);
+      console.log(`[HarperWrapper] CDN_FIX: Text too short (${text.length} < ${minTextLength}), skipping check.`);
       return [];
     }
 
@@ -280,31 +283,31 @@ export async function checkGrammarWithHarper(
       await initializeHarper();
       
       if (!harperLinter) {
-        console.error('[HarperWrapper] WORKER_UPGRADE: Harper linter not available after initialization attempt.');
+        console.error('[HarperWrapper] CDN_FIX: Harper linter not available after initialization attempt.');
         return [];
       }
 
-      console.log('[HarperWrapper] WORKER_UPGRADE: Running Harper.js WorkerLinter on text...');
+      console.log('[HarperWrapper] CDN_FIX: Running Harper.js WorkerLinter from CDN on text...');
       const startTime = performance.now();
       
-      // WORKER_UPGRADE: Run Harper.js linting with WorkerLinter (non-blocking)
+      // CDN_FIX: Run Harper.js linting with WorkerLinter from unpkg CDN
       const lints = await harperLinter.lint(text);
-      console.log(`[HarperWrapper] WORKER_UPGRADE: Harper.js WorkerLinter returned ${lints.length} lints.`);
+      console.log(`[HarperWrapper] CDN_FIX: Harper.js CDN WorkerLinter returned ${lints.length} lints.`);
       
       // Log detailed information about each lint for debugging
       lints.forEach((lint: any, index: number) => {
         const span = lint.span();
-        console.log(`[HarperWrapper] WORKER_UPGRADE: Lint ${index}: kind="${lint.lint_kind()}", span=${span.start}-${span.end}, message="${lint.message()}", suggestions=${lint.suggestion_count()}`);
+        console.log(`[HarperWrapper] CDN_FIX: Lint ${index}: kind="${lint.lint_kind()}", span=${span.start}-${span.end}, message="${lint.message()}", suggestions=${lint.suggestion_count()}`);
       });
       
-      console.log(`[HarperWrapper] WORKER_UPGRADE: ✅ Harper.js WorkerLinter found ${lints.length} errors`);
+      console.log(`[HarperWrapper] CDN_FIX: ✅ Harper.js CDN WorkerLinter found ${lints.length} errors`);
     
     // FIXED: Convert Harper.js lints to our GrammarError format with original text for extraction
     const errors = lints.map((lint: any, index: number) => convertHarperLintToGrammarError(lint, index, text));
     
     // **ANALYSIS: Log Harper.js category analysis after each check**
     const categoryAnalysis = getHarperCategoryAnalysis();
-    console.log(`[HarperWrapper] FIXED: 📊 Harper.js Category Analysis:`, {
+    console.log(`[HarperWrapper] CDN_FIX: 📊 Harper.js CDN Category Analysis:`, {
       totalDetected: categoryAnalysis.totalCategoriesDetected,
       mappingCoverage: `${Math.round(categoryAnalysis.mappingCoverage * 100)}%`,
       detectedCategories: categoryAnalysis.detectedCategories,
@@ -312,13 +315,13 @@ export async function checkGrammarWithHarper(
     });
     
     if (categoryAnalysis.unmappedCategories.length > 0) {
-      console.warn(`[HarperWrapper] FIXED: ⚠️ Found ${categoryAnalysis.unmappedCategories.length} unmapped Harper.js categories:`, categoryAnalysis.unmappedCategories);
-      console.warn(`[HarperWrapper] FIXED: 💡 Consider adding these to HARPER_ERROR_TYPE_MAP for better error classification.`);
+      console.warn(`[HarperWrapper] CDN_FIX: ⚠️ Found ${categoryAnalysis.unmappedCategories.length} unmapped Harper.js categories:`, categoryAnalysis.unmappedCategories);
+      console.warn(`[HarperWrapper] CDN_FIX: 💡 Consider adding these to HARPER_ERROR_TYPE_MAP for better error classification.`);
     }
     
     const endTime = performance.now();
-    console.log(`[HarperWrapper] WORKER_UPGRADE: ✅ Grammar check completed in ${(endTime - startTime).toFixed(2)}ms`);
-    console.log(`[HarperWrapper] WORKER_UPGRADE: Final errors returned:`, errors.map((e: GrammarError) => ({ 
+    console.log(`[HarperWrapper] CDN_FIX: ✅ Grammar check completed in ${(endTime - startTime).toFixed(2)}ms`);
+    console.log(`[HarperWrapper] CDN_FIX: Final errors returned:`, errors.map((e: GrammarError) => ({ 
       id: e.id, 
       type: e.type, 
       span: `${e.start}-${e.end}`, 
@@ -330,8 +333,8 @@ export async function checkGrammarWithHarper(
     return errors;
     
   } catch (error) {
-    console.error('[HarperWrapper] WORKER_UPGRADE: ❌ Error during Harper.js grammar check:', error);
-    console.error('[HarperWrapper] WORKER_UPGRADE: Error stack:', error instanceof Error ? error.stack : 'No stack');
+    console.error('[HarperWrapper] CDN_FIX: ❌ Error during Harper.js grammar check:', error);
+    console.error('[HarperWrapper] CDN_FIX: Error stack:', error instanceof Error ? error.stack : 'No stack');
     
     // Return empty array on error to maintain compatibility
     return [];
@@ -351,19 +354,19 @@ export async function applySuggestionWithHarper(
   error: GrammarError, 
   suggestionIndex: number = 0
 ): Promise<string> {
-  console.log(`[HarperWrapper] FIXED: Applying suggestion for error ID ${error.id} at index ${suggestionIndex}.`);
-  console.log(`[HarperWrapper] FIXED: Original text length: ${text.length}, Error span: ${error.start}-${error.end}`);
-  console.log(`[HarperWrapper] FIXED: Error text: "${error.error}", Available suggestions:`, error.suggestions);
+  console.log(`[HarperWrapper] CDN_FIX: Applying suggestion for error ID ${error.id} at index ${suggestionIndex}.`);
+  console.log(`[HarperWrapper] CDN_FIX: Original text length: ${text.length}, Error span: ${error.start}-${error.end}`);
+  console.log(`[HarperWrapper] CDN_FIX: Error text: "${error.error}", Available suggestions:`, error.suggestions);
   
   const suggestion = error.suggestions[suggestionIndex];
   
   if (typeof suggestion !== 'string') {
-    console.error(`[HarperWrapper] FIXED: Invalid suggestion at index ${suggestionIndex} for error:`, error);
+    console.error(`[HarperWrapper] CDN_FIX: Invalid suggestion at index ${suggestionIndex} for error:`, error);
     return text;
   }
   
   if (!suggestion.trim()) {
-    console.warn(`[HarperWrapper] FIXED: Empty suggestion at index ${suggestionIndex}, returning original text`);
+    console.warn(`[HarperWrapper] CDN_FIX: Empty suggestion at index ${suggestionIndex}, returning original text`);
     return text;
   }
   
@@ -371,19 +374,19 @@ export async function applySuggestionWithHarper(
   
   // Validate span bounds
   if (start < 0 || end > text.length || start >= end) {
-    console.error(`[HarperWrapper] FIXED: Invalid error span [${start}, ${end}] for text length ${text.length}`);
+    console.error(`[HarperWrapper] CDN_FIX: Invalid error span [${start}, ${end}] for text length ${text.length}`);
     return text;
   }
   
   // Extract the problematic text to verify it matches
   const problemText = text.substring(start, end);
-  console.log(`[HarperWrapper] FIXED: Problem text from span: "${problemText}"`);
+  console.log(`[HarperWrapper] CDN_FIX: Problem text from span: "${problemText}"`);
   
   // Apply the suggestion by replacing the error span with the suggestion
   const newText = text.substring(0, start) + suggestion + text.substring(end);
   
-  console.log(`[HarperWrapper] FIXED: ✅ Suggestion "${suggestion}" applied successfully.`);
-  console.log(`[HarperWrapper] FIXED: New text length: ${newText.length} (change: ${newText.length - text.length})`);
+  console.log(`[HarperWrapper] CDN_FIX: ✅ Suggestion "${suggestion}" applied successfully.`);
+  console.log(`[HarperWrapper] CDN_FIX: New text length: ${newText.length} (change: ${newText.length - text.length})`);
   
   return newText;
 }
@@ -409,7 +412,7 @@ export function getHarperStatus(): {
  * Reset Harper.js state (useful for testing or error recovery)
  */
 export function resetHarperState(): void {
-  console.log('[HarperWrapper] WORKER_UPGRADE: Resetting Harper.js WorkerLinter state.');
+  console.log('[HarperWrapper] CDN_FIX: Resetting Harper.js CDN WorkerLinter state.');
   harperModule = null;
   harperLinter = null;
   isInitialized = false;
@@ -421,13 +424,13 @@ export function resetHarperState(): void {
  * @returns {Promise<boolean>} - True if initialization was successful, false otherwise
  */
 export async function preWarmHarper(): Promise<boolean> {
-  console.log('[HarperWrapper] WORKER_UPGRADE: Pre-warming Harper.js WorkerLinter...');
+  console.log('[HarperWrapper] CDN_FIX: Pre-warming Harper.js WorkerLinter from CDN...');
   try {
     await initializeHarper();
-    console.log('[HarperWrapper] WORKER_UPGRADE: ✅ Pre-warming successful.');
+    console.log('[HarperWrapper] CDN_FIX: ✅ Pre-warming successful.');
     return isInitialized;
   } catch (error) {
-    console.error('[HarperWrapper] WORKER_UPGRADE: ❌ Error during pre-warming:', error);
+    console.error('[HarperWrapper] CDN_FIX: ❌ Error during pre-warming:', error);
     return false;
   }
 }
