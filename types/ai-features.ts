@@ -58,6 +58,11 @@ export interface FunnelSuggestion {
   title: string
   description: string
   suggestedText: string
+  originalText: string
+  position: {
+    start: number
+    end: number
+  }
   confidence: number
   status: 'pending' | 'applied' | 'dismissed'
   createdAt: number

@@ -21,13 +21,13 @@ import type { AISuggestion } from '@/types/ai-features'
 
 export class SuggestionService {
   /**
-   * Subscribe to AI suggestions for a specific document
+   * Subscribe to AI style suggestions for a specific document
    * @param documentId - The document ID to fetch suggestions for
    * @param userId - The user ID for security filtering
    * @param onUpdate - Callback function to handle suggestions updates
    * @returns Unsubscribe function
    */
-  static subscribeToSuggestions(
+  static subscribeToStyleSuggestions(
     documentId: string,
     userId: string,
     onUpdate: (suggestions: AISuggestion[]) => void

@@ -48,10 +48,13 @@ export function useAISuggestions({
   const { user } = useAuth()
   const { toast } = useToast()
   
-  const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
+  const [styleSuggestions, setStyleSuggestions] = useState<AISuggestion[]>([])
+  const [funnelSuggestions, setFunnelSuggestions] = useState<AISuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [generatingFunnelSuggestions, setGeneratingFunnelSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const suggestions: AISuggestion[] = useMemo(() => [...styleSuggestions, ...funnelSuggestions], [styleSuggestions, funnelSuggestions])
 
   console.log('[useAISuggestions] Phase 2: Hook initialized with documentId:', documentId, 'user:', user?.uid)
 
@@ -83,7 +86,8 @@ export function useAISuggestions({
         userId: !!user?.uid,
         autoSubscribe
       })
-      setSuggestions([])
+      setStyleSuggestions([])
+      setFunnelSuggestions([])
       setError(null)
       return
     }
@@ -93,36 +97,28 @@ export function useAISuggestions({
     setError(null)
 
     // Subscribe to style suggestions
-    const unsubscribeStyle = SuggestionService.subscribeToSuggestions(
+    const unsubscribeStyle = SuggestionService.subscribeToStyleSuggestions(
       documentId,
       user.uid,
       (newStyleSuggestions) => {
         console.log('[useAISuggestions] Received style suggestions update:', newStyleSuggestions.length)
-        setSuggestions(prev => {
-          // Remove old style suggestions, keep funnel
-          const funnel = prev.filter(s => s.type === 'headline' || s.type === 'subheadline' || s.type === 'cta' || s.type === 'outline')
-          return [...funnel, ...newStyleSuggestions]
-        })
+        setStyleSuggestions(newStyleSuggestions)
         setLoading(false)
         setError(null)
       }
     )
 
     // Subscribe to funnel suggestions
-    const unsubscribeFunnel = SuggestionService.subscribeToFunnelSuggestions ? SuggestionService.subscribeToFunnelSuggestions(
+    const unsubscribeFunnel = SuggestionService.subscribeToFunnelSuggestions(
       documentId,
       user.uid,
       (newFunnelSuggestions) => {
         console.log('[useAISuggestions] Received funnel suggestions update:', newFunnelSuggestions.length)
-        setSuggestions(prev => {
-          // Remove old funnel suggestions, keep style
-          const style = prev.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')
-          return [...style, ...newFunnelSuggestions]
-        })
+        setFunnelSuggestions(newFunnelSuggestions)
         setLoading(false)
         setError(null)
       }
-    ) : () => {};
+    )
 
     // Cleanup subscription on unmount or dependency change
     return () => {
@@ -360,24 +356,25 @@ export function useAISuggestions({
     debouncedGenerateFunnelSuggestions(goals, content);
   }, [debouncedGenerateFunnelSuggestions])
 
-  // Separate suggestions by type
-  const styleSuggestions = suggestions.filter(s => s.type !== 'headline' && s.type !== 'subheadline' && s.type !== 'cta' && s.type !== 'outline')
-  const funnelSuggestions: FunnelSuggestion[] = suggestions
-    .filter(s => s.type === 'headline' || s.type === 'subheadline' || s.type === 'cta' || s.type === 'outline')
-    .map(s => ({
-      id: s.id,
-      documentId: s.documentId,
-      userId: s.userId,
-      type: s.type as 'headline' | 'subheadline' | 'cta' | 'outline',
-      title: s.title,
-      description: s.description,
-      suggestedText: s.suggestedText,
-      confidence: s.confidence,
-      status: s.status,
-      createdAt: s.createdAt,
-      appliedAt: s.appliedAt
-    }))
-  
+  const totalSuggestionsCount = suggestions.length
+  const loadingStyleSuggestions = loading
+  const loadingFunnelSuggestions = loading
+  const refreshSuggestions = reloadSuggestions
+
+  console.log('[useAISuggestions] Current state:', {
+    suggestionCount: suggestions.length,
+    totalSuggestionsCount,
+    styleSuggestionsCount: styleSuggestions.length,
+    funnelSuggestionsCount: funnelSuggestions.length,
+    loading,
+    loadingStyleSuggestions,
+    loadingFunnelSuggestions,
+    generatingFunnelSuggestions,
+    error: !!error,
+    documentId,
+    userId: user?.uid
+  })
+
   // Wrapper functions to match expected signatures
   const applySuggestionWrapper = useCallback(async (suggestionId: string) => {
     const suggestion = suggestions.find(s => s.id === suggestionId)
@@ -397,30 +394,10 @@ export function useAISuggestions({
     }
   }, [suggestions, dismissSuggestion])
 
-  const suggestionCount = suggestions.length
-  const totalSuggestionsCount = suggestions.length
-  const loadingStyleSuggestions = loading
-  const loadingFunnelSuggestions = loading
-  const refreshSuggestions = reloadSuggestions
-
-  console.log('[useAISuggestions] Current state:', {
-    suggestionCount,
-    totalSuggestionsCount,
-    styleSuggestionsCount: styleSuggestions.length,
-    funnelSuggestionsCount: funnelSuggestions.length,
-    loading,
-    loadingStyleSuggestions,
-    loadingFunnelSuggestions,
-    generatingFunnelSuggestions,
-    error: !!error,
-    documentId,
-    userId: user?.uid
-  })
-
   return {
     suggestions,
     styleSuggestions,
-    funnelSuggestions,
+    funnelSuggestions: funnelSuggestions as FunnelSuggestion[],
     totalSuggestionsCount,
     loading,
     loadingStyleSuggestions,
@@ -433,6 +410,6 @@ export function useAISuggestions({
     reloadSuggestions,
     refreshSuggestions,
     generateFunnelSuggestions,
-    suggestionCount
+    suggestionCount: suggestions.length
   }
 }
