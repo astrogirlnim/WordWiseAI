@@ -58,8 +58,18 @@ export function WritingGoalsModal({
   const [goals, setGoals] = useState<WritingGoals>(currentGoals)
   const [documentTitle, setDocumentTitle] = useState(initialTitle)
 
-  // Demo mode detection
-  const isDemoMode = !user && window.location.search.includes('demo=true')
+  // Demo mode detection - supports both /demo route and legacy query param
+  const [isDemoMode, setIsDemoMode] = useState(false)
+  
+  // Set demo mode on client side after mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isDemo = window.location.pathname.startsWith('/demo') || window.location.search.includes('demo=true')
+      setIsDemoMode(isDemo)
+      console.log('[WritingGoalsModal] Demo mode detection:', { pathname: window.location.pathname, isDemo })
+    }
+  }, [])
+  
   const isInteractiveDemoStep = isDemoMode && demoTour.currentStep === 1 && (
     demoTour.interactionStep === 'highlightNewDocument' || 
     demoTour.interactionStep === 'openWritingGoalsModal'

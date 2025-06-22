@@ -29,6 +29,8 @@ interface UISpotlightProps {
   showCloseButton?: boolean
   /** Additional CSS classes */
   className?: string
+  /** Whether to disable scrollIntoView */
+  disableScroll?: boolean
 }
 
 /**
@@ -54,7 +56,8 @@ export function UISpotlight({
   onDismiss,
   position = 'auto',
   showCloseButton = true,
-  className
+  className,
+  disableScroll = false,
 }: UISpotlightProps) {
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number; placement: string }>({
@@ -83,12 +86,16 @@ export function UISpotlight({
         console.log('🎯 [UISpotlight] Target element found:', targetSelector, element)
         setTargetElement(element)
         
-        // Scroll element into view if needed
-        element.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center',
-          inline: 'center'
-        })
+        if (!disableScroll) {
+          console.log('🎯 [UISpotlight] Scrolling target into view')
+          element.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'center'
+          })
+        } else {
+          console.log('🎯 [UISpotlight] Scroll disabled for target:', targetSelector)
+        }
       } else {
         console.warn('🎯 [UISpotlight] Target element not found:', targetSelector)
       }
@@ -102,7 +109,7 @@ export function UISpotlight({
       const timer = setTimeout(findElement, 100)
       return () => clearTimeout(timer)
     }
-  }, [targetSelector, isActive, targetElement])
+  }, [targetSelector, isActive, targetElement, disableScroll])
 
   // Calculate tooltip position
   useEffect(() => {
@@ -204,26 +211,89 @@ export function UISpotlight({
 
   const SpotlightOverlay = () => (
     <div 
-      className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-300"
-      style={{ backdropFilter: 'blur(2px)' }}
+      className="fixed inset-0 z-50 transition-opacity duration-300"
       onClick={onDismiss}
     >
-      {/* Spotlight cutout */}
+      {/* Top overlay */}
       <div 
-        className="absolute rounded-lg border-4 border-primary shadow-2xl transition-all duration-300"
+        className="absolute bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          left: 0,
+          top: 0,
+          right: 0,
+          bottom: `${window.innerHeight - (targetRect.top - 8)}px`
+        }}
+      />
+      
+      {/* Bottom overlay */}
+      <div 
+        className="absolute bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          left: 0,
+          top: `${targetRect.bottom + 8}px`,
+          right: 0,
+          bottom: 0
+        }}
+      />
+      
+      {/* Left overlay */}
+      <div 
+        className="absolute bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          left: 0,
+          top: `${targetRect.top - 8}px`,
+          width: `${targetRect.left - 8}px`,
+          height: `${targetRect.height + 16}px`
+        }}
+      />
+      
+      {/* Right overlay */}
+      <div 
+        className="absolute bg-black/50"
+        style={{ 
+          backdropFilter: 'blur(2px)',
+          left: `${targetRect.right + 8}px`,
+          top: `${targetRect.top - 8}px`,
+          right: 0,
+          height: `${targetRect.height + 16}px`
+        }}
+      />
+      
+      {/* Spotlight border and glow effect */}
+      <div 
+        className="absolute rounded-lg transition-all duration-300 pointer-events-none"
         style={{
           left: targetRect.left - 8,
           top: targetRect.top - 8,
           width: targetRect.width + 16,
           height: targetRect.height + 16,
+          border: '4px solid rgb(var(--primary))',
           boxShadow: `
-            0 0 0 9999px rgba(0, 0, 0, 0.5),
             0 0 20px 4px rgb(var(--primary) / 0.8),
-            inset 0 0 0 4px rgb(var(--primary))
+            inset 0 0 0 2px rgb(var(--primary) / 0.3)
           `,
           animation: 'pulse 2s ease-in-out infinite'
         }}
       />
+
+      {/* Got It button in top right of highlight */}
+      {actionText && onAction && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onAction(); }}
+          className="absolute z-50 bg-primary text-white font-semibold rounded-md shadow-lg px-4 py-2 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary top-0 right-0"
+          style={{
+            left: targetRect.left + targetRect.width - 8 - 120, // 120px from right edge of highlight
+            top: targetRect.top - 8 + 12, // 12px from top edge of highlight
+            minWidth: 100,
+            maxWidth: 180
+          }}
+        >
+          {actionText}
+        </button>
+      )}
 
       {/* Tooltip */}
       <Card 
@@ -269,22 +339,6 @@ export function UISpotlight({
           </div>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
-
-        {actionText && onAction && (
-          <>
-            <Separator />
-            <CardContent className="pt-3">
-              <Button 
-                onClick={onAction}
-                className="w-full"
-                size="sm"
-              >
-                <Sparkles className="mr-2 h-4 w-4" />
-                {actionText}
-              </Button>
-            </CardContent>
-          </>
-        )}
       </Card>
 
       {/* Pointer arrow */}

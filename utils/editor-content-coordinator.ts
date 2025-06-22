@@ -220,9 +220,16 @@ export class EditorContentCoordinator {
         return true;
       }
 
+      // Special handling for markdown content in demo mode
+      let processedContent = update.content;
+      if (update.source === 'demo-tour-step-2' && typeof update.content === 'string') {
+        processedContent = this.processMarkdownContent(update.content);
+        console.log('[EditorContentCoordinator] Processed markdown content for demo, length:', processedContent.length);
+      }
+
       // Apply the update with appropriate parameters
       const shouldEmitUpdate = update.type === 'user';
-      this.editor.commands.setContent(update.content, shouldEmitUpdate);
+      this.editor.commands.setContent(processedContent, shouldEmitUpdate);
 
       // Handle React state updates through coordinator
       if (update.metadata?.onStateUpdate && typeof update.metadata.onStateUpdate === 'function') {
@@ -288,6 +295,83 @@ export class EditorContentCoordinator {
     if (this.options.enableLogging && beforeLength !== this.updateQueue.length) {
       console.log(`[EditorContentCoordinator] Cleared ${beforeLength - this.updateQueue.length} lower priority updates`);
     }
+  }
+
+  /**
+   * Process markdown content to preserve formatting and spacing
+   */
+  private processMarkdownContent(markdownText: string): string {
+    console.log('[EditorContentCoordinator] Processing markdown content for proper spacing');
+    
+    // Split content into blocks separated by double line breaks (paragraphs)
+    const paragraphBlocks = markdownText.split(/\n\s*\n/);
+    const htmlBlocks: string[] = [];
+    
+    for (const block of paragraphBlocks) {
+      if (!block.trim()) continue;
+      
+      const lines = block.split('\n');
+      let processedBlock = '';
+      let inCodeBlock = false;
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Handle code blocks
+        if (trimmedLine.startsWith('```')) {
+          inCodeBlock = !inCodeBlock;
+          processedBlock += inCodeBlock ? '<pre><code>' : '</code></pre>';
+          continue;
+        }
+        
+        if (inCodeBlock) {
+          processedBlock += line + '\n';
+          continue;
+        }
+        
+        // Handle headers (these become their own blocks)
+        if (trimmedLine.startsWith('# ')) {
+          processedBlock = `<h1>${trimmedLine.substring(2)}</h1>`;
+          break;
+        } else if (trimmedLine.startsWith('## ')) {
+          processedBlock = `<h2>${trimmedLine.substring(3)}</h2>`;
+          break;
+        } else if (trimmedLine.startsWith('### ')) {
+          processedBlock = `<h3>${trimmedLine.substring(4)}</h3>`;
+          break;
+        } else if (trimmedLine.startsWith('#### ')) {
+          processedBlock = `<h4>${trimmedLine.substring(5)}</h4>`;
+          break;
+        } else if (trimmedLine) {
+          // Regular text - add to paragraph with line breaks for multi-line paragraphs
+          if (processedBlock && !processedBlock.endsWith('<br>')) {
+            processedBlock += '<br>';
+          }
+          
+          // Process inline markdown formatting
+          const formattedLine = trimmedLine
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')  // Bold
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')              // Italic
+            .replace(/`([^`]+)`/g, '<code>$1</code>');           // Inline code
+          
+          processedBlock += formattedLine;
+        }
+      }
+      
+      // Wrap regular content (non-headers) in paragraph tags
+      if (processedBlock && !processedBlock.startsWith('<h') && !processedBlock.startsWith('<pre>')) {
+        processedBlock = `<p>${processedBlock}</p>`;
+      }
+      
+      if (processedBlock) {
+        htmlBlocks.push(processedBlock);
+      }
+    }
+    
+    const result = htmlBlocks.join('');
+    console.log('[EditorContentCoordinator] Converted markdown to HTML with proper paragraphs, first 300 chars:', result.substring(0, 300));
+    
+    return result;
   }
 
   /**

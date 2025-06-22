@@ -60,6 +60,7 @@ export function MarkdownPreviewToggle({
             variant={getButtonVariant()}
             size="sm"
             onClick={onToggle}
+            data-markdown-preview-button
             className={`
               relative transition-all duration-200 
               ${isMarkdownDetected ? 'shadow-sm ring-1 ring-retro-primary/20' : ''}

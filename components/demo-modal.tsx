@@ -84,41 +84,17 @@ const StepContent = {
     const demoTour = useDemoTourContext()
     const [isLoading, setIsLoading] = useState(false)
 
-    const userType = !user && window.location.search.includes('demo=true')
-      ? 'demo_mode'
-      : 'authenticated_user';
+    // Simplified demo mode - all users get demo experience
+const userType = 'demo_mode';
 
-    console.log('🎯 [Demo Step 1] Rendering with user type:', userType);
-
-    const handleSetWritingGoals = () => {
-      console.log('🎯 [Demo Step 1] Set Writing Goals action triggered for user type:', userType);
+    const handleAction = () => {
+      setIsLoading(true);
+      // Centralized logic is now in the hook
+      demoTour.handleInteractiveStepAction(1);
       
-      if (userType === 'demo_mode') {
-        // Demo mode: Open actual Writing Goals modal with sample data
-        setIsLoading(true)
-        console.log('🎯 [Demo Step 1] Demo mode - opening Writing Goals modal with sample data')
-        
-        setTimeout(() => {
-          console.log('🎯 [Demo Step 1] Demo mode - triggering writing goals modal')
-          setIsLoading(false)
-          // Trigger the writing goals modal to open in demo mode
-          demoTour.setInteractionStep('openWritingGoalsModal')
-          demoTour.hideDemoModal()
-        }, 1500)
-      } else {
-        // Authenticated user: Highlight the Writing Goals button
-        setIsLoading(true)
-        console.log('🎯 [Demo Step 1] Authenticated user - highlighting Writing Goals button')
-        
-        setTimeout(() => {
-          setIsLoading(false)
-          demoTour.setInteractionStep('highlightWritingGoals')
-          demoTour.hideDemoModal()
-        }, 1000)
-      }
+      // Spinner display timeout
+      setTimeout(() => setIsLoading(false), 1500);
     }
-
-
 
     return (
       <div className="space-y-4">
@@ -194,7 +170,7 @@ const StepContent = {
         {/* Action Button */}
         <div className="space-y-3 pt-4">
           <Button
-            onClick={handleSetWritingGoals}
+            onClick={handleAction}
             className="w-full"
             size="lg"
             disabled={isLoading}
@@ -216,52 +192,134 @@ const StepContent = {
     );
   },
 
-  Step2: () => (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
-        <div className="flex items-start gap-3">
-          <PenTool className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600 dark:text-orange-400" />
-          <div>
-            <h4 className="font-semibold text-orange-900 dark:text-orange-100">
-              Write & Import Content
-            </h4>
-            <p className="mt-1 text-sm text-orange-700 dark:text-orange-200">
-              Use our powerful editor to write directly or paste existing content. We&apos;ll auto-populate a sales funnel example for this demo.
-            </p>
+  Step2: () => {
+    const { user } = useAuth()
+    const demoTour = useDemoTourContext()
+    const [isLoading, setIsLoading] = useState(false)
+    const [isComplete, setIsComplete] = useState(false)
+
+    // Consistent user type detection: demo mode only for anonymous users
+    // Simplified demo mode - all users get demo experience  
+  const userType = 'demo_mode'
+
+    // Enhanced logging for Step 2
+    useEffect(() => {
+      console.log('🎯 [Demo Step 2] Rendering with user type:', userType, {
+        hasUser: !!user,
+        userId: user?.uid,
+        interactionStep: demoTour.interactionStep
+      })
+    }, [userType, user, demoTour.interactionStep])
+
+    useEffect(() => {
+      // Listen for demo completion signal - only advance when user interacts with markdown preview
+      if (demoTour.interactionStep === 'showContentAdded' && demoTour.currentStep === 2) {
+        console.log('🎯 [Demo Step 2] Demo interaction completed - step will advance after markdown preview')
+        setIsLoading(false);
+        setIsComplete(true);
+        // Note: Do NOT auto-advance here - wait for user to interact with markdown preview
+      }
+    }, [demoTour.interactionStep, demoTour.currentStep, demoTour]);
+
+    const handleAction = () => {
+      console.log('🎯 [Demo Step 2] Start Writing action triggered for user type:', userType)
+      setIsLoading(true);
+      
+      // Hide the demo modal immediately to show the editor
+      console.log('🎯 [Demo Step 2] Hiding demo modal to show editor')
+      demoTour.hideDemoModal();
+      
+      // Trigger the interactive step action
+      demoTour.handleInteractiveStepAction(2);
+
+      // Demo mode - will simulate content paste and show editor
+      console.log('🎯 [Demo Step 2] Demo mode - will simulate content paste and show editor')
+      // Loading state will be cleared when content is pasted and spotlight shows
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+          <div className="flex items-start gap-3">
+            <PenTool className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600 dark:text-orange-400" />
+            <div>
+              <h4 className="font-semibold text-orange-900 dark:text-orange-100">
+                Write & Import Content
+              </h4>
+              <p className="mt-1 text-sm text-orange-700 dark:text-orange-200">
+                Use our powerful editor to write directly or paste existing content.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="space-y-3">
-        <h5 className="font-medium">Editor features:</h5>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Rich markdown support with live preview
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Smart pagination for large documents
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Auto-save with conflict resolution
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Drag-and-drop file imports
-          </li>
-        </ul>
-      </div>
+        {/* Demo Mode Instructions */}
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+          <div className="flex items-start gap-3">
+            <Play className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                Demo Mode Active
+              </p>
+              <p className="mt-1 text-xs text-blue-700 dark:text-blue-200">
+                We&apos;ll add sample content to the editor, then show you the markdown preview feature.
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
-        <p className="text-xs text-amber-700 dark:text-amber-200">
-          <Play className="mr-1 inline h-3 w-3" />
-          We&apos;ll paste a complete sales funnel document to demonstrate all features
-        </p>
+        <div className="space-y-3">
+          <h5 className="font-medium">Editor features:</h5>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Rich markdown support with live preview
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Smart pagination for large documents
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Auto-save with conflict resolution
+            </li>
+          </ul>
+        </div>
+
+        {/* Action Button */}
+        <div className="space-y-3 pt-4">
+          <Button
+            onClick={handleAction}
+            className="w-full"
+            size="lg"
+            disabled={isLoading || isComplete}
+          >
+            {isLoading ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-transparent border-t-white" />
+                Adding Sample Content...
+              </>
+            ) : isComplete ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Content Added!
+              </>
+            ) : (
+              <>
+                <PenTool className="mr-2 h-4 w-4" />
+                Start Writing
+              </>
+            )}
+          </Button>
+           {isComplete && (
+            <p className="text-center text-sm text-green-600 dark:text-green-400">
+              Sample content added! Moving to the next step...
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  ),
+    )
+  },
 
   Step3: () => (
     <div className="space-y-4">
@@ -829,6 +887,13 @@ export function DemoModal() {
     console.log('[DemoModal] Completing demo')
     demoTour.completDemo()
     clearDemoUrlParameter()
+    if (user) {
+      console.log('[DemoModal] Authenticated user - redirecting to home')
+      router.push('/')
+    } else {
+      console.log('[DemoModal] Unauthenticated user - redirecting to sign-in')
+      router.push('/sign-in')
+    }
   }
 
   /**
@@ -838,14 +903,12 @@ export function DemoModal() {
     console.log('[DemoModal] Skipping demo')
     demoTour.skipDemo()
     clearDemoUrlParameter()
-    
-    // Redirect based on authentication status
-    if (!user) {
+    if (user) {
+      console.log('[DemoModal] Authenticated user - redirecting to home')
+      router.push('/')
+    } else {
       console.log('[DemoModal] Unauthenticated user - redirecting to sign-in')
       router.push('/sign-in')
-    } else {
-      console.log('[DemoModal] Authenticated user - staying on main page')
-      // Stay on current page, modal will close
     }
   }
 
@@ -898,7 +961,7 @@ export function DemoModal() {
   }
 
   return (
-    <Dialog open={demoTour.isOpen} onOpenChange={(open) => !open && handleSkipDemo()}>
+    <Dialog open={demoTour.isOpen && demoTour.isDemoModalVisible} onOpenChange={(open) => { if (!open) handleSkipDemo(); }}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0"
         aria-describedby="demo-modal-description"

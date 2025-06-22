@@ -21,6 +21,7 @@ import { AuditService, AuditEvent } from '@/services/audit-service'
 import { DemoModal } from './demo-modal'
 import { UISpotlight } from './ui-spotlight'
 import { DEMO_SAMPLE_DATA } from '@/hooks/use-demo-tour'
+import { updateContentSafely } from '@/utils/editor-content-coordinator'
 
 
 const DocumentEditor = dynamic(() => import('./document-editor').then(mod => mod.DocumentEditor), {
@@ -84,6 +85,8 @@ export function DocumentContainer() {
     description: string
     actionText?: string
   }>({ title: '', description: '' })
+
+  const [demoMarkdownSource, setDemoMarkdownSource] = useState<string | null>(null)
 
   console.log('[DocumentContainer] Rendered with:', {
     totalDocs: documents.length,
@@ -159,149 +162,316 @@ export function DocumentContainer() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isDistractionFree])
 
-  // New interactive demo tour logic
+  // Simplified demo tour logic - all users get demo mode experience
   useEffect(() => {
     const { interactionStep, currentStep } = demoTour
 
-    const userType = !user ? 'demo_mode' : 'authenticated_user';
-    
-    // Only run this logic for step 1
-    if (currentStep !== 1 || interactionStep === 'idle') {
-      if (demoSpotlightActive) {
-        setDemoSpotlightActive(false)
-        console.log('🎯 [DocumentContainer] Interaction step changed, hiding spotlight.')
-      }
-      return
+    // Reset spotlight if not in an interactive step
+    if (interactionStep === 'idle') {
+      if (demoSpotlightActive) setDemoSpotlightActive(false);
+      return;
     }
+    
+    console.log(`🎯 [DocumentContainer] Handling demo interaction step: ${interactionStep} for step ${currentStep}`);
 
-    console.log(`🎯 [DocumentContainer] Handling interaction step: ${interactionStep}`);
-
-    if (interactionStep === 'highlightNewDocument') {
-      const mainButton = document.querySelector('[data-new-document-button-main]')
-      const targetSelector = mainButton ? '[data-new-document-button-main]' : '[data-new-document-button]'
-      
-      console.log(`🎯 [DocumentContainer] Highlighting target: ${targetSelector}`);
-      
-      setDemoSpotlightTarget(targetSelector)
-      setDemoSpotlightContent({
-        title: userType === 'demo_mode' ? 'Start Your Demo Document' : 'Create a New Document',
-        description: 'Click here to begin. You can set specific writing goals for our AI to follow.',
-      })
-      setDemoSpotlightActive(true)
-
-    } else if (interactionStep === 'highlightWritingGoals') {
-      const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
-      const newDocumentButton = document.querySelector('[data-new-document-button]') || document.querySelector('[data-new-document-button-main]')
-      
-      console.log(`🎯 [DocumentContainer] Highlighting Writing Goals - button found:`, !!writingGoalsButton);
-      
-      if (writingGoalsButton) {
-        // User has an active document - highlight the Writing Goals button
-        setDemoSpotlightTarget('[data-writing-goals-button]')
-        setDemoSpotlightContent({
-          title: 'Writing Goals',
-          description: 'Click here to set your writing goals and target audience. This helps our AI provide better suggestions.',
-          actionText: 'Open Writing Goals'
-        })
-        setDemoSpotlightActive(true)
-      } else if (newDocumentButton) {
-        // User has no active document - highlight the New Document button and explain the flow
-        const targetSelector = newDocumentButton.hasAttribute('data-new-document-button-main') 
-          ? '[data-new-document-button-main]' 
-          : '[data-new-document-button]'
+    // --- Step 1 Logic ---
+    if (currentStep === 1) {
+      if (interactionStep === 'highlightNewDocument') {
+        const mainButton = document.querySelector('[data-new-document-button-main]')
+        const targetSelector = mainButton ? '[data-new-document-button-main]' : '[data-new-document-button]'
+        
+        console.log(`🎯 [DocumentContainer] Highlighting target: ${targetSelector}`);
+        
         setDemoSpotlightTarget(targetSelector)
         setDemoSpotlightContent({
-          title: 'Create Document First',
-          description: 'To set writing goals, you first need to create a document. Click here to create a new document, and you\'ll be able to set writing goals during the creation process.',
-          actionText: 'Create Document'
+          title: 'Start Your Demo Document',
+          description: 'Click here to begin. You can set specific writing goals for our AI to follow.',
         })
         setDemoSpotlightActive(true)
-      } else {
-        console.warn('🎯 [DocumentContainer] Neither Writing Goals button nor New Document button found')
-        // Show a general informational spotlight
-        setDemoSpotlightTarget('')
+
+      } else if (interactionStep === 'highlightWritingGoals') {
+        const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
+        const newDocumentButton = document.querySelector('[data-new-document-button]') || document.querySelector('[data-new-document-button-main]')
+        
+        console.log(`🎯 [DocumentContainer] Highlighting Writing Goals - button found:`, !!writingGoalsButton);
+        
+        if (writingGoalsButton) {
+          setDemoSpotlightTarget('[data-writing-goals-button]')
+          setDemoSpotlightContent({
+            title: 'Writing Goals',
+            description: 'Click here to set your writing goals and target audience. This helps our AI provide better suggestions.',
+            actionText: 'Open Writing Goals'
+          })
+          setDemoSpotlightActive(true)
+        } else if (newDocumentButton) {
+          const targetSelector = newDocumentButton.hasAttribute('data-new-document-button-main') 
+            ? '[data-new-document-button-main]' 
+            : '[data-new-document-button]'
+          setDemoSpotlightTarget(targetSelector)
+          setDemoSpotlightContent({
+            title: 'Create Document First',
+            description: 'To set writing goals, you first need to create a document. Click here to create a new document, and you\'ll be able to set writing goals during the creation process.',
+            actionText: 'Create Document'
+          })
+          setDemoSpotlightActive(true)
+        } else {
+          console.warn('🎯 [DocumentContainer] Neither Writing Goals button nor New Document button found')
+          setDemoSpotlightTarget('')
+          setDemoSpotlightContent({
+            title: 'Writing Goals',
+            description: 'Writing goals help our AI provide better suggestions. You can access them after creating your first document. For now, let\'s continue with the tour.',
+            actionText: 'Continue Tour'
+          })
+          setDemoSpotlightActive(true)
+        }
+      } else if (interactionStep === 'openWritingGoalsModal') {
+        console.log('🎯 [DocumentContainer] Opening Writing Goals modal in demo mode')
+        setIsGoalsModalOpen(true)
+        setIsCreatingNewDocument(true)
+      } else if (interactionStep === 'showCreatedDocument') {
+        console.log('🎯 [DocumentContainer] Showing "Continue Tour" spotlight');
+        setDemoSpotlightTarget('') // No specific element target, will show as a modal
         setDemoSpotlightContent({
-          title: 'Writing Goals',
-          description: 'Writing goals help our AI provide better suggestions. You can access them after creating your first document. For now, let\'s continue with the tour.',
+          title: 'Document Created!',
+          description: "Excellent! We've created a sample document for you. When you're ready, let's continue the tour to see what's next.",
           actionText: 'Continue Tour'
         })
         setDemoSpotlightActive(true)
       }
+    }
 
-    } else if (interactionStep === 'openWritingGoalsModal') {
-      console.log('🎯 [DocumentContainer] Opening Writing Goals modal in demo mode')
-      // Open the writing goals modal in demo mode
-      setIsGoalsModalOpen(true)
-      setIsCreatingNewDocument(true)
-      
-    } else if (interactionStep === 'showCreatedDocument') {
-      console.log('🎯 [DocumentContainer] Showing "Continue Tour" spotlight');
-      setDemoSpotlightTarget('') // No specific element target, will show as a modal
-      setDemoSpotlightContent({
-        title: 'Document Created!',
-        description: "Excellent! We've created a sample document for you. When you're ready, let's continue the tour to see what's next.",
-        actionText: 'Continue Tour'
-      })
-      setDemoSpotlightActive(true)
+    // --- Step 2 Logic: Simplified Flow ---
+    if (currentStep === 2) {
+      if (interactionStep === 'pasteContent') {
+        console.log('🎯 [DocumentContainer] Demo mode step 2: pasting content and highlighting editor');
+        
+        // First, check if we have an active document and editor area
+        const editorArea = document.querySelector('[data-editor-area]');
+        const hasActiveDocument = !!activeDocumentId && !!activeDocument;
+        
+        if (!hasActiveDocument) {
+          console.warn('🎯 [DocumentContainer] No active document for Step 2, waiting...');
+          // Wait a bit and try again - the document from Step 1 should be loading
+          setTimeout(() => {
+            if (activeDocumentId && activeDocument) {
+              console.log('🎯 [DocumentContainer] Document now available, retrying content paste');
+              demoTour.setInteractionStep('pasteContent'); // Retry
+            } else {
+              console.error('🎯 [DocumentContainer] Document still not available, skipping Step 2');
+              demoTour.setInteractionStep('showContentAdded');
+              demoTour.showDemoModal();
+            }
+          }, 1000);
+          return;
+        }
+        
+        if (!editorArea) {
+          console.warn('🎯 [DocumentContainer] Editor area not yet available, waiting...');
+          // Wait for editor to render
+          setTimeout(() => {
+            const retryEditorArea = document.querySelector('[data-editor-area]');
+            if (retryEditorArea) {
+              console.log('🎯 [DocumentContainer] Editor area now available, pasting content');
+              demoTour.setInteractionStep('pasteContent'); // Retry
+            } else {
+              console.error('🎯 [DocumentContainer] Editor area still not available, skipping Step 2');
+              demoTour.setInteractionStep('showContentAdded');
+              demoTour.showDemoModal();
+            }
+          }, 1000);
+          return;
+        }
+
+        console.log('🎯 [DocumentContainer] Editor ready, pasting sample content with line break preservation');
+        
+        // CRITICAL FIX: Ensure content coordinator is bound and ready before pasting
+        const tryPasteContent = async () => {
+          try {
+            // First try using the content coordinator (preferred method)
+            const success = await updateContentSafely.page(DEMO_SAMPLE_DATA.sampleDocument, 'demo-tour-step-2');
+            if (success) {
+              setDemoMarkdownSource(DEMO_SAMPLE_DATA.sampleDocument); // Store markdown for preview
+            }
+            if (!success) {
+              console.warn('🎯 [DocumentContainer] Content coordinator failed, trying direct editor approach');
+              
+              // Fallback: Try to get the editor instance directly and set content with line break preservation
+              // @ts-expect-error - Accessing global debug reference if available
+              const editor = window.documentEditor || null;
+              
+              if (editor && !editor.isDestroyed) {
+                console.log('🎯 [DocumentContainer] Using direct editor content update with line break preservation');
+                
+                // Process the content to preserve line breaks properly
+                const processedContent = DEMO_SAMPLE_DATA.sampleDocument
+                  .replace(/\r\n/g, '\n')          // Normalize Windows line endings
+                  .replace(/\r/g, '\n')            // Normalize old Mac line endings
+                  .replace(/[ \t]+/g, ' ')         // Collapse spaces and tabs
+                  .replace(/\n[ \t]*/g, '\n')      // Remove spaces/tabs after line breaks
+                  .replace(/\n{3,}/g, '\n\n')      // Limit to double line breaks for paragraphs
+                  .trim();                         // Remove leading/trailing whitespace
+                
+                // Convert to HTML with proper paragraph breaks
+                const htmlContent = processedContent
+                  .split('\n\n')                   // Split on double line breaks (paragraphs)
+                  .filter(paragraph => paragraph.trim()) // Remove empty paragraphs
+                  .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`) // Convert single line breaks to <br> within paragraphs
+                  .join('');                       // Join paragraphs
+                
+                console.log('🎯 [DocumentContainer] Processed content preview:', htmlContent.substring(0, 200));
+                
+                // Set content directly with proper HTML structure
+                editor.commands.setContent(htmlContent, false);
+                setDemoMarkdownSource(DEMO_SAMPLE_DATA.sampleDocument); // Store markdown for preview
+                
+                console.log('🎯 [DocumentContainer] Direct editor content update successful');
+                return true;
+              } else {
+                console.error('🎯 [DocumentContainer] No editor instance available for direct update');
+                return false;
+              }
+            }
+            
+            return success;
+          } catch (error) {
+            console.error('🎯 [DocumentContainer] Error during content paste:', error);
+            return false;
+          }
+        };
+        
+        tryPasteContent()
+          .then((success) => {
+            if (success) {
+              console.log('🎯 [DocumentContainer] Sample content pasted successfully with line breaks preserved');
+              // After pasting content, immediately highlight the editor with "Got it" button
+              setTimeout(() => {
+                console.log('🎯 [DocumentContainer] Showing editor spotlight with content');
+                setDemoSpotlightTarget('[data-editor-area]');
+                setDemoSpotlightContent({
+                  title: 'Content Added!',
+                  description: 'Perfect! We\'ve added sample sales funnel content to show you how the editor works. You can see the rich text formatting and how content flows naturally with proper paragraph breaks.',
+                  actionText: 'Got It!'
+                });
+                setDemoSpotlightActive(true);
+              }, 800); // Give time for content to render and be visible
+            } else {
+              console.error('🎯 [DocumentContainer] Failed to paste content, proceeding anyway');
+              demoTour.setInteractionStep('showContentAdded');
+              demoTour.showDemoModal(); // Show modal again if it fails
+            }
+          })
+          .catch(error => {
+            console.error('🎯 [DocumentContainer] Error pasting sample content:', error);
+            demoTour.setInteractionStep('showContentAdded');
+            demoTour.showDemoModal(); // Show modal again if it fails
+          });
+      } else if (interactionStep === 'highlightEditor') {
+        console.log('🎯 [DocumentContainer] Auth user step 2: highlighting editor');
+        const editorArea = document.querySelector('[data-editor-area]');
+        if (editorArea) {
+          setDemoSpotlightTarget('[data-editor-area]');
+          setDemoSpotlightContent({
+            title: 'Your Writing Space',
+            description: 'This is your canvas. Start writing your ideas here, or paste content from other sources. Our tools will assist you in real-time.',
+            actionText: 'Got It!'
+          });
+          setDemoSpotlightActive(true);
+        } else {
+           console.warn('🎯 [DocumentContainer] Editor area not found for spotlight');
+           demoTour.completeStep(2);
+           demoTour.nextStep();
+        }
+      }
     }
   }, [demoTour.interactionStep, demoTour.currentStep, demoSpotlightActive, user])
 
+  // Automatic demo document creation for Step 2 if no document exists
+  useEffect(() => {
+    const { currentStep, isOpen } = demoTour;
+    
+    // Only run for Step 2 when demo is open
+    if (!isOpen || currentStep !== 2) return;
+    
+    // Check if we need to create a document for Step 2
+    const hasActiveDocument = !!activeDocumentId;
+    
+    if (!hasActiveDocument) {
+      console.log('🎯 [DocumentContainer] Step 2 entered without active document - auto-creating demo document');
+      
+      // Always create a demo document in demo mode
+      console.log('🎯 [DocumentContainer] Creating demo document for Step 2');
+      const newDocId = createDemoDocument(
+        DEMO_SAMPLE_DATA.sampleDocumentTitle,
+        DEMO_SAMPLE_DATA.sampleDocument
+      );
+      if (newDocId) {
+        setActiveDocumentId(newDocId);
+        console.log('🎯 [DocumentContainer] Demo document auto-created for Step 2:', newDocId);
+      }
+    } else {
+      console.log('🎯 [DocumentContainer] Step 2 has active document:', activeDocumentId);
+    }
+  }, [demoTour.currentStep, demoTour.isOpen, activeDocumentId, createDemoDocument, setActiveDocumentId])
+
   // Handle demo spotlight actions
   const handleDemoSpotlightAction = useCallback(() => {
-    const { interactionStep } = demoTour;
-    console.log(`🎯 [DocumentContainer] Spotlight action for step: ${interactionStep}`);
+    const { interactionStep, currentStep } = demoTour;
+    console.log(`🎯 [DocumentContainer] Spotlight action for step: ${interactionStep} at current step ${currentStep}`);
 
-    if (interactionStep === 'showCreatedDocument') {
-        setDemoSpotlightActive(false);
-        demoTour.setInteractionStep('idle');
-        demoTour.showDemoModal();
-        demoTour.nextStep();
-    } else if (interactionStep === 'highlightWritingGoals') {
-        console.log('🎯 [DocumentContainer] User clicked spotlight action for Writing Goals')
-        setDemoSpotlightActive(false);
-        
-        // Check if we're highlighting the Writing Goals button or New Document button
-        const writingGoalsButton = document.querySelector('[data-writing-goals-button]')
-        
-        if (writingGoalsButton) {
-          // User has an active document - open Writing Goals modal
-          console.log('🎯 [DocumentContainer] Opening Writing Goals modal for existing document')
-          setIsGoalsModalOpen(true);
+    // Always hide the spotlight first
+    setDemoSpotlightActive(false);
+    
+    // --- Step 1 Completion ---
+    if (currentStep === 1) {
+      if (interactionStep === 'showCreatedDocument') {
+          // This is for the "Document Created!" modal spotlight. Just advance.
+          demoTour.nextStep();
+      } else if (interactionStep === 'highlightWritingGoals') {
+          console.log('🎯 [DocumentContainer] User clicked spotlight action for Writing Goals');
           
-          // Complete step after modal opens
-          setTimeout(() => {
-            demoTour.completeStep(1);
-            demoTour.setInteractionStep('idle');
-            demoTour.showDemoModal();
-            demoTour.nextStep();
-          }, 1500);
-        } else {
-          // User has no active document - start document creation flow
-          console.log('🎯 [DocumentContainer] Starting new document creation flow via spotlight')
+          const writingGoalsButton = document.querySelector('[data-writing-goals-button]');
           
-          // Trigger new document creation by setting state and opening goals modal
-          if (user?.uid) {
-            console.log('🎯 [DocumentContainer] Setting up new document creation state')
-            setIsCreatingNewDocument(true)
-            setNewDocumentTitle('Untitled Document')
-            setIsGoalsModalOpen(true)
+          if (writingGoalsButton) {
+            console.log('🎯 [DocumentContainer] Opening Writing Goals modal for existing document');
+            setIsGoalsModalOpen(true);
           } else {
-            console.warn('🎯 [DocumentContainer] No user available for new document creation')
+            console.log('🎯 [DocumentContainer] Starting new document creation flow via spotlight');
+            if (user?.uid) {
+              console.log('🎯 [DocumentContainer] Setting up new document creation state');
+              setIsCreatingNewDocument(true);
+              setNewDocumentTitle('Untitled Document');
+              setIsGoalsModalOpen(true);
+            } else {
+              console.warn('🎯 [DocumentContainer] No user available for new document creation');
+            }
           }
-          
-          // For new document creation, complete the step after modal opens
+          // After action, show modal and advance
+          demoTour.showDemoModal();
           setTimeout(() => {
-            console.log('🎯 [DocumentContainer] Completing demo step after new document flow started')
+            console.log('🎯 [DocumentContainer] Completing demo step 1 after action');
             demoTour.completeStep(1);
-            demoTour.setInteractionStep('idle');
-            demoTour.showDemoModal();
             demoTour.nextStep();
           }, 1000);
-        }
+      }
+    // --- Step 2 Completion ---
+    } else if (currentStep === 2) {
+       if (interactionStep === 'highlightEditor' || interactionStep === 'pasteContent') {
+        console.log('🎯 [DocumentContainer] User clicked "Got It!" on Step 2 editor spotlight - completing step');
+        
+        // Show the modal again, then advance to the next step
+        demoTour.showDemoModal();
+        
+        setTimeout(() => {
+          console.log('🎯 [DocumentContainer] Auto-advancing to Step 3 after editor interaction');
+          demoTour.completeStep(2);
+          demoTour.nextStep();
+        }, 500); // Shorter delay now that modal is visible
+      }
+    } else {
+      // Default behavior if no specific logic: show modal
+      demoTour.showDemoModal();
     }
-    // For 'highlightNewDocument', no action is needed here, as the user clicks the actual button.
-    // The spotlight will be dismissed by the main useEffect when interactionStep changes.
-  }, [demoTour, setIsGoalsModalOpen, setIsCreatingNewDocument, setNewDocumentTitle, user?.uid])
+  }, [demoTour, user?.uid]);
 
   const handleDemoSpotlightDismiss = useCallback(() => {
     console.log('🎯 [DocumentContainer] Demo spotlight dismissed by user')
@@ -694,16 +864,19 @@ export function DocumentContainer() {
             </div>
           )}
           
-          {activeDocument && initialDocument && user?.uid ? (
-            <DocumentEditor
-              key={activeDocumentId}
-              documentId={activeDocument.id}
-              initialDocument={initialDocument}
-              onSave={handleSave}
-              saveStatus={saveStatus}
-              readOnly={!canUserEdit}
-              grammarCheckEnabled={true}
-            />
+          {activeDocument && initialDocument && (user?.uid || activeDocument.id?.startsWith('demo_')) ? (
+            <div data-editor-area>
+              <DocumentEditor
+                key={activeDocumentId}
+                documentId={activeDocument.id}
+                initialDocument={initialDocument}
+                onSave={handleSave}
+                saveStatus={saveStatus}
+                readOnly={!canUserEdit}
+                grammarCheckEnabled={true}
+                demoMarkdownSource={demoMarkdownSource}
+              />
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
@@ -790,6 +963,8 @@ export function DocumentContainer() {
         actionText={demoSpotlightContent.actionText}
         onAction={handleDemoSpotlightAction}
         onDismiss={handleDemoSpotlightDismiss}
+        position="right"
+        disableScroll={demoSpotlightTarget === '[data-editor-area]'}
       />
     </div>
   )

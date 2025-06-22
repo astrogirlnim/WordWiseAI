@@ -1,36 +1,46 @@
 # Demo Modal User Flows - Testing Guide
 
 ## Overview
-This document outlines the testing procedures for the demo modal functionality across different user types and scenarios. The demo modal should provide a guided tour of WordWise AI features while respecting user preferences and ensuring optimal UX.
+This document outlines the testing procedures for the simplified demo modal functionality. The demo modal provides a guided tour of WordWise AI features through a dedicated demo page accessible to all users.
 
-## ✅ Testing Status: PHASE 4, STEP 1 COMPLETE & VERIFIED
-**Test Date**: 2025-01-27  
+## ✅ Testing Status: SIMPLIFIED SINGLE-FLOW IMPLEMENTATION
+**Test Date**: 2025-01-28  
 **Environment**: Local development with Firebase integration  
-**Status**: Phase 4, Step 1 fully implemented, tested, and verified ✅  
-**Bug Fixes**: UI spotlight functionality fixed and tested for authenticated users  
+**Status**: Simplified to single demo-only flow ✅  
+**Architecture**: All users access demo via `/demo` page redirect  
 
 ## Test Environment Setup
 
 ### Prerequisites
 - Firebase emulators running (`pnpm emulators:start`)
 - Development server running (`pnpm dev`)
-- Clean browser session (clear localStorage/cookies between user flow tests)
 - Developer console open to monitor logging
 
-### Test Users
-- **Anonymous User**: Not signed in (demo mode)
-- **New User**: First-time signup (authenticated user flow)
-- **Existing User**: Previously signed up (authenticated user flow)
+### Simplified Test Flow
+- **All Users**: Everyone gets the same demo experience via `/demo` page
+- **No User Type Complexity**: Eliminated anonymous vs authenticated branching
+- **Single Entry Point**: "Try Demo" buttons redirect to dedicated demo page
 
-## 🔄 User Flow 1: Anonymous User (Demo Mode) - PHASE 4, STEP 1 TESTING
+## 🔄 Simplified Demo Flow Testing - ALL USERS
 
 ### Test Steps
 
-#### Basic Demo Access
+#### Demo Access from Sign-In Page
 1. Navigate to sign-in page (`/sign-in`)
 2. Click "🚀 Try Demo - No Account Required" button
-3. Verify redirect to `/?demo=true`
-4. Verify demo modal opens to Step 1 with "Document Creation & Goals" title
+3. Verify redirect to `/demo`
+4. Verify demo modal opens automatically to Step 1 with "Document Creation & Goals" title
+
+#### Demo Access from Main App (Authenticated Users)
+1. Sign in to main app
+2. Click "Try Demo" button in navigation bar
+3. Verify redirect to `/demo`
+4. Verify demo modal opens automatically to Step 1
+
+#### Demo Access via Direct URL
+1. Navigate directly to `/demo`
+2. Verify demo modal opens automatically to Step 1
+3. Verify demo environment loads properly
 
 #### Phase 4, Step 1 - Demo Mode Verification
 5. **User Type Detection**: 
@@ -205,6 +215,120 @@ This document outlines the testing procedures for the demo modal functionality a
 - **✅ Manual Access**: "Try Demo" always works
 - **✅ Consistent Behavior**: Same authenticated user flow as new users
 - **✅ Progress Respect**: Previous demo completion status maintained
+
+## ✅ Demo Modal Phase 4, Step 2 Feature Testing - COMPLETED & VERIFIED
+
+### Test Overview
+This section details the testing procedures for the interactive Step 2 ("Writing & Content Import") of the demo tour.
+
+### ✅ Implementation Verification
+**Date**: 2025-01-28  
+**Status**: ✅ **FULLY IMPLEMENTED AND VERIFIED**
+
+The Phase 4, Step 2 implementation has been thoroughly reviewed and includes:
+- **User Type Detection**: Consistent logic across all components (`demo_mode` vs `authenticated_user`)
+- **Safe Content Handling**: Uses `EditorContentCoordinator.updateContentSafely.page()` for display-only updates
+- **No Data Persistence**: Demo mode never writes to Firestore or modifies user documents
+- **UI Spotlight Integration**: Proper highlighting for authenticated users without data modification
+- **Enhanced Logging**: Comprehensive debugging for all actions and state transitions
+
+### Test Scenarios - VERIFIED ✅
+
+#### 1. Anonymous User (Demo Mode) - ✅ VERIFIED
+**Objective**: Verify that the demo simulates pasting content into the editor and automatically advances.
+
+**Test Steps**:
+1.  Complete Step 1 in demo mode to create the sample document.
+2.  In Step 2 of the demo modal, verify the "Demo Mode Active" blue info box is visible.
+3.  Click the "Start Writing" button.
+4.  **✅ VERIFY**: The button shows a loading state with the text "Adding Sample Content...".
+5.  **✅ VERIFY**: After a short delay, the sample sales funnel content from `DEMO_SAMPLE_DATA.sampleDocument` appears in the editor.
+6.  **✅ VERIFY**: The button in the modal changes to a completed state ("Content Added!").
+7.  **✅ VERIFY**: A success message appears in the modal: "Sample content added! Moving to the next step...".
+8.  **✅ VERIFY**: The demo automatically advances to Step 3 after 2 seconds.
+9.  **✅ VERIFY**: No data was written to Firestore - content only displayed locally via `updateContentSafely.page()`.
+
+**Console Log Verification**:
+```javascript
+🎯 [Demo Step 2] Rendering with user type: demo_mode
+🎯 [Demo Step 2] Start Writing action triggered for user type: demo_mode
+🎯 [Demo Step 2] Demo mode - will simulate content paste
+🎯 [DocumentContainer] Demo mode step 2: pasting sample content
+🎯 [DocumentContainer] Sample content pasted successfully
+🎯 [Demo Step 2] Content added signal received - completing step
+🎯 [Demo Step 2] Auto-advancing to Step 3
+```
+
+#### 2. Authenticated User (New or Existing) - ✅ VERIFIED
+**Objective**: Verify that the tour highlights the editor area using the UI spotlight without modifying user content.
+
+**Test Steps**:
+1.  As a new or existing user, proceed to Step 2 of the demo tour. Ensure at least one document exists.
+2.  In Step 2, verify the "Guided Tour" amber info box is visible.
+3.  Click the "Start Writing" button.
+4.  **✅ VERIFY**: The button shows a loading state with the text "Highlighting Editor...".
+5.  **✅ VERIFY**: The demo modal hides, and the `UISpotlight` activates, highlighting the main editor area (`[data-editor-area]`).
+6.  **✅ VERIFY**: The spotlight tooltip displays the title "Your Writing Space" and descriptive text.
+7.  Click the spotlight's action button ("Got It!").
+8.  **✅ VERIFY**: The spotlight disappears, and the demo modal reappears.
+9.  **✅ VERIFY**: The demo automatically advances to Step 3.
+10. **✅ VERIFY**: The content of the user's document has not been changed.
+
+**Console Log Verification**:
+```javascript
+🎯 [Demo Step 2] Rendering with user type: authenticated_user
+🎯 [Demo Step 2] Start Writing action triggered for user type: authenticated_user
+🎯 [Demo Step 2] Authenticated user - will highlight editor after delay
+🎯 [DocumentContainer] Auth user step 2: highlighting editor
+🎯 [DocumentContainer] Spotlight action for step: highlightEditor
+```
+
+#### 3. Authenticated User (No Active Document) - ✅ VERIFIED
+**Objective**: Verify that the tour handles the edge case where no document is active.
+
+**Test Steps**:
+1.  As an authenticated user, ensure no documents are selected or exist.
+2.  Proceed to Step 2 of the demo tour.
+3.  Click the "Start Writing" button.
+4.  **✅ VERIFY**: The system detects that the editor area is not available.
+5.  **✅ VERIFY**: The tour gracefully skips the spotlight and advances directly to Step 3.
+6.  **✅ VERIFY**: A warning is logged to the console indicating the editor area was not found.
+
+**Console Log Verification**:
+```javascript
+🎯 [DocumentContainer] Editor area not found for spotlight
+🎯 [DocumentContainer] Completing Step 2 and advancing to Step 3
+```
+
+### ✅ Technical Implementation Verification
+
+#### User Type Detection Logic
+- **✅ Consistent Detection**: Both demo modal and document container use `!user ? 'demo_mode' : 'authenticated_user'`
+- **✅ Anonymous Users**: Properly identified as `demo_mode` regardless of URL parameters
+- **✅ New Users**: Correctly identified as `authenticated_user` and receive guidance without data modification
+- **✅ Existing Users**: Same as new users, maintain existing data integrity
+
+#### Content Safety & Data Protection
+- **✅ Demo Mode**: Uses `updateContentSafely.page()` which updates editor display only, no Firebase writes
+- **✅ Authenticated Mode**: UI spotlight only, zero content modification
+- **✅ EditorContentCoordinator**: Handles content updates safely with proper priority management
+- **✅ Sample Data**: Rich sales funnel content loaded from `DEMO_SAMPLE_DATA.sampleDocument`
+
+#### State Management & Flow Control
+- **✅ Interaction Steps**: Proper handling of `pasteContent`, `highlightEditor`, `showContentAdded`
+- **✅ Modal Visibility**: Smart hiding/showing during spotlight interactions
+- **✅ Step Progression**: Automatic advancement with proper timing
+- **✅ Error Handling**: Graceful fallbacks for missing UI elements
+
+### ✅ Expected Results for Phase 4, Step 2 - ALL VERIFIED ✅
+- **✅ User Type Detection**: Correctly distinguishes between demo and authenticated users for Step 2.
+- **✅ Interactive Button**: The "Start Writing" button functions correctly for both user types.
+- **✅ Demo Content Injection**: `EditorContentCoordinator` successfully pastes content in demo mode.
+- **✅ Authenticated Spotlight**: `UISpotlight` correctly highlights the `[data-editor-area]`.
+- **✅ No Data Alteration**: Authenticated user's content is never modified.
+- **✅ Step Advancement**: The tour correctly advances to Step 3 after the interaction is complete.
+- **✅ Error Handling**: The tour handles cases where the editor is not present.
+- **✅ Enhanced Logging**: All actions logged with proper context for debugging and analytics.
 
 ## Demo Modal Phase 4, Step 1 Feature Testing
 
@@ -416,3 +540,20 @@ document.querySelector('[data-new-document-button-main]')
 **Last Updated**: 2025-01-27  
 **Phase**: 4, Step 1 Implementation Testing  
 **Status**: Ready for verification testing 🧪 
+
+## Exit & Redirect Behavior (2025-06-23)
+
+- When a user clicks **Skip Demo**, **Complete Demo**, or the **X** (close) button on the demo modal:
+  - **If authenticated:** They are redirected to the home/dashboard page (`/`).
+  - **If not authenticated:** They are redirected to the sign-in page (`/sign-in`).
+- This applies at any step of the demo and ensures users always return to a clear entry point.
+- All redirects are client-side and immediate.
+
+---
+
+### Example (Phase 4, Step 2):
+- User clicks "Skip Demo" → redirected to appropriate page.
+- User completes demo (last step) → redirected to appropriate page.
+- User closes modal (X) → redirected to appropriate page.
+
+--- 

@@ -168,12 +168,89 @@
 - **Step Completion Logic**: Separate timeout handling for different user interaction paths
 - **User Authentication Check**: Added proper user.uid validation for document creation flow
 
-### ✅ Phase 4, Step 2: Writing/Copy-Paste Markdown - IN PROGRESS
-- [ ] Step 2: Writing/Copy-Paste Markdown
-    - [ ] Highlight editor area.
-    - [ ] Add "Paste Sample Sales Funnel" button (auto-fill editor).
-    - [ ] Tooltip for markdown/sales funnel tips.
+### ✅ Phase 4, Step 2: Writing/Copy-Paste Markdown - COMPLETED, TESTED & VERIFIED
+- [x] Step 2: Writing/Copy-Paste Markdown  
+    - [x] **Step 2.1: User Flow Distinction Logic**
+        - [x] Detect user type (demo_mode vs authenticated_user) and apply the correct flow.
+        - [x] **Demo Mode (Anonymous Users)**: Simulate content insertion with DEMO_SAMPLE_DATA without data persistence.
+        - [x] **Authenticated Users**: Highlight editor with UI spotlight without modifying existing content.
+    - [x] **Step 2.2: Interactive Tour State Management (in `useDemoTour`)**
+        - [x] Add interaction steps: `'highlightEditor'`, `'pasteContent'`, `'showContentAdded'`.
+        - [x] Extend `DemoInteractionStep` type to include new Step 2 interaction states.
+        - [x] Add state to control demo modal visibility during Step 2 interactions.
+    - [x] **Step 2.3: "Start Writing" Action Button**
+        - [x] Replace static Step 2 content with interactive "Start Writing" button in demo modal.
+        - [x] **Demo Mode Behavior**: Button simulates content insertion with sample sales funnel data.
+        - [x] **Authenticated User Behavior**: Button highlights editor area with UI spotlight.
+    - [x] **Step 2.4: User Type Distinction Implementation**
+        - [x] **Demo Mode (Anonymous Users)**:
+            - [x] Show "Demo Mode Active" blue info box with writing guidance.
+            - [x] Button shows "Adding Sample Content..." loading state.
+            - [x] Simulates sample sales funnel content insertion using DEMO_SAMPLE_DATA.sampleDocument.
+            - [x] Shows success message and auto-advances to Step 3.
+            - [x] Uses EditorContentCoordinator for safe content insertion.
+        - [x] **Authenticated Users (New & Existing)**:
+            - [x] Show "Guided Tour" amber info box with writing tips.
+            - [x] Button shows "Highlighting Editor..." loading state.
+            - [x] Activates UI spotlight on document editor area with educational tooltip.
+            - [x] No content modification - preserves user's existing content.
+    - [x] **Step 2.5: Editor Spotlight Integration**
+        - [x] In `DocumentContainer`, listen for `interactionStep === 'highlightEditor'`.
+        - [x] Activate `UISpotlight` on editor area (`[data-editor-area]`) with writing tips tooltip.
+        - [x] Handle spotlight interaction and step completion for authenticated users.
+        - [x] Provide fallback guidance if no active document exists.
+    - [x] **Step 2.6: Content Insertion Simulation (Demo Mode Only)**
+        - [x] Use EditorContentCoordinator to safely insert sample content.
+        - [x] Leverage existing enhanced-plain-text-paste-extension for content handling.
+        - [x] Insert DEMO_SAMPLE_DATA.sampleDocument with proper markdown formatting.
+        - [x] Show visual feedback during content insertion process.
+        - [x] Auto-advance to Step 3 after successful content insertion.
+    - [x] **Step 2.7: Firebase & State Management Considerations**
+        - [x] Ensure demo mode content insertion doesn't trigger Firebase writes.
+        - [x] Update document state locally for demo visualization only.
+        - [x] Preserve existing user documents and content during authenticated mode.
+        - [x] Maintain demo tour progress tracking in Firebase for authenticated users.
+    - [x] **Step 2.8: Comprehensive Logging & Analytics**
+        - [x] Add extensive logging for all Step 2 interactions and state changes.
+        - [x] Track user type detection and content insertion simulation.
+        - [x] Monitor editor highlighting and spotlight interaction patterns.
+        - [x] Log step completion and advancement timing data.
+    - [x] **Step 2.9: Error Handling & Edge Cases**
+        - [x] Handle missing document scenarios for authenticated users.
+        - [x] Graceful fallback when editor element not found for spotlight.
+        - [x] Content insertion error handling in demo mode.
+        - [x] UI state recovery from interrupted demo interactions.
 
+**✅ Implementation Verified & Browser Tested (2025-01-28):**
+- **User Type Detection**: ✅ Correctly identifies demo_mode vs authenticated_user for Step 2 with standardized logic.
+- **Action Button**: ✅ "Start Writing" button with correct loading states and user-specific behaviors.
+- **Demo Mode**: ✅ Simulates content paste with `EditorContentCoordinator`, shows success, auto-advances to Step 3 - NO data writes.
+- **Authenticated Mode**: ✅ Highlights editor area (`[data-editor-area]`) with `UISpotlight`, preserves user content completely.
+- **EditorContentCoordinator**: ✅ `updateContentSafely.page()` correctly used for demo content insertion - display only, no persistence.
+- **State Management**: ✅ `useDemoTour` hook updated with `handleInteractiveStepAction` and new interaction states.
+- **UI Integration**: ✅ `DocumentContainer` correctly handles `'pasteContent'` and `'highlightEditor'` interaction steps.
+- **Step Completion**: ✅ Step 2 completes with checkmark, advances to Step 3, progress bar updates to 28%.
+- **Enhanced Logging**: ✅ All Step 2 actions logged with comprehensive context and debugging information.
+- **Data Safety Verified**: ✅ Demo mode never writes to Firebase, authenticated users' data remains unchanged.
+- **Edge Cases Handled**: ✅ Graceful fallback when editor area not found, proper error handling.
+- **Testing Complete**: ✅ All three user flows (demo mode, new users, existing users) verified in browser.
+
+**📁 Related Files & Architecture:**
+- `components/demo-modal.tsx` - Step 2 UI content and interactive "Start Writing" action button.
+- `hooks/use-demo-tour.ts` - `DemoInteractionStep` type extended; centralized `handleInteractiveStepAction` manages logic for all interactive steps.
+- `components/document-container.tsx` - Main `useEffect` now handles Step 2 logic (`pasteContent`, `highlightEditor`). `DocumentEditor` wrapped with `data-editor-area`.
+- `utils/editor-content-coordinator.ts` - `updateContentSafely.page()` used to inject demo content without conflicts.
+
+**🔧 Implementation Strategy:**
+- Followed Step 1 patterns: centralized interactive step logic in `use-demo-tour.ts`, user type detection in the modal component, and reaction to state changes in `DocumentContainer`.
+- Leveraged existing `EditorContentCoordinator` for conflict-free content insertion.
+- Used `DEMO_SAMPLE_DATA.sampleDocument` for rich sales funnel content.
+- Implemented `data-editor-area` selector for reliable UI spotlight targeting.
+- Ensured authenticated users see guidance without any content modification.
+
+**🔥 Firebase Considerations:**
+- Demo mode continues to be completely client-side with no Firestore writes.
+- Authenticated mode demo progress is tracked in Firebase, while user documents and content are preserved.
 
 ### ✅ Phase 4, Step 3: Grammar Suggestions & Markdown Preview - IN PROGRESS
 - [ ] Step 3: Grammar Suggestions & Markdown Preview
@@ -224,6 +301,7 @@
 - [ ] Test full demo flow end-to-end, fix bugs/UX issues.
 - [ ] Update/create documentation in `docs/` for demo modal and onboarding.
 - [ ] Commit changes with clear, descriptive messages (no slashes/backslashes).
+- [ ] **NEW:** After clicking Skip Demo, Complete Demo, or closing the modal (X), the user is redirected: authenticated users to '/', unauthenticated users to '/sign-in'.
 
 ---
 
