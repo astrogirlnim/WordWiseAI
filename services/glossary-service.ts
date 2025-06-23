@@ -28,7 +28,8 @@ import {
   limit, 
   writeBatch,
   serverTimestamp,
-  FirestoreError
+  FirestoreError,
+  deleteDoc
 } from 'firebase/firestore';
 
 // Types for the glossary service
@@ -221,6 +222,206 @@ class GlossaryServiceImpl {
     } catch (error) {
       console.error(`[GlossaryService] Error searching terms:`, error);
       throw new Error('Failed to search glossary terms');
+    }
+  }
+
+  /**
+   * Get all terms from a specific glossary
+   * @param glossaryId - The glossary ID to get terms from
+   * @returns Promise with all terms
+   */
+  async getAllGlossaryTerms(glossaryId: string): Promise<(GlossaryTerm & { id: string })[]> {
+    console.log(`[GlossaryService] Fetching all terms for glossary: ${glossaryId}`);
+    
+    try {
+      const termsRef = collection(this.firestore, 'glossaries', glossaryId, 'terms');
+      const q = query(termsRef, orderBy('originalTerm'));
+      
+      const snapshot = await getDocs(q);
+      const terms: (GlossaryTerm & { id: string })[] = [];
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        terms.push({
+          id: doc.id,
+          term: data.originalTerm || data.term, // Use original case for display
+          definition: data.definition,
+          category: data.category,
+          examples: data.examples,
+          synonyms: data.synonyms
+        });
+      });
+      
+      console.log(`[GlossaryService] Found ${terms.length} terms`);
+      return terms;
+      
+    } catch (error) {
+      console.error(`[GlossaryService] Error fetching all terms:`, error);
+      throw new Error('Failed to retrieve glossary terms');
+    }
+  }
+
+  /**
+   * Add a new term to an existing glossary
+   * @param glossaryId - The glossary ID to add the term to
+   * @param userId - The user's ID for permission validation
+   * @param term - The term data to add
+   * @returns Promise with the created term ID
+   */
+  async addTermToGlossary(
+    glossaryId: string,
+    userId: string,
+    term: Omit<GlossaryTerm, 'userId'>
+  ): Promise<string> {
+    console.log(`[GlossaryService] Adding term "${term.term}" to glossary: ${glossaryId}`);
+    
+    try {
+      // Validate inputs
+      if (!term.term?.trim() || !term.definition?.trim()) {
+        throw new Error('Term and definition are required');
+      }
+
+      // Generate unique term ID
+      const termId = `term_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const termRef = doc(this.firestore, 'glossaries', glossaryId, 'terms', termId);
+      
+      await setDoc(termRef, {
+        term: term.term.toLowerCase(), // Store lowercase for searching
+        originalTerm: term.term, // Keep original case
+        definition: term.definition,
+        category: term.category || null,
+        examples: term.examples || null,
+        synonyms: term.synonyms || null,
+        userId, // Add userId for Firestore rules compliance
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // Update the glossary's term count
+      await this.updateGlossaryTermCount(glossaryId);
+      
+      console.log(`[GlossaryService] ✅ Term added successfully with ID: ${termId}`);
+      return termId;
+      
+    } catch (error) {
+      console.error(`[GlossaryService] Error adding term:`, error);
+      if (error instanceof FirestoreError) {
+        if (error.code === 'permission-denied') {
+          throw new Error('Permission denied: You can only add terms to your own glossaries.');
+        }
+        throw new Error(`Failed to add term: ${error.message}`);
+      }
+      throw new Error('Failed to add term to glossary');
+    }
+  }
+
+  /**
+   * Update an existing term in a glossary
+   * @param glossaryId - The glossary ID containing the term
+   * @param termId - The term ID to update
+   * @param userId - The user's ID for permission validation
+   * @param updates - The term data updates
+   * @returns Promise that resolves when update is complete
+   */
+  async updateTerm(
+    glossaryId: string,
+    termId: string,
+    userId: string,
+    updates: Partial<Omit<GlossaryTerm, 'userId'>>
+  ): Promise<void> {
+    console.log(`[GlossaryService] Updating term ${termId} in glossary: ${glossaryId}`);
+    
+    try {
+      const termRef = doc(this.firestore, 'glossaries', glossaryId, 'terms', termId);
+      
+      const updateData: any = {
+        updatedAt: serverTimestamp()
+      };
+
+      if (updates.term) {
+        updateData.term = updates.term.toLowerCase();
+        updateData.originalTerm = updates.term;
+      }
+      if (updates.definition) {
+        updateData.definition = updates.definition;
+      }
+      if (updates.category !== undefined) {
+        updateData.category = updates.category || null;
+      }
+      if (updates.examples !== undefined) {
+        updateData.examples = updates.examples || null;
+      }
+      if (updates.synonyms !== undefined) {
+        updateData.synonyms = updates.synonyms || null;
+      }
+
+      await setDoc(termRef, updateData, { merge: true });
+      
+      console.log(`[GlossaryService] ✅ Term updated successfully`);
+      
+    } catch (error) {
+      console.error(`[GlossaryService] Error updating term:`, error);
+      if (error instanceof FirestoreError) {
+        if (error.code === 'permission-denied') {
+          throw new Error('Permission denied: You can only update your own glossary terms.');
+        }
+        throw new Error(`Failed to update term: ${error.message}`);
+      }
+      throw new Error('Failed to update glossary term');
+    }
+  }
+
+  /**
+   * Delete a term from a glossary
+   * @param glossaryId - The glossary ID containing the term
+   * @param termId - The term ID to delete
+   * @param userId - The user's ID for permission validation
+   * @returns Promise that resolves when deletion is complete
+   */
+  async deleteTerm(glossaryId: string, termId: string, userId: string): Promise<void> {
+    console.log(`[GlossaryService] Deleting term ${termId} from glossary: ${glossaryId}`);
+    
+    try {
+      const termRef = doc(this.firestore, 'glossaries', glossaryId, 'terms', termId);
+      await deleteDoc(termRef);
+
+      // Update the glossary's term count
+      await this.updateGlossaryTermCount(glossaryId);
+      
+      console.log(`[GlossaryService] ✅ Term deleted successfully`);
+      
+    } catch (error) {
+      console.error(`[GlossaryService] Error deleting term:`, error);
+      if (error instanceof FirestoreError) {
+        if (error.code === 'permission-denied') {
+          throw new Error('Permission denied: You can only delete your own glossary terms.');
+        }
+        throw new Error(`Failed to delete term: ${error.message}`);
+      }
+      throw new Error('Failed to delete glossary term');
+    }
+  }
+
+  /**
+   * Update a glossary's term count
+   * @param glossaryId - The glossary ID to update
+   */
+  private async updateGlossaryTermCount(glossaryId: string): Promise<void> {
+    try {
+      const termsRef = collection(this.firestore, 'glossaries', glossaryId, 'terms');
+      const snapshot = await getDocs(termsRef);
+      const termCount = snapshot.size;
+
+      const glossaryRef = doc(this.firestore, 'glossaries', glossaryId);
+      await setDoc(glossaryRef, {
+        termsCount: termCount,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      console.log(`[GlossaryService] Updated term count to ${termCount} for glossary ${glossaryId}`);
+    } catch (error) {
+      console.error(`[GlossaryService] Error updating term count:`, error);
+      // Don't throw here as this is a non-critical operation
     }
   }
 

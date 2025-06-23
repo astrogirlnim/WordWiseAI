@@ -60,13 +60,17 @@ service cloud.firestore {
       
       // Terms subcollection
       match /terms/{termId} {
-        // Allow create with proper userId validation (check parent document)
+        // Allow create with proper userId validation
         allow create: if request.auth != null && 
           request.resource.data.userId == request.auth.uid;
           
-        // Allow read/update/delete for existing terms owned by user
+        // Allow read/update/delete - check if user owns the parent glossary
         allow read, update, delete: if request.auth != null && 
-          resource.data.userId == request.auth.uid;
+          get(/databases/$(database)/documents/glossaries/$(glossaryId)).data.userId == request.auth.uid;
+          
+        // Allow list operations - check if user owns the parent glossary  
+        allow list: if request.auth != null && 
+          get(/databases/$(database)/documents/glossaries/$(glossaryId)).data.userId == request.auth.uid;
       }
     }
   }

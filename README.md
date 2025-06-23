@@ -1,4 +1,4 @@
-# WordWiseAI
+# FunnelFluent AI
 
 A Next.js-based writing assistant powered by Firebase and AI, featuring real-time collaboration, grammar checking, and intelligent writing suggestions.
 
